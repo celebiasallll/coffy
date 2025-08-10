@@ -33,13 +33,20 @@ const prodOrigins = (process.env.CLIENT_ORIGINS || '')
   .map((s) => s.trim())
   .filter(Boolean);
 
+const isProd = process.env.NODE_ENV === 'production';
+const allowedOrigins = isProd ? (prodOrigins.length ? prodOrigins : ['*']) : devOrigins;
+
 const io = new Server(server, {
   cors: {
-    origin: process.env.NODE_ENV === 'production' ? prodOrigins : devOrigins,
+    origin: allowedOrigins,
     methods: ['GET', 'POST'],
-    credentials: true
-  }
+    credentials: false
+  },
+  transports: ['polling', 'websocket'],
+  allowEIO3: true
 });
+
+console.log('🔐 Socket.IO CORS origins:', allowedOrigins);
 
 const PORT = process.env.PORT || 3001;
 
@@ -162,6 +169,8 @@ function findWaitingPlayer(stake, currentUserAddress) {
 // =================== MIDDLEWARE ===================
 app.use(generalLimiter);
 app.use('/socket.io/', socketLimiter);
+// Explicit socket.io path for proxies
+app.get('/socket.io/', (req, res) => res.status(200).end());
 app.use(express.static(__dirname));
 
 // =================== ENHANCED UTILITY FUNCTIONS ===================

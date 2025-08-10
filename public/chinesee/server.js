@@ -39,15 +39,37 @@ const allowedOrigins = isProd
   ? (prodOrigins.length ? prodOrigins : ['https://coffycoin.xyz', 'https://www.coffycoin.xyz'])
   : devOrigins;
 
+// Normalize allowed origins to an array of strings
+const normalizedAllowed = Array.isArray(allowedOrigins) ? allowedOrigins : [allowedOrigins].filter(Boolean);
+
 const io = new Server(server, {
   path: '/socket.io',
   cors: {
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      // Allow same-origin (no Origin header) or explicitly allowed origins
+      if (!origin) return callback(null, true);
+      return callback(null, normalizedAllowed.includes(origin));
+    },
     methods: ['GET', 'POST'],
     credentials: true
   },
   transports: ['polling', 'websocket'],
   allowEIO3: true
+});
+
+// Ensure Engine.IO polling responses include CORS headers
+io.engine.on('headers', (headers, req) => {
+  try {
+    const origin = req.headers.origin;
+    if (!origin || !normalizedAllowed.includes(origin)) {
+      return;
+    }
+    headers['Access-Control-Allow-Origin'] = origin;
+    headers['Access-Control-Allow-Credentials'] = 'true';
+    headers['Vary'] = 'Origin';
+  } catch (e) {
+    // no-op
+  }
 });
 
 console.log('🔐 Socket.IO CORS origins:', allowedOrigins);

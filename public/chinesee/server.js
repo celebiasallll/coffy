@@ -40,15 +40,18 @@ const allowedOrigins = isProd
   : devOrigins;
 
 // Normalize allowed origins to an array of strings
-const normalizedAllowed = Array.isArray(allowedOrigins) ? allowedOrigins : [allowedOrigins].filter(Boolean);
+const normalizedAllowed = (Array.isArray(allowedOrigins) ? allowedOrigins : [allowedOrigins])
+  .filter(Boolean)
+  .map((o) => o.replace(/\/$/, '')); // strip trailing slashes
 
 const io = new Server(server, {
   path: '/socket.io',
   cors: {
     origin: (origin, callback) => {
-      // Allow same-origin (no Origin header) or explicitly allowed origins
       if (!origin) return callback(null, true);
-      return callback(null, normalizedAllowed.includes(origin));
+      const clean = origin.replace(/\/$/, '');
+      const ok = normalizedAllowed.some((a) => clean === a || clean.startsWith(a));
+      return callback(null, ok);
     },
     methods: ['GET', 'POST'],
     credentials: true
@@ -60,10 +63,10 @@ const io = new Server(server, {
 // Ensure Engine.IO polling responses include CORS headers
 io.engine.on('headers', (headers, req) => {
   try {
-    const origin = req.headers.origin;
-    if (!origin || !normalizedAllowed.includes(origin)) {
-      return;
-    }
+    const origin = (req.headers.origin || '').replace(/\/$/, '');
+    if (!origin) return;
+    const ok = normalizedAllowed.some((a) => origin === a || origin.startsWith(a));
+    if (!ok) return;
     headers['Access-Control-Allow-Origin'] = origin;
     headers['Access-Control-Allow-Credentials'] = 'true';
     headers['Vary'] = 'Origin';

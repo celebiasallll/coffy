@@ -55,6 +55,17 @@ const GamesSection = ({ id }) => {
   // Game data - could be moved to external config or API
   const games = useMemo(() => [
     {
+      id: 'chinesee',
+      title: 'Coffee Checkers (PvP)',
+      image: '/images/game-previews/chinesee-preview.jpg',
+      purpose: 'Real-time PvP checkers on-chain stakes. Create a room, join by ID, or use Quick Match. Earn COFFY by winning!'.trim(),
+      path: '/chinesee/index.html',
+      gradient: 'from-[#BFA181] to-[#6F4E37]',
+      rewards: 'Max 35,000 COFFY/week (base)',
+      category: 'PvP',
+      isNew: true
+    },
+    {
       id: 'bee-game',
       title: 'Bee Game Adventure',
       image: '/images/game-previews/beegame-preview.jpg',

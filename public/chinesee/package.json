@@ -1,0 +1,25 @@
+{
+  "name": "chinesee",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "compression": "^1.7.4",
+    "dotenv": "^16.4.5",
+    "ethers": "^5.7.2",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.0.1",
+    "helmet": "^7.1.0",
+    "joi": "^18.0.0",
+    "socket.io": "^4.8.1",
+    "ws": "^8.18.3"
+  }
+}

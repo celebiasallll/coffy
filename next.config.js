@@ -60,6 +60,10 @@ const nextConfig = {
         source: '/flagraceronline/:path*',
         destination: '/flagraceronline/:path*'
       },
+      {
+        source: '/chinesee/:path*',
+        destination: '/chinesee/:path*'
+      },
       // Yeni yönlendirme
       {
         source: '/lapse',  // Bu, kullanıcıların gireceği URL

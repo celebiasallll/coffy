@@ -1060,10 +1060,16 @@
               var isLocal = (location.hostname === 'localhost' || location.hostname === '127.0.0.1');
               if (typeof url === 'undefined' || url === null) {
                 opts = opts || {};
-                // Prefer polling in production to avoid reverse proxy WS issues; WS can upgrade later
-                opts.transports = isLocal ? ['websocket', 'polling'] : ['polling', 'websocket'];
-                opts.upgrade = true;
+                // Prefer pure websocket in production to avoid polling CORS issues
+                if (isLocal) {
+                  opts.transports = ['websocket', 'polling'];
+                  opts.upgrade = true;
+                } else {
+                  opts.transports = ['websocket'];
+                  opts.upgrade = false;
+                }
                 opts.path = '/socket.io';
+                opts.withCredentials = true;
                 return REAL_IO(SERVER_URL, opts);
               }
               // If dev URL leaked into prod call, override to SERVER_URL
@@ -1073,10 +1079,11 @@
               // Ensure transports default
               opts = opts || {};
               if (!Array.isArray(opts.transports) || opts.transports.length === 0) {
-                opts.transports = isLocal ? ['websocket', 'polling'] : ['polling', 'websocket'];
+                opts.transports = isLocal ? ['websocket', 'polling'] : ['websocket'];
               }
-              if (typeof opts.upgrade === 'undefined') opts.upgrade = true;
+              if (typeof opts.upgrade === 'undefined') opts.upgrade = isLocal;
               if (!opts.path) opts.path = '/socket.io';
+              opts.withCredentials = true;
               return REAL_IO(url, opts);
             };
             // Preserve Socket.IO static members

@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
+const cors = require('cors');
 const path = require('path');
 const { ethers } = require('ethers');
 const Joi = require('joi');
@@ -34,7 +35,9 @@ const prodOrigins = (process.env.CLIENT_ORIGINS || '')
   .filter(Boolean);
 
 const isProd = process.env.NODE_ENV === 'production';
-const allowedOrigins = isProd ? (prodOrigins.length ? prodOrigins : ['*']) : devOrigins;
+const allowedOrigins = isProd
+  ? (prodOrigins.length ? prodOrigins : ['https://coffycoin.xyz', 'https://www.coffycoin.xyz'])
+  : devOrigins;
 
 const io = new Server(server, {
   cors: {
@@ -167,10 +170,11 @@ function findWaitingPlayer(stake, currentUserAddress) {
 }
 
 // =================== MIDDLEWARE ===================
+// CORS for REST and preflight
+app.use(cors({ origin: allowedOrigins, credentials: false }));
 app.use(generalLimiter);
-app.use('/socket.io/', socketLimiter);
-// Explicit socket.io path for proxies
-app.get('/socket.io/', (req, res) => res.status(200).end());
+// Avoid rate-limiting Socket.IO polling endpoints to preserve CORS headers
+// app.use('/socket.io/', socketLimiter);
 app.use(express.static(__dirname));
 
 // =================== ENHANCED UTILITY FUNCTIONS ===================

@@ -2459,7 +2459,7 @@
                 
                 // Oyun başlarken sıra bilgisini belirgin göster
                 const currentTurn = document.getElementById('current-turn');
-                if (currentTurn) currentTurn.textContent = "☕ Turn";
+                    if (currentTurn) currentTurn.textContent = "☕ Turn";
                 
                 console.log('✅ Game synchronized and ready for both players');
                 
@@ -2849,7 +2849,7 @@ document.head.appendChild(style);
             walletsHTML += `
                 <button class="btn" onclick="closeWalletModal()"
                         style="width: 100%; margin-top: 20px; background: #666;">
-                    İptal
+                    Cancel
                 </button>`;
             
             contentDiv.innerHTML = walletsHTML;
@@ -3320,12 +3320,12 @@ document.head.appendChild(style);
         }
         // Oyun sonunda kazanan ödülünü çeksin
         async function claimBattleReward() {
-            if (!currentBattleId) return alert('Önce bir battle başlatın veya katılın!');
-            // Sadece kazanan oyuncu için aktif
-            if (!isWinner()) return alert('Sadece kazanan oyuncu ödülünü çekebilir!');
+            if (!currentBattleId) return alert('Start or join a battle first!');
+            // Only winner can claim
+            if (!isWinner()) return alert('Only the winner can claim the reward!');
             const tx = await moduleContract.completeBattleAuto(currentBattleId);
             await tx.wait();
-            alert('Kazanan ödülünü blockchain üzerinden çekti!');
+            alert('The winner claimed the reward on-chain!');
         }
 
         // PvP Game akışı (createGame/joinMultiplayerGame/completeMultiplayerGame)
@@ -3769,13 +3769,13 @@ document.head.appendChild(style);
             } catch (e) {
                 const reason = e?.reason || e?.error?.message || e?.message || '';
                 const reasonStr = String(reason).toLowerCase();
-                if (reasonStr.includes('battle too short')) {
-                    showStatus('⏳ Battle minimum 3 dakika sürmeli. Biraz daha bekleyin.', 'info', 5000);
-                } else if (reasonStr.includes('battle not active')) {
+                    if (reasonStr.includes('battle too short')) {
+                    	showStatus('⏳ Battle must last at least 3 minutes. Please wait a bit longer.', 'info', 5000);
+                    } else if (reasonStr.includes('battle not active')) {
                     // Likely already completed; show non-blocking success
                     showStatus('ℹ️ Battle already completed. If you are the winner, reward should be received.', 'info', 6000);
-                } else if (reasonStr.includes('only participants')) {
-                    showStatus('❌ Sadece katılımcılar tamamlayabilir.', 'error', 5000);
+                    } else if (reasonStr.includes('only participants')) {
+                    	showStatus('❌ Only participants can complete.', 'error', 5000);
                 } else {
                     throw e;
                 }
@@ -4173,9 +4173,9 @@ document.head.appendChild(style);
                 return;
             }
             
-            const battleId = prompt('Katılmak istediğiniz Battle ID:');
+            const battleId = prompt('Enter the Battle ID to join:');
             if (!battleId || isNaN(battleId)) {
-                alert('Geçerli bir Battle ID giriniz!');
+                alert('Please enter a valid Battle ID!');
                 return;
             }
             
@@ -4196,9 +4196,9 @@ document.head.appendChild(style);
                 
                 // Socket bağlantısı kur ve odaya katıl
                 if (!socket) socket = io((location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? 'http://localhost:3001' : undefined, { transports: ['websocket', 'polling'] });
-                const code = prompt('Oda Kodu (yaratıcının paylaştığı 6 haneli kod):');
+                const code = prompt('Room Code (6 characters shared by the creator):');
                 if (!code || code.length !== 6) {
-                    alert('Geçerli bir oda kodu giriniz.');
+                    alert('Please enter a valid 6-character room code.');
                     return;
                 }
                 socket.emit('joinRoom', code.toUpperCase(), (success) => {
@@ -4446,7 +4446,7 @@ document.head.appendChild(style);
                 box-shadow: 0 15px 35px rgba(0,0,0,0.5);`;
             
             contentDiv.innerHTML = `
-                <h2 style="text-align: center; margin-bottom: 20px;">⚔️ Battle Oluştur</h2>
+                <h2 style="text-align: center; margin-bottom: 20px;">⚔️ Create Battle</h2>
                 
                 <div style="margin-bottom: 15px;">
                     <label style="display: block; margin-bottom: 5px;">Stake Miktarı (COFFY):</label>
@@ -4466,10 +4466,10 @@ document.head.appendChild(style);
                 <div style="margin-bottom: 15px;">
                     <label style="display: block; margin-bottom: 5px;">Battle Süresi:</label>
                     <select id="battle-duration" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #d4af37; background: #2c1810; color: #f4e4c1;">
-                        <option value="300">5 Dakika</option>
-                        <option value="600">10 Dakika</option>
-                        <option value="900">15 Dakika</option>
-                        <option value="1800">30 Dakika</option>
+                        <option value="300">5 Minutes</option>
+                        <option value="600">10 Minutes</option>
+                        <option value="900">15 Minutes</option>
+                        <option value="1800">30 Minutes</option>
                     </select>
                 </div>
                 
@@ -4481,8 +4481,8 @@ document.head.appendChild(style);
                 </div>
                 
                 <div style="display: flex; gap: 10px; justify-content: center;">
-                    <button class="btn battle-btn" onclick="createBattleFromModal()">⚔️ Battle Oluştur</button>
-                    <button class="btn" onclick="closeBattleModal()" style="background: #666;">İptal</button>
+                    <button class="btn battle-btn" onclick="createBattleFromModal()">⚔️ Create Battle</button>
+                    <button class="btn" onclick="closeBattleModal()" style="background: #666;">Cancel</button>
                 </div>
                 
                 <div id="creation-status" style="margin-top: 15px; text-align: center; font-size: 0.9em;"></div>
@@ -4516,7 +4516,7 @@ document.head.appendChild(style);
                 box-shadow: 0 15px 35px rgba(0,0,0,0.5);`;
             
             contentDiv.innerHTML = `
-                <h2 style="text-align: center; margin-bottom: 20px;">🎯 Battle'a Katıl</h2>
+                <h2 style="text-align: center; margin-bottom: 20px;">🎯 Join Battle</h2>
                 
                 <div style="margin-bottom: 20px;">
                     <label style="display: block; margin-bottom: 5px;">Battle ID:</label>
@@ -4539,7 +4539,7 @@ document.head.appendChild(style);
                 
                 <div style="display: flex; gap: 10px; justify-content: center;">
                     <button class="btn battle-btn" onclick="joinBattleFromModal()">🎯 Katıl</button>
-                    <button class="btn" onclick="closeBattleJoinModal()" style="background: #666;">İptal</button>
+                    <button class="btn" onclick="closeBattleJoinModal()" style="background: #666;">Cancel</button>
                 </div>
                 
                 <div id="join-status" style="margin-top: 15px; text-align: center; font-size: 0.9em;"></div>

@@ -17,7 +17,7 @@ const {
 } = require('./coffytokenvemodülabi');
 
 const app = express();
-app.use(helmet());
+app.use(helmet({ crossOriginResourcePolicy: false, crossOriginEmbedderPolicy: false }));
 app.use(compression());
 app.set('trust proxy', 1);
 const server = http.createServer(app);
@@ -40,10 +40,11 @@ const allowedOrigins = isProd
   : devOrigins;
 
 const io = new Server(server, {
+  path: '/socket.io',
   cors: {
     origin: allowedOrigins,
     methods: ['GET', 'POST'],
-    credentials: false
+    credentials: true
   },
   transports: ['polling', 'websocket'],
   allowEIO3: true
@@ -175,6 +176,9 @@ app.use(cors({ origin: allowedOrigins, credentials: false }));
 app.use(generalLimiter);
 // Avoid rate-limiting Socket.IO polling endpoints to preserve CORS headers
 // app.use('/socket.io/', socketLimiter);
+// CORS for REST and preflight
+app.use(cors({ origin: allowedOrigins, credentials: true }));
+app.options('*', cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.static(__dirname));
 
 // =================== ENHANCED UTILITY FUNCTIONS ===================

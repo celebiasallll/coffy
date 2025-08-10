@@ -35,9 +35,8 @@ const prodOrigins = (process.env.CLIENT_ORIGINS || '')
   .filter(Boolean);
 
 const isProd = process.env.NODE_ENV === 'production';
-const allowedOrigins = isProd
-  ? (prodOrigins.length ? prodOrigins : ['https://coffycoin.xyz', 'https://www.coffycoin.xyz'])
-  : devOrigins;
+// TEMP: open CORS to all origins to unblock polling; we'll tighten after verification
+const allowedOrigins = isProd ? ['*'] : devOrigins;
 
 // Normalize allowed origins to an array of strings
 const normalizedAllowed = (Array.isArray(allowedOrigins) ? allowedOrigins : [allowedOrigins])
@@ -47,32 +46,17 @@ const normalizedAllowed = (Array.isArray(allowedOrigins) ? allowedOrigins : [all
 const io = new Server(server, {
   path: '/socket.io',
   cors: {
-    origin: (origin, callback) => {
-      if (!origin) return callback(null, true);
-      const clean = origin.replace(/\/$/, '');
-      const ok = normalizedAllowed.some((a) => clean === a || clean.startsWith(a));
-      return callback(null, ok);
-    },
+    origin: '*',
     methods: ['GET', 'POST'],
-    credentials: true
+    credentials: false
   },
   transports: ['polling', 'websocket'],
   allowEIO3: true
 });
 
 // Ensure Engine.IO polling responses include CORS headers
-io.engine.on('headers', (headers, req) => {
-  try {
-    const origin = (req.headers.origin || '').replace(/\/$/, '');
-    if (!origin) return;
-    const ok = normalizedAllowed.some((a) => origin === a || origin.startsWith(a));
-    if (!ok) return;
-    headers['Access-Control-Allow-Origin'] = origin;
-    headers['Access-Control-Allow-Credentials'] = 'true';
-    headers['Vary'] = 'Origin';
-  } catch (e) {
-    // no-op
-  }
+io.engine.on('headers', (headers) => {
+  headers['Access-Control-Allow-Origin'] = '*';
 });
 
 console.log('🔐 Socket.IO CORS origins:', allowedOrigins);
@@ -201,9 +185,9 @@ app.use(cors({ origin: allowedOrigins, credentials: false }));
 app.use(generalLimiter);
 // Avoid rate-limiting Socket.IO polling endpoints to preserve CORS headers
 // app.use('/socket.io/', socketLimiter);
-// CORS for REST and preflight
-app.use(cors({ origin: allowedOrigins, credentials: true }));
-app.options('*', cors({ origin: allowedOrigins, credentials: true }));
+// CORS for REST and preflight - open for now
+app.use(cors());
+app.options('*', cors());
 app.use(express.static(__dirname));
 
 // =================== ENHANCED UTILITY FUNCTIONS ===================

@@ -2354,11 +2354,18 @@
             modalDiv.appendChild(contentDiv);
             document.body.appendChild(modalDiv);
             document.getElementById('createRoomBtn').onclick = () => {
-                socket.emit('createRoom', (id) => {
+                const emitCreateRoom = () => socket.emit('createRoom', (id) => {
                     roomId = id;
                     playerNumber = 1;
                     document.getElementById('roomStatus').innerHTML = `Room created! Code: <b>${roomId}</b><br>Waiting for opponent...`;
                 });
+                if (!socket || !socket.connected) {
+                    console.log('⏳ Waiting for socket connection to create room (modal)...');
+                    socket.once('connect', () => emitCreateRoom());
+                    setTimeout(() => { if (socket && socket.connected && !roomId) emitCreateRoom(); }, 1500);
+                } else {
+                    emitCreateRoom();
+                }
             };
             document.getElementById('joinRoomBtn').onclick = () => {
                 const gid = document.getElementById('joinGameIdInput').value.trim();
@@ -3406,7 +3413,7 @@ document.head.appendChild(style);
                 if (!socket) socket = io((location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? 'http://localhost:3001' : undefined, { transports: ['websocket', 'polling'] });
                 console.log(`🚀 Creating room with meta: gameId=${currentGameId}, stake=${stakeWei.toString()}`);
                 
-                socket.emit('createRoom', { gameId: currentGameId, stake: stakeWei.toString() }, (id) => {
+                const emitCreateRoom = () => socket.emit('createRoom', { gameId: currentGameId, stake: stakeWei.toString() }, (id) => {
                     roomId = id;
                     playerNumber = 1;
                     const queueInfo = document.getElementById('battle-queue-info');
@@ -3492,6 +3499,16 @@ document.head.appendChild(style);
                         console.log(`🔄 Game synchronized - Player ${playerNumber} ready`);
                     });
                 });
+                if (!socket || !socket.connected) {
+                    console.log('⏳ Waiting for socket connection to create room...');
+                    socket.once('connect', () => {
+                        console.log('🔌 Connected. Emitting createRoom now.');
+                        emitCreateRoom();
+                    });
+                    setTimeout(() => { if (socket && socket.connected && !roomId) emitCreateRoom(); }, 1500);
+                } else {
+                    emitCreateRoom();
+                }
                 showStatus(`🎯 Game ${currentGameId} created! Waiting for opponent...`, 'waiting', 0);
                 
                 alert(`Game created! Game ID: ${currentGameId} | Stake: ${stakeAmountForDisplay} COFFY`);
@@ -4142,7 +4159,7 @@ document.head.appendChild(style);
                     alert(`Battle created!\nBattle ID: ${battleId}\nStake: ${stake} COFFY\n\nShare this ID for the opponent to join.\n\nBoard is ready, waiting for opponent...`);
                     
                     // Multiplayer oda oluştur ve oda kodunu göster
-                    socket.emit('createRoom', (id) => {
+                    const emitCreateRoom = () => socket.emit('createRoom', (id) => {
                         roomId = id;
                         const queueInfo = document.getElementById('battle-queue-info');
                         if (queueInfo) {
@@ -4170,6 +4187,13 @@ document.head.appendChild(style);
                             showStatus(`🎮 Battle game started! You are Player ${playerNumber}`, 'success', 4000);
                         });
                     });
+                    if (!socket || !socket.connected) {
+                        console.log('⏳ Waiting for socket connection to create battle room...');
+                        socket.once('connect', () => emitCreateRoom());
+                        setTimeout(() => { if (socket && socket.connected && !roomId) emitCreateRoom(); }, 1500);
+                    } else {
+                        emitCreateRoom();
+                    }
                     
                     // Battle durumunu zincirden takip et
                     checkBattleStatus(battleId);
@@ -4674,11 +4698,18 @@ document.head.appendChild(style);
                 showBattleInfo(battleId, stakeAmount, 'pending');
                 
                 // Multiplayer oda oluştur ve battle ile bağla
-                socket.emit('createRoom', (id) => {
+                const emitCreateRoom = () => socket.emit('createRoom', (id) => {
                     roomId = id;
                     socket.emit('linkBattleToRoom', battleId, roomId);
                     console.log(`Battle ${battleId} linked to room ${roomId}`);
                 });
+                if (!socket || !socket.connected) {
+                    console.log('⏳ Waiting for socket connection to create battle-linked room...');
+                    socket.once('connect', () => emitCreateRoom());
+                    setTimeout(() => { if (socket && socket.connected && !roomId) emitCreateRoom(); }, 1500);
+                } else {
+                    emitCreateRoom();
+                }
                 
                 checkBattleStatus(battleId);
                 

@@ -234,7 +234,7 @@ export default function Hero() {
               variants={childVariants}
             >
               <motion.a
-                href="#trade"
+                href="https://pancakeswap.finance/swap?inputCurrency=BNB&outputCurrency=0x33AA3dbCB3c4fF066279AD33099Ce154936D8b88"
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={handleTradeClick}

@@ -1,0 +1,863 @@
+/* Genel sıfırlama ve temel stiller */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    overflow: hidden;
+    background: #1a202c;
+    font-family: 'Poppins', sans-serif;
+    color: #fff;
+    /* display: flex; */ /* Removed flex properties */
+    /* justify-content: center; */
+    /* align-items: center; */
+    height: 100vh;
+    width: 100vw;
+}
+
+/* Oyun kapsayıcısı */
+#game-container { /* Removed flex properties */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+#game-canvas {
+    width: 100%;
+    height: 100%;
+    /* Background is now drawn entirely by JavaScript in drawBackground() */
+    /* background-color property removed */
+    touch-action: none;
+}
+
+/* Ekran stilleri */
+.screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+    opacity: 0;
+    transition: opacity 0.6s ease-in-out, transform 0.6s ease-in-out;
+    transform: translateY(20px);
+    padding: 1rem;
+    background: linear-gradient(135deg, rgba(111, 78, 55, 0.95), rgba(61, 44, 30, 0.95));
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    overflow-y: auto;
+    max-height: 100vh;
+}
+
+.screen.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+#start-screen {
+    background: linear-gradient(135deg, rgba(111, 78, 55, 0.9), rgba(61, 44, 30, 0.9));
+}
+
+#game-over-screen {
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.9), rgba(20, 10, 5, 0.9));
+    display: none;
+}
+
+#pause-screen {
+    background: rgba(0, 0, 0, 0.75);
+    display: none;
+}
+
+#loading-screen {
+    background: #3D2C1E;
+    z-index: 200;
+    display: flex;
+}
+
+/* Metin stilleri */
+.screen-title {
+    font-size: clamp(1.5rem, 5vw, 3rem);
+    font-weight: 600;
+    color: #C8A27A;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+    margin-bottom: 0.5rem; /* Reduced margin */
+    letter-spacing: 1px;
+    text-align: center;
+}
+
+/* Start screen specific styles */
+.start-screen-description {
+    color: #fff;
+    max-width: 80%;
+    text-align: center;
+    text-align: center;
+}
+
+/* Buton stilleri */
+.game-button,
+#start-screen .buy-button { /* Apply base styles to both */
+    background: linear-gradient(90deg, #6F4E37, #9B7653);
+    color: #fff;
+    margin-bottom: 0.5rem; /* Reduced margin */
+    font-size: clamp(1rem, 4vw, 1.5rem); /* Keep existing font size clamp */
+}
+
+.start-screen-high-score {
+    color: #fff;
+    margin-bottom: 0.5rem; /* Reduced margin */
+    font-size: clamp(0.9rem, 3.5vw, 1.3rem); /* Slightly smaller than total reward */
+}
+
+/* .total-reward class seems unused, removing for now */
+/*
+.total-reward {
+    font-size: clamp(1rem, 4vw, 1.5rem);
+    margin-bottom: 1rem;
+}
+*/
+
+/* Buton stilleri */
+.game-button {
+    background: linear-gradient(90deg, #6F4E37, #9B7653);
+    color: #fff;
+    border: none;
+    padding: clamp(0.5rem, 1.5vw, 0.7rem);
+    font-size: clamp(0.8rem, 2.5vw, 1rem);
+    font-weight: 500;
+    border-radius: 8px;
+    cursor: pointer;
+    margin: 0.5rem 0;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    min-width: clamp(140px, 40vw, 200px); /* Adjusted clamp for consistency */
+    max-width: 200px; /* Added max-width */
+    width: 80%; /* Try using percentage width */
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    touch-action: manipulation; /* Eklenecek */
+    -webkit-tap-highlight-color: rgba(0,0,0,0); /* Eklenecek */
+    user-select: none; /* Eklenecek */
+    overflow: hidden; /* Prevent text overflow */
+    text-overflow: ellipsis; /* Add ellipsis for overflowing text */
+    white-space: nowrap; /* Keep text on one line */
+}
+
+/* HUD (Baş Üstü Gösterge) stilleri - Restored Base Style */
+#hud {
+    position: fixed;
+    top: 0.5rem;
+    left: 30%; /* Standard centering */
+    transform: translateX(-50%); /* Standard centering */
+    margin: 0; /* Reset margins */
+    z-index: 90;
+    display: flex;
+    opacity: 0; /* Initially hidden, shown by JS */
+    transition: opacity 0.4s ease;
+    padding: 0.3rem;
+    background: linear-gradient(90deg, rgba(61, 44, 30, 0.8), rgba(81, 55, 38, 0.7));
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    width: auto; /* Let width adjust to content */
+    max-width: 90%; /* Limit width */
+}
+
+#hud.visible {
+    opacity: 1;
+}
+
+.hud-item {
+    display: flex;
+    align-items: center;
+    background: rgba(30, 20, 10, 0.3);
+    color: #fff;
+    padding: 0.2rem 0.5rem; /* Reduced padding */
+    border-radius: 20px;
+    font-size: 0.75rem; /* Reduced font size */
+    font-weight: 500;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    border: 1px solid rgba(200, 162, 122, 0.15);
+    min-width: 45px; /* Slightly reduced min-width */
+    height: 26px; /* Reduced height */
+}
+
+.hud-item i {
+    font-size: 0.8rem; /* Reduced icon size */
+    color: #C8A27A;
+    margin-right: 0.25rem; /* Reduced margin */
+}
+
+.hud-item:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.hud-item.wallet {
+    background: linear-gradient(45deg, rgba(200, 162, 122, 0.3), rgba(155, 118, 83, 0.2));
+    border-color: rgba(200, 162, 122, 0.3);
+}
+
+.hud-item.highlight {
+    background: linear-gradient(45deg, rgba(155, 118, 83, 0.4), rgba(111, 78, 55, 0.3));
+    border-color: rgba(200, 162, 122, 0.4);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(200, 162, 122, 0.4); }
+    70% { box-shadow: 0 0 0 4px rgba(200, 162, 122, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(200, 162, 122, 0); }
+}
+
+/* Score Update Animation */
+@keyframes scoreUpdate {
+    0% { transform: scale(1); color: #fff; }
+    50% { transform: scale(1.3); color: #FFD700; } /* Scale up and turn gold */
+    100% { transform: scale(1); color: #fff; }
+}
+
+.score-updated {
+    animation: scoreUpdate 0.4s ease-out;
+}
+
+/* Wallet status indicator styling removed */
+
+/* Kontrol bilgileri */
+#controls-info {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.8), rgba(61, 44, 30, 0.8));
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 12px;
+    line-height: 1.4;
+    text-align: right;
+    opacity: 0.9;
+    transition: opacity 0.3s ease;
+    backdrop-filter: blur(5px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    z-index: 100;
+    max-width: 120px; /* Genişliği azaltıldı */
+}
+
+#controls-info:hover {
+    opacity: 1;
+}
+
+#final-score-container {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 12px;
+    padding: clamp(0.6rem, 2vw, 0.8rem) clamp(1.2rem, 4vw, 1.5rem);
+    margin: 0.8rem 0;
+    text-align: center;
+    width: clamp(180px, 60vw, 350px);
+    backdrop-filter: blur(5px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Parçacıklar */
+.particle {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 80;
+}
+
+.spinner {
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 0.3rem solid rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    border-top-color: #C8A27A;
+    animation: spin 1s ease-in-out infinite;
+    margin-bottom: 0.8rem;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Karakterler bölümü */
+.characters-container {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); /* Mobilde 3 kart yan yana */
+    gap: 10px;
+    width: 100%;
+    max-width: 700px;
+    margin-top: 0;
+    margin-bottom: 10px; /* Reduced bottom margin */
+    padding-bottom: 10px; /* Reduced bottom padding */
+}
+
+/* Tarayıcıda 6 kart yan yana */
+@media (min-width: 768px) {
+    .characters-container {
+        grid-template-columns: repeat(6, 1fr);
+    }
+}
+
+/* Kart tasarımı */
+.character-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.6rem;
+    border: 1px solid #C8A27A;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    transition: transform 0.2s ease, background 0.3s ease;
+}
+
+.character-item:hover {
+    transform: scale(1.05);
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.character-item i {
+    font-size: 1.5rem;
+    color: #C8A27A;
+    margin-bottom: 0.3rem;
+}
+
+.character-item .character-name,
+.character-item .character-price {
+    font-size: 0.75rem;
+    text-align: center;
+    color: #fff;
+    margin-bottom: 0.2rem;
+}
+
+/* Satın al butonu (Specific color override) */
+#start-screen .buy-button {
+    background: linear-gradient(90deg, #4CAF50, #66BB6A); /* Keep green for buy */
+    padding: 0.3rem 0.5rem; /* Keep specific padding */
+    font-size: 0.7rem; /* Keep specific font size */
+    border-radius: 5px; /* Keep specific radius */
+    /* Inherits width/min/max-width from the combined rule above */
+}
+
+/* Ensure character buy buttons also have consistent sizing */
+.characters-container .buy-button {
+    /* These styles are now mostly handled by the combined rule */
+    /* We only need overrides if necessary */
+    padding: 0.3rem 0.5rem; /* Keep specific padding */
+    font-size: 0.7rem; /* Keep specific font size */
+    width: auto; /* Allow buy buttons in grid to size naturally */
+    min-width: auto;
+    max-width: none;
+}
+
+/* Mobil için ayarlar */
+@media (max-width: 480px) {
+    .character-item {
+        padding: 0.5rem;
+    }
+
+    .character-item i {
+        font-size: 1.2rem;
+    }
+
+    .character-item .character-name,
+    .character-item .character-price {
+        font-size: 0.7rem;
+    }
+
+    .characters-container .buy-button {
+        padding: 0.2rem 0.4rem;
+        font-size: 0.65rem;
+    }
+
+    .game-button {
+        padding: clamp(0.4rem, 1vw, 0.6rem);
+        font-size: clamp(0.7rem, 2vw, 0.9rem);
+    }
+
+    .screen {
+        padding-bottom: 70px; /* Alt boşluk arttırıldı */
+    }
+
+    #controls-info {
+        padding: 6px 10px;
+        font-size: 11px;
+        max-width: 100px;
+        bottom: 5px;
+        right: 5px;
+    }
+}
+
+/* Mobil cihazlara özel buton iyileştirmeleri */
+@media (max-width: 768px) {
+    .touch-target {
+        padding: clamp(0.7rem, 2vw, 1rem); /* Daha geniş tıklama alanı */
+        margin: 0.8rem 0; /* Butonlar arası boşluğu arttıralım */
+        position: relative;
+        z-index: 150; /* Diğer elementlerin üzerinde olsun */
+        touch-action: manipulation;
+    }
+
+    /* Connect Wallet butonu için özel stiller - Buton diğerleriyle aynı boyutta */
+    #connect-wallet {
+        font-size: 0.7rem; /* Yazı boyutunu küçült */
+        padding: clamp(0.4rem, 1vw, 0.6rem); /* Diğer butonlarla aynı padding */
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 180px; /* Diğer butonlarla aynı genişlik */
+        min-width: clamp(140px, 40vw, 200px); /* Diğer butonlarla aynı min-width */
+    }
+
+    /* Karakter seçim butonları için iyileştirmeler */
+    .characters-container .buy-button {
+        padding: 0.4rem 0.7rem; /* Daha büyük tıklama alanı */
+        font-size: 0.8rem;
+        z-index: 150;
+        touch-action: manipulation;
+    }
+}
+
+/* Tarayıcıda karakter kartları */
+@media (min-width: 768px) {
+    .character-item {
+        padding: 0.6rem;
+    }
+
+    .character-item i {
+        font-size: 1.5rem;
+    }
+
+    .character-item .character-name,
+    .character-item .character-price {
+        font-size: 0.75rem;
+    }
+}
+
+/* Başlık */
+.section-title {
+    font-size: 1.2rem;
+    color: #C8A27A;
+    margin-bottom: 0.8rem;
+    text-align: center;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    display: block;
+}
+
+/* Skill Tree CSS Removed */
+
+/* Mobil cihazlara özel HUD stilleri */
+@media (max-width: 768px) {
+    #hud {
+        top: 0.2rem;
+        display: flex;
+        flex-wrap: wrap; /* Allow items to wrap to the next line */
+        justify-content: center;
+        align-items: center;
+        gap: 0.3rem; /* Slightly increased gap for wrapped items */
+        padding: 0.3rem; /* Slightly increased padding */
+        width: auto;
+        max-width: 95%; /* Allow slightly more width */
+        /* overflow-x: auto; Removed horizontal scroll */
+        /* white-space: nowrap; Removed nowrap */
+    }
+
+    .hud-item {
+        padding: 0.2rem 0.4rem; /* Daha az yer kaplar */
+        font-size: 0.7rem; /* Yazı tipi küçültülür */
+        min-width: 40px; /* Minimum genişlik */
+        height: 24px; /* Daha kompakt yükseklik */
+        flex-shrink: 0; /* Öğelerin küçülmesi engellenir */
+    }
+
+    .hud-item i {
+        font-size: 0.8rem; /* Simge boyutu */
+        margin-right: 0.2rem;
+    }
+}
+
+/* Superpower Notification - Updated */
+.superpower-notification {
+    position: fixed;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #FFD700, #FFA500);
+    padding: 10px 20px;
+    border-radius: 20px;
+    color: white;
+    font-weight: bold;
+    display: none;
+    z-index: 1000;
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+    animation: fadeInOut 0.5s ease-in-out;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+    font-size: 16px;
+    white-space: nowrap;
+}
+
+.superpower-notification.show {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.superpower-notification i {
+    color: #FFD700;
+    animation: spin 2s linear infinite;
+}
+
+@keyframes fadeInOut {
+    0% { opacity: 0; transform: translate(-50%, -20px); }
+    100% { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@keyframes spin {
+    100% { transform: rotate(360deg); }
+}
+
+.superpower-active {
+    animation: superpowerGlow 3s infinite;
+}
+
+@keyframes superpowerGlow {
+    0% { filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.5)); }
+    50% { filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.8)); }
+    100% { filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.5)); }
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+    .superpower-notification {
+        font-size: 14px;
+        padding: 8px 15px;
+    }
+
+    #controls-info {
+        font-size: 12px;
+        padding: 8px 12px;
+        max-width: 150px;
+    }
+}
+
+/* Mobil için ekran düzenlemeleri */
+@media screen and (max-width: 768px) {
+    .screen {
+        width: 100vw !important;
+        height: 100vh !important;
+        padding: 10px;
+        overflow-y: auto;
+        position: fixed;
+        top: 0;
+        left: 0;
+        margin: 0;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: center;
+        background: linear-gradient(135deg, rgba(111, 78, 55, 0.95), rgba(61, 44, 30, 0.95));
+    }
+
+    .screen-title {
+        font-size: 2rem;
+        margin: 20px 0;
+        padding: 10px;
+        width: 100%;
+        text-align: center;
+        color: #C8A27A;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+    }
+
+    .characters-container {
+        width: 100%;
+        padding: 10px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 10px;
+    }
+
+    .character-item {
+        min-width: unset;
+        width: 100%;
+    }
+}
+
+/* Sound control button styles */
+#sound-control {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    background: rgba(0, 0, 0, 0.5);
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    color: white;
+    cursor: pointer;
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.3s ease;
+}
+
+#sound-control:hover {
+    background: rgba(0, 0, 0, 0.7);
+    transform: scale(1.1);
+}
+
+#sound-control i {
+    font-size: 20px;
+}
+
+/* --- Notification Styles --- */
+#notification-area {
+    /* Container styles already added in utils.js via JS */
+    /* This area is just for individual notification styling */
+}
+
+.notification {
+    padding: 12px 18px;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 10px; /* Added via JS gap, but good fallback */
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+    opacity: 0;
+    transform: translateX(100%); /* Start off-screen right */
+    transition: opacity 0.4s ease-in-out, transform 0.4s ease-in-out;
+    min-width: 250px;
+    max-width: 350px;
+    word-wrap: break-word;
+}
+
+.notification.show {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+/* Notification Types */
+.notification.info {
+    background: linear-gradient(135deg, #3B82F6, #2563EB); /* Blue */
+    border-left: 5px solid #1D4ED8;
+}
+
+.notification.success {
+    background: linear-gradient(135deg, #10B981, #059669); /* Green */
+    border-left: 5px solid #047857;
+}
+
+.notification.warning {
+    background: linear-gradient(135deg, #F59E0B, #D97706); /* Amber */
+    border-left: 5px solid #B45309;
+}
+
+.notification.error {
+    background: linear-gradient(135deg, #EF4444, #DC2626); /* Red */
+    border-left: 5px solid #B91C1C;
+}
+
+/* Social Share Button Styles */
+.social-share-button {
+    display: inline-flex; /* Use inline-flex for icon alignment */
+    align-items: center;
+    justify-content: center;
+    gap: 8px; /* Space between icon and text */
+    text-decoration: none; /* Remove underline from link */
+    margin-top: 10px; /* Add some space above */
+}
+
+.social-share-button.twitter {
+    background: linear-gradient(90deg, #1DA1F2, #0c85d0); /* Twitter blue */
+}
+
+.social-share-button.twitter:hover {
+    background: linear-gradient(90deg, #0c85d0, #0a6fa8);
+}
+
+.social-share-button i {
+    font-size: 1.1em; /* Make icon slightly larger */
+}
+
+/* --- Leaderboard Styles --- */
+#leaderboard-screen {
+    justify-content: flex-start; /* Align items to the top */
+    padding-top: 3rem; /* Add padding at the top */
+}
+
+.leaderboard-list {
+    width: 90%;
+    max-width: 500px;
+    max-height: 60vh; /* Limit height and allow scrolling */
+    overflow-y: auto;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid rgba(200, 162, 122, 0.2);
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.3);
+}
+
+.leaderboard-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.6rem 0.8rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: clamp(0.8rem, 2.5vw, 1rem);
+}
+
+.leaderboard-item:last-child {
+    border-bottom: none;
+}
+
+.leaderboard-item .rank {
+    font-weight: bold;
+    color: #C8A27A;
+    min-width: 30px; /* Ensure rank alignment */
+    text-align: right;
+    margin-right: 1rem;
+}
+
+.leaderboard-item .name {
+    flex-grow: 1; /* Allow name to take remaining space */
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-right: 1rem;
+}
+
+.leaderboard-item .score {
+    font-weight: bold;
+    min-width: 60px; /* Ensure score alignment */
+    text-align: right;
+}
+
+.leaderboard-loading,
+.leaderboard-error {
+    text-align: center;
+    padding: 1rem;
+    color: #aaa;
+}
+
+/* Tooltip styles for rate limited claim button */
+[data-tooltip] {
+    position: relative;
+}
+
+[data-tooltip]:before {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 5px 10px;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    visibility: hidden;
+    opacity: 0;
+    transition: visibility 0s, opacity 0.2s ease-in-out;
+    z-index: 10;
+}
+
+[data-tooltip]:hover:before {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* Show countdown timer on disabled claim button */
+button#claim-total-reward:disabled {
+    background-color: #665720;
+    color: rgba(255, 255, 255, 0.7);
+    cursor: not-allowed;
+}
+
+/* Migration Styles */
+.migration-section {
+    margin-top: 10px;
+    padding: 8px;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    border-radius: 8px;
+    border: 1px solid #3b82f6;
+    max-width: 250px;
+}
+
+.migration-info {
+    font-size: 11px;
+    color: #e0e7ff;
+    margin-bottom: 6px;
+    line-height: 1.3;
+}
+
+.migration-button {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: 100%;
+}
+
+.migration-button:hover {
+    background: linear-gradient(135deg, #059669, #047857);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+}
+
+.migration-button:disabled {
+    background: #6b7280;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Mobile Migration Styles */
+@media (max-width: 768px) {
+    .migration-section {
+        max-width: 200px;
+        padding: 6px;
+        margin-top: 8px;
+    }
+    
+    .migration-info {
+        font-size: 10px;
+        margin-bottom: 4px;
+    }
+    
+    .migration-button {
+        padding: 5px 10px;
+        font-size: 11px;
+    }
+}
+
+/* V2 Contract Badge */
+.v2-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 5px;
+    font-weight: 600;
+}

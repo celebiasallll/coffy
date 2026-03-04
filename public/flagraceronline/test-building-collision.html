@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Building Collision Test</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #000;
+            font-family: Arial, sans-serif;
+        }
+        
+        #testInfo {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background: rgba(0,0,0,0.7);
+            padding: 15px;
+            border-radius: 5px;
+            z-index: 1000;
+            max-width: 400px;
+        }
+        
+        #controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: white;
+            background: rgba(0,0,0,0.7);
+            padding: 15px;
+            border-radius: 5px;
+            z-index: 1000;
+        }
+        
+        .status {
+            margin: 5px 0;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        
+        .success { background: rgba(0,255,0,0.2); }
+        .warning { background: rgba(255,255,0,0.2); }
+        .error { background: rgba(255,0,0,0.2); }
+    </style>
+</head>
+<body>
+    <div id="testInfo">
+        <h3>🏢 Building Collision Test</h3>
+        <div class="status" id="step1">1. Loading dependencies...</div>
+        <div class="status" id="step2">2. Initializing physics...</div>
+        <div class="status" id="step3">3. Creating global buildings...</div>
+        <div class="status" id="step4">4. Testing collision...</div>
+        <div class="status" id="step5">5. Collision status: Waiting...</div>
+    </div>
+    
+    <div id="controls">
+        <h4>Test Controls</h4>
+        <p>⌨️ WASD - Move vehicle</p>
+        <p>🖱️ Mouse - Look around</p>
+        <p>⬇️ Drive into buildings to test collision</p>
+        <p>🔫 Space - Fire bullets at buildings</p>
+    </div>
+
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Cannon.js Physics -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/4.0.0/cannon.min.js"></script>
+    <!-- Socket.IO -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    
+    <!-- Game modules -->
+    <script src="js/physics.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/terrain.js"></script>
+    <script src="js/environment.js"></script>
+    <script src="js/vehicle.js"></script>
+    <script src="js/objects.js"></script>
+    <script src="js/multiplayer.js"></script>
+    <script src="js/mobile-config.js"></script>
+    
+    <script>
+        // Test variables
+        let scene, camera, renderer, physics, vehicle, multiplayer;
+        let collisionCount = 0;
+        let lastCollisionTime = 0;
+        
+        // Update test status
+        function updateStatus(stepId, message, type = 'success') {
+            const element = document.getElementById(stepId);
+            element.textContent = message;
+            element.className = `status ${type}`;
+        }
+        
+        // Initialize test
+        async function initTest() {
+            try {
+                updateStatus('step1', '1. Loading dependencies... ✅');
+                
+                // Create scene
+                scene = new THREE.Scene();
+                camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+                renderer = new THREE.WebGLRenderer();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.shadowMap.enabled = true;
+                renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                document.body.appendChild(renderer.domElement);
+                
+                // Initialize physics
+                physics = new PhysicsManager();
+                physics.init();
+                updateStatus('step2', '2. Physics initialized ✅');
+                
+                // Create lighting
+                const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+                scene.add(ambientLight);
+                
+                const sunLight = new THREE.DirectionalLight(0xffffff, 1.0);
+                sunLight.position.set(10, 20, 10);
+                sunLight.castShadow = true;
+                scene.add(sunLight);
+                
+                // Create ground
+                const groundGeometry = new THREE.PlaneGeometry(200, 200);
+                const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x4a5d23 });
+                const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+                ground.rotation.x = -Math.PI / 2;
+                ground.receiveShadow = true;
+                scene.add(ground);
+                
+                // Create ground physics
+                const groundShape = new CANNON.Plane();
+                const groundBody = new CANNON.Body({ mass: 0, material: physics.materials.ground });
+                groundBody.addShape(groundShape);
+                groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+                physics.addBody(groundBody);
+                
+                // Create particle system
+                const particleSystem = new ParticleSystem(scene);
+                
+                // Create vehicle
+                vehicle = new Vehicle(scene, physics, particleSystem);
+                vehicle.create();
+                
+                camera.position.set(0, 5, 10);
+                
+                // Mock game object for multiplayer
+                window.game = {
+                    scene: scene,
+                    physics: physics,
+                    particleSystem: particleSystem,
+                    vehicle: vehicle,
+                    objects: new WorldObjects(scene, physics)
+                };
+                
+                // Initialize multiplayer (offline mode)
+                multiplayer = new MultiplayerManager(window.game);
+                multiplayer.enableOfflineMode();
+                
+                // Create global buildings with collision
+                updateStatus('step3', '3. Creating global buildings...');
+                multiplayer.createSynchronizedBuildingsWithObjectsJS();
+                updateStatus('step3', '3. Global buildings created ✅');
+                
+                // Test collision detection
+                updateStatus('step4', '4. Setting up collision tests...');
+                setupCollisionTest();
+                updateStatus('step4', '4. Collision tests ready ✅');
+                
+                // Start animation loop
+                animate();
+                
+            } catch (error) {
+                console.error('Test initialization failed:', error);
+                updateStatus('step1', '1. Failed: ' + error.message, 'error');
+            }
+        }
+        
+        function setupCollisionTest() {
+            // Listen for collision events
+            if (physics.world) {
+                physics.world.addEventListener('beginContact', (event) => {
+                    const { bodyA, bodyB } = event.contact;
+                    
+                    // Check for vehicle-building collision
+                    if (isVehicleBuildingCollision(bodyA, bodyB)) {
+                        collisionCount++;
+                        lastCollisionTime = Date.now();
+                        
+                        const force = Math.abs(event.contact.getImpactVelocityAlongNormal());
+                        
+                        updateStatus('step5', 
+                            `5. Collision detected! Count: ${collisionCount}, Force: ${force.toFixed(2)} ✅`, 
+                            'success'
+                        );
+                        
+                        console.log('🏢💥 Building collision test successful!', {
+                            count: collisionCount,
+                            force: force,
+                            bodyA: bodyA.userData,
+                            bodyB: bodyB.userData
+                        });
+                    }
+                });
+            }
+            
+            // Setup controls
+            setupControls();
+        }
+        
+        function isVehicleBuildingCollision(bodyA, bodyB) {
+            const typeA = bodyA.userData?.type;
+            const typeB = bodyB.userData?.type;
+            
+            return (typeA === 'vehicle' && typeB === 'building') || 
+                   (typeA === 'building' && typeB === 'vehicle');
+        }
+        
+        function setupControls() {
+            const keys = {};
+            
+            document.addEventListener('keydown', (e) => {
+                keys[e.code] = true;
+            });
+            
+            document.addEventListener('keyup', (e) => {
+                keys[e.code] = false;
+            });
+            
+            // Movement update
+            function updateMovement() {
+                if (!vehicle || !vehicle.body) return;
+                
+                const force = 3000;
+                const vehicleBody = vehicle.body;
+                
+                if (keys['KeyW']) {
+                    vehicleBody.applyLocalImpulse(new CANNON.Vec3(force, 0, 0), new CANNON.Vec3(0, 0, 0));
+                }
+                if (keys['KeyS']) {
+                    vehicleBody.applyLocalImpulse(new CANNON.Vec3(-force, 0, 0), new CANNON.Vec3(0, 0, 0));
+                }
+                if (keys['KeyA']) {
+                    vehicleBody.angularVelocity.y += 0.1;
+                }
+                if (keys['KeyD']) {
+                    vehicleBody.angularVelocity.y -= 0.1;
+                }
+                if (keys['Space']) {
+                    if (vehicle.fireBullet) {
+                        vehicle.fireBullet();
+                    }
+                }
+                
+                requestAnimationFrame(updateMovement);
+            }
+            
+            updateMovement();
+        }
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Update physics
+            if (physics) {
+                physics.update(1/60);
+            }
+            
+            // Update vehicle
+            if (vehicle) {
+                vehicle.update(1/60);
+            }
+            
+            // Update camera to follow vehicle
+            if (vehicle && vehicle.body && vehicle.body.position) {
+                const pos = vehicle.body.position;
+                camera.position.set(pos.x - 10, pos.y + 5, pos.z + 10);
+                camera.lookAt(pos.x, pos.y, pos.z);
+            }
+            
+            // Update collision status
+            if (Date.now() - lastCollisionTime > 3000 && collisionCount === 0) {
+                updateStatus('step5', '5. Waiting for collision... Drive into buildings!', 'warning');
+            }
+            
+            renderer.render(scene, camera);
+        }
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        
+        // Start test
+        initTest();
+    </script>
+</body>
+</html> 

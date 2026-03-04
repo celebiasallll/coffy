@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multiplayer Connection Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+        .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        #log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔌 Multiplayer Connection Test</h1>
+        <p>This page tests the connection to the multiplayer server.</p>
+        
+        <div id="status-container">
+            <div id="socket-status" class="status info">Socket.IO: Loading...</div>
+            <div id="server-status" class="status info">Server: Not tested</div>
+            <div id="connection-status" class="status info">Connection: Not attempted</div>
+        </div>
+        
+        <div>
+            <button id="test-connection" onclick="testConnection()">Test Connection</button>
+            <button id="test-health" onclick="testHealth()">Test Health Endpoint</button>
+            <button id="clear-log" onclick="clearLog()">Clear Log</button>
+        </div>
+        
+        <h3>Connection Log:</h3>
+        <div id="log"></div>
+    </div>
+
+    <!-- Import Socket.IO -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    
+    <script>
+        let socket = null;
+        const log = document.getElementById('log');
+        
+        function addLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.style.color = type === 'error' ? '#dc3545' : type === 'success' ? '#28a745' : '#6c757d';
+            logEntry.innerHTML = `[${timestamp}] ${message}`;
+            log.appendChild(logEntry);
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        function updateStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `status ${type}`;
+        }
+        
+        function clearLog() {
+            log.innerHTML = '';
+        }
+        
+        // Test Socket.IO availability
+        function checkSocketIO() {
+            if (typeof io !== 'undefined') {
+                updateStatus('socket-status', 'Socket.IO: ✅ Available', 'success');
+                addLog('Socket.IO library loaded successfully', 'success');
+                return true;
+            } else {
+                updateStatus('socket-status', 'Socket.IO: ❌ Not Available', 'error');
+                addLog('Socket.IO library failed to load', 'error');
+                return false;
+            }
+        }
+        
+        // Test health endpoint
+        async function testHealth() {
+            addLog('Testing server health endpoint...');
+            
+            try {
+                const response = await fetch('/health');
+                if (response.ok) {
+                    const data = await response.json();
+                    updateStatus('server-status', 'Server: ✅ Healthy', 'success');
+                    addLog(`Health check successful: ${JSON.stringify(data)}`, 'success');
+                } else {
+                    updateStatus('server-status', 'Server: ⚠️ Unhealthy', 'warning');
+                    addLog(`Health check failed with status: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                updateStatus('server-status', 'Server: ❌ Unreachable', 'error');
+                addLog(`Health check error: ${error.message}`, 'error');
+            }
+        }
+        
+        // Test socket connection
+        function testConnection() {
+            if (!checkSocketIO()) {
+                return;
+            }
+            
+            addLog('Attempting to connect to multiplayer server...');
+            updateStatus('connection-status', 'Connection: 🔄 Connecting...', 'warning');
+            
+            // Disconnect existing socket if any
+            if (socket) {
+                socket.disconnect();
+            }
+            
+            // Create new socket connection
+            socket = io(window.location.origin, {
+                transports: ['websocket', 'polling'],
+                timeout: 8000,
+                reconnection: false
+            });
+            
+            const connectionTimeout = setTimeout(() => {
+                updateStatus('connection-status', 'Connection: ⏰ Timeout', 'error');
+                addLog('Connection attempt timed out after 8 seconds', 'error');
+                if (socket) {
+                    socket.disconnect();
+                }
+            }, 8000);
+            
+            socket.on('connect', () => {
+                clearTimeout(connectionTimeout);
+                updateStatus('connection-status', 'Connection: ✅ Connected', 'success');
+                addLog(`Successfully connected with ID: ${socket.id}`, 'success');
+                
+                // Test ping
+                const pingStart = Date.now();
+                socket.emit('ping', pingStart);
+            });
+            
+            socket.on('pong', (timestamp) => {
+                const latency = Date.now() - timestamp;
+                addLog(`Ping successful - Latency: ${latency}ms`, 'success');
+            });
+            
+            socket.on('connect_error', (error) => {
+                clearTimeout(connectionTimeout);
+                updateStatus('connection-status', 'Connection: ❌ Failed', 'error');
+                addLog(`Connection error: ${error.message}`, 'error');
+            });
+            
+            socket.on('disconnect', (reason) => {
+                updateStatus('connection-status', 'Connection: ⚠️ Disconnected', 'warning');
+                addLog(`Disconnected: ${reason}`, 'warning');
+            });
+            
+            socket.on('error', (error) => {
+                addLog(`Socket error: ${error}`, 'error');
+            });
+        }
+        
+        // Initialize page
+        window.addEventListener('DOMContentLoaded', () => {
+            addLog('Connection test page loaded');
+            checkSocketIO();
+            
+            // Auto-test health endpoint
+            testHealth();
+        });
+    </script>
+</body>
+</html> 

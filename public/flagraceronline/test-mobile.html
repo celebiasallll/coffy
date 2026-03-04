@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Controls Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #222;
+            color: white;
+        }
+        #info {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.8);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            z-index: 2000;
+        }
+        #test-area {
+            height: 100vh;
+            background: #333;
+            position: relative;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <div>Device: <span id="device-type">Detecting...</span></div>
+        <div>Mobile Controls: <span id="mobile-status">Initializing...</span></div>
+        <div>Joystick: X=<span id="joystick-x">0</span>, Y=<span id="joystick-y">0</span></div>
+        <div>Strength: <span id="joystick-strength">0</span></div>
+        <div>Inputs: <span id="vehicle-inputs">None</span></div>
+        <div>User Behavior: <span id="user-behavior">Analyzing...</span></div>
+        <div>Preferred Direction: <span id="preferred-direction">None</span></div>
+    </div>
+    
+    <div id="test-area"></div>
+    
+    <script src="js/mobile-controls.js"></script>
+    <script>
+        // Mock game object for testing
+        const mockGame = {
+            vehicle: {
+                inputs: {},
+                controls: {},
+                fireBullet: () => console.log('🔫 Fire bullet'),
+                jump: () => console.log('⬆️ Jump')
+            }
+        };
+        
+        // Initialize mobile controls
+        const mobileControls = new MobileControls(mockGame);
+        
+        // Update status display
+        function updateStatus() {
+            document.getElementById('device-type').textContent = mobileControls.isEnabled ? 'Mobile' : 'Desktop';
+            document.getElementById('mobile-status').textContent = mobileControls.isEnabled ? 'Active' : 'Disabled';
+            
+            if (mobileControls.virtualJoystick) {
+                const joystick = mobileControls.virtualJoystick;
+                document.getElementById('joystick-x').textContent = (joystick.normalizedX || 0).toFixed(3);
+                document.getElementById('joystick-y').textContent = (joystick.normalizedY || 0).toFixed(3);
+                document.getElementById('joystick-strength').textContent = (joystick.strength || 0).toFixed(3);
+                document.getElementById('joystick-active').textContent = joystick.active ? 'Yes' : 'No';
+                
+                // Display joystick status
+                document.getElementById('user-behavior').textContent = 
+                    `Active: ${joystick.active ? 'Yes' : 'No'}, Current: (${joystick.currentX || 0}, ${joystick.currentY || 0})`;
+                document.getElementById('preferred-direction').textContent = 
+                    `Simple & Responsive`;
+            }
+            
+            if (mockGame.vehicle.inputs) {
+                const inputs = [];
+                if (mockGame.vehicle.inputs.forward) inputs.push('Forward');
+                if (mockGame.vehicle.inputs.backward) inputs.push('Backward');
+                if (mockGame.vehicle.inputs.left) inputs.push('Left');
+                if (mockGame.vehicle.inputs.right) inputs.push('Right');
+                if (mockGame.vehicle.inputs.brake) inputs.push('Brake');
+                document.getElementById('vehicle-inputs').textContent = inputs.length ? inputs.join(', ') : 'None';
+            }
+        }
+        
+        // Update display every frame
+        function update() {
+            if (mobileControls.update) {
+                mobileControls.update();
+            }
+            updateStatus();
+            requestAnimationFrame(update);
+        }
+        
+        // Start update loop
+        update();
+        
+        // Log mobile controls status
+        console.log('📱 Mobile controls test initialized:', {
+            isEnabled: mobileControls.isEnabled,
+            joystick: !!mobileControls.virtualJoystick,
+            userAgent: navigator.userAgent
+        });
+    </script>
+</body>
+</html> 

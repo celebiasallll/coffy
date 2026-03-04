@@ -1,0 +1,634 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Arial', sans-serif;
+    overflow: hidden;
+    background: #000;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+#game-canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+}
+
+/* Loading Screen */
+#loading-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #87CEEB 0%, #98FB98 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    transition: opacity 1s ease;
+}
+
+.loading-content {
+    text-align: center;
+    color: #2E8B57;
+}
+
+.loading-content h1 {
+    font-size: 3em;
+    margin-bottom: 20px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
+
+.loading-bar {
+    width: 300px;
+    height: 10px;
+    background: rgba(255,255,255,0.3);
+    border-radius: 5px;
+    overflow: hidden;
+    margin: 20px auto;
+}
+
+.loading-progress {
+    height: 100%;
+    background: linear-gradient(90deg, #FFD700, #FFA500);
+    width: 0%;
+    transition: width 0.3s ease;
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    0% { background-position: -300px 0; }
+    100% { background-position: 300px 0; }
+}
+
+/* Game UI */
+#game-ui {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 100;
+}
+
+.ui-panel {
+    position: absolute;
+    pointer-events: auto;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 10px;
+    padding: 15px;
+    color: white;
+    font-weight: bold;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(5px);
+}
+
+/* HUD Container - Top Aligned Compact Layout */
+.top-hud-container {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+    z-index: 100;
+    pointer-events: none;
+}
+
+.top-hud-container > * {
+    pointer-events: auto;
+}
+
+/* Health and Honey HUD - Left Side */
+.top-left {
+    position: relative;
+    top: 0;
+    left: 0;
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+/* Compact HUD - Right Side */
+#compact-hud {
+    position: relative !important;
+    top: 0 !important;
+    right: 0 !important;
+    transform: none !important;
+}
+
+/* Remove original positioning */
+.top-right {
+    position: relative;
+    top: 0;
+    right: 0;
+}
+
+/* Health Bar */
+.health-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.icon {
+    font-size: 1.5em;
+}
+
+.bar-container {
+    width: 120px;
+}
+
+.bar {
+    width: 100%;
+    height: 12px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ff4444, #ff6666);
+    width: 100%;
+    transition: width 0.3s ease;
+}
+
+/* Honey Counter */
+.honey-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.2em;
+}
+
+/* Coffy Counter */
+.coffy-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.2em;
+}
+
+/* Controls Help - Bottom Left */
+.bottom-left {
+    position: fixed;
+    bottom: 10px;
+    left: 10px;
+    max-width: 250px;
+}
+
+.controls-help {
+    background: rgba(0, 0, 0, 0.7);
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 8px;
+    font-size: 0.8em;
+}
+
+.controls-title {
+    font-weight: bold;
+    color: #FFD700;
+    margin-bottom: 4px;
+    font-size: 0.9em;
+}
+
+.control-item {
+    margin: 2px 0;
+    color: #CCCCCC;
+    font-size: 0.75em;
+}
+
+/* Power-up Status */
+.power-ups {
+    top: 120px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    border-radius: 10px;
+    padding: 15px;
+    min-width: 200px;
+    display: none; /* Hidden by default */
+}
+
+.powerups-title {
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: #FFD700;
+    font-size: 14px;
+}
+
+.powerup-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    padding: 5px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+    font-size: 12px;
+}
+
+.powerup-icon {
+    margin-right: 8px;
+    font-size: 16px;
+}
+
+.powerup-info {
+    flex: 1;
+}
+
+.powerup-name {
+    font-weight: bold;
+    color: #FFD700;
+}
+
+.powerup-timer {
+    color: #CCCCCC;
+    font-size: 11px;
+}
+
+/* Mobile Controls */
+#mobile-controls {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 200px;
+    pointer-events: none;
+    display: none; /* Hidden by default, shown when mobile-mode class is active */
+    z-index: 1000;
+}
+
+/* Hide mobile controls on desktop by default */
+@media (min-width: 951px) {
+    #mobile-controls,
+    #mobile-attack-mode-bar {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+    }
+}
+
+/* Desktop mode - force hide mobile elements */
+body:not(.mobile-mode) #mobile-controls,
+body:not(.mobile-mode) #mobile-attack-mode-bar,
+body:not(.mobile-mode) .mobile-attack-mode-btn {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+/* Show mobile controls on mobile devices */
+@media (max-width: 950px) {
+    #mobile-controls {
+        display: block !important;
+        pointer-events: none;
+    }
+    
+    .joystick-container,
+    .mobile-buttons {
+        pointer-events: auto !important;
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+}
+
+
+
+/* Mobile attack mode buttons styling */
+.mobile-attack-mode-btn {
+    -webkit-tap-highlight-color: transparent !important;
+    touch-action: manipulation !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    font-family: Arial, sans-serif !important;
+}
+
+.mobile-attack-mode-btn:active {
+    transform: scale(0.95) !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.6) !important;
+}
+
+.mobile-attack-mode-btn:hover {
+    box-shadow: 0 4px 12px rgba(255,215,0,0.3) !important;
+}
+
+/* Hide mobile attack mode buttons on desktop */
+@media (min-width: 951px) {
+    #mobile-attack-mode-bar {
+        display: none !important;
+        visibility: hidden !important;
+    }
+}
+
+/* Ensure mobile attack mode buttons are visible on mobile */
+@media (max-width: 950px) {
+    #mobile-attack-mode-bar {
+        display: flex !important;
+        visibility: visible !important;
+    }
+    
+    /* Force visibility for mobile attack buttons */
+    .mobile-attack-mode-btn {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+    }
+}
+
+/* Health bar pulse animation for low health */
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+.joystick-container {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    pointer-events: auto;
+    display: flex;
+    visibility: visible;
+    opacity: 1;
+}
+
+.joystick {
+    width: 120px;
+    height: 120px;
+    background: rgba(255, 255, 255, 0.2);
+    border: 3px solid rgba(255, 255, 255, 0.5);
+    border-radius: 50%;
+    position: relative;
+    backdrop-filter: blur(5px);
+    touch-action: none;
+}
+
+.joystick-knob {
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 215, 0, 0.9);
+    border: 2px solid rgba(255, 255, 255, 0.8);
+    border-radius: 50%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    transition: all 0.1s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    pointer-events: none;
+}
+
+.mobile-buttons {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: auto;
+    visibility: visible;
+    opacity: 1;
+}
+
+.mobile-btn {
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 215, 0, 0.9);
+    border: 3px solid rgba(255, 255, 255, 0.8);
+    border-radius: 50%;
+    color: white;
+    font-size: 24px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(5px);
+    transition: all 0.1s ease;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.mobile-btn:active,
+.mobile-btn.active {
+    transform: scale(0.95);
+    background: rgba(255, 100, 100, 0.9);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.fly-up-btn {
+    background: rgba(100, 150, 255, 0.9);
+}
+
+.fly-down-btn {
+    background: rgba(100, 255, 150, 0.9);
+}
+
+.attack-btn {
+    background: rgba(255, 100, 100, 0.9);
+    font-size: 20px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    #mobile-controls {
+        display: block !important;
+        pointer-events: none;
+    }
+    
+    .joystick-container,
+    .mobile-buttons {
+        pointer-events: auto !important;
+    }
+    
+    .controls-help {
+        display: none;
+    }
+    
+    .ui-panel {
+        padding: 10px;
+        font-size: 0.9em;
+    }
+    
+    .top-left, .top-right {
+        top: 10px;
+    }
+    
+    .top-left {
+        left: 10px;
+    }
+    
+    .top-right {
+        right: 10px;
+    }
+    
+    .loading-content h1 {
+        font-size: 2em;
+    }
+    
+    .loading-bar {
+        width: 250px;
+    }
+}
+
+@media (max-width: 480px) {
+    .ui-panel {
+        padding: 8px;
+        font-size: 0.8em;
+    }
+    
+    .bar-container {
+        width: 80px;
+    }
+    
+    .joystick {
+        width: 100px;
+        height: 100px;
+    }
+    
+    .joystick-knob {
+        width: 35px;
+        height: 35px;
+    }
+    
+    .mobile-btn {
+        width: 50px;
+        height: 50px;
+        font-size: 1.2em;
+    }
+}
+
+/* Performance optimizations */
+.ui-panel, .mobile-btn, .joystick {
+    will-change: transform;
+    transform: translateZ(0);
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+.hud-left-group {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+} 
+
+/* Mobilde ana menü overlay ve kutusu tıklanabilir olsun */
+#mainMenuOverlay,
+#mainMenuBox,
+#mainMenuBox button,
+.bee-btn,
+.web3-button,
+button {
+    pointer-events: auto !important;
+} 
+
+body.mobile-mode #mobile-controls,
+#mobile-controls {
+    display: block !important;
+    pointer-events: auto !important;
+}
+
+/* Mobil cihazlarda kontrolleri her zaman göster */
+@media (max-width: 950px) {
+    .joystick-container,
+    .mobile-buttons {
+        display: flex !important;
+        pointer-events: auto !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    
+    #mobile-controls {
+        display: block !important;
+        pointer-events: auto !important;
+    }
+} 
+
+/* Game Over Screen Animations */
+@keyframes gameOverFadeIn {
+    0% {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes skullPulse {
+    0%, 100% {
+        transform: scale(1);
+        text-shadow: 0 0 20px #ff4444, 0 0 40px #ff4444;
+    }
+    50% {
+        transform: scale(1.1);
+        text-shadow: 0 0 30px #ff4444, 0 0 60px #ff4444, 0 0 90px #ff4444;
+    }
+}
+
+@keyframes titleGlow {
+    0% {
+        text-shadow: 0 4px 8px rgba(0,0,0,0.8), 0 0 20px #ff4444;
+    }
+    100% {
+        text-shadow: 0 4px 8px rgba(0,0,0,0.8), 0 0 40px #ff4444, 0 0 60px #ff6666;
+    }
+}
+
+/* Mobile responsive adjustments for game over screen */
+@media (max-width: 768px) {
+    #game-over-screen h1 {
+        font-size: 1.4em !important; /* %30 küçültüldü: 2em → 1.4em */
+    }
+    
+    #game-over-screen p {
+        font-size: 0.7em !important; /* %30 küçültüldü: 1em → 0.7em */
+    }
+    
+    #game-over-screen div[style*="max-width: 280px"] {
+        max-width: 60vw !important; /* %30 küçültüldü: 85vw → 60vw */
+        padding: 8px 10px !important; /* %30 küçültüldü: 12px 15px → 8px 10px */
+    }
+    
+    #game-over-screen div[style*="display: flex; gap: 15px"] {
+        flex-direction: column;
+        align-items: center;
+        gap: 8px !important; /* %30 küçültüldü: 15px → 8px */
+    }
+    
+    #game-over-screen button {
+        min-width: 100px !important; /* %30 küçültüldü: 140px → 100px */
+        margin-bottom: 5px; /* %30 küçültüldü: 8px → 5px */
+        padding: 7px 14px !important; /* Yeni eklendi */
+        font-size: 0.7em !important; /* Yeni eklendi */
+    }
+    
+    #game-over-screen div[style*="font-size: 2.5em"] {
+        font-size: 1.8em !important; /* %30 küçültüldü: 2.5em → 1.8em */
+    }
+} 

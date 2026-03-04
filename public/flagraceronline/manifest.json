@@ -1,0 +1,21 @@
+{
+  "name": "Open World Driving Game",
+  "short_name": "Driving Game",
+  "description": "Multiplayer open world driving game with mobile support",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "theme_color": "#000000",
+  "background_color": "#000000",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "16x16 32x32 48x48",
+      "type": "image/x-icon"
+    }
+  ],
+  "categories": ["games", "entertainment"],
+  "lang": "en",
+  "scope": "/"
+}
+ 

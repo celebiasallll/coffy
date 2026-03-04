@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <!-- Gelişmiş mobil meta tag'ler -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000000">
+    <meta name="msapplication-navbutton-color" content="#000000">
+    <meta name="apple-mobile-web-app-title" content="Driving Game">
+    <meta name="format-detection" content="telephone=no">
+    
+    <title>Open World Driving Game</title>
+    
+    <!-- Mobile CSS dosyası -->
+    <link rel="stylesheet" href="mobile.css">
+    
+
+    
+    <!-- PWA manifest -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="favicon.ico">
+    
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        
+        #loadingScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            z-index: 100;
+        }
+        
+        #speedometer {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 18px;
+        }
+        
+        #instructions {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        
+        #terrain-info {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        #tachometer {
+            position: absolute;
+            bottom: 60px;
+            right: 20px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        #gear-indicator {
+            position: absolute;
+            bottom: 100px;
+            right: 20px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 18px;
+            width: 40px;
+            text-align: center;
+        }
+        
+        /* IP rate limiting styles */
+        [data-tooltip] {
+            position: relative;
+        }
+        
+        [data-tooltip]:before {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 5px 10px;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            visibility: hidden;
+            opacity: 0;
+            transition: visibility 0s, opacity 0.2s ease-in-out;
+            z-index: 10;
+        }
+        
+        [data-tooltip]:hover:before {
+            visibility: visible;
+            opacity: 1;
+        }
+        
+        /* Claim button disabled state */
+        button#claimRewardsBtn:disabled {
+            background: linear-gradient(45deg, #a6895b, #a65e5e) !important;
+            cursor: not-allowed !important;
+            transform: none !important;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3) !important;
+        }
+        
+        /* ✅ ENHANCED: Landscape menu optimization */
+        @media screen and (orientation: landscape) and (max-height: 600px) {
+            #loginOverlay {
+                padding: 10px !important;
+                transform: scale(0.9) !important;
+            }
+            
+            #loginOverlay > div {
+                transform: scale(0.85) !important;
+                max-height: 90vh !important;
+                overflow-y: auto !important;
+                padding: 15px !important;
+            }
+        }
+        
+        /* ✅ ENHANCED: Extreme landscape optimization for small screens */
+        @media screen and (orientation: landscape) and (max-height: 500px) {
+            #loginOverlay > div {
+                transform: scale(0.75) !important;
+                padding: 10px 15px !important;
+            }
+            
+            #loginOverlay h1 {
+                font-size: 1.4rem !important;
+                margin: 0 0 15px 0 !important;
+            }
+            
+            #loginOverlay input {
+                padding: 10px !important;
+                margin-bottom: 15px !important;
+            }
+            
+            #loginOverlay button {
+                padding: 10px !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="loadingScreen">Loading...</div>
+    <div id="speedometer">0 km/h</div>
+    <div id="instructions">
+        W/S - Accelerate/Reverse<br>
+        A/D - Turn Left/Right<br>
+        Space - Jump 🦘<br>
+        Shift - Handbrake (Drift) 🏎️<br>
+        F - Fire Bullet<br>
+        F3 - Debug Info
+    </div>
+    <div id="terrain-info">Terrain: Grass</div>
+    <div id="tachometer">0 RPM</div>
+    <div id="gear-indicator">1</div>
+    
+    <!-- Mobile control elements - dynamically created by JavaScript -->
+    <div id="mobileUI"></div>
+    <div id="joystick-zone"></div>
+    <div id="mobile-touch-controls"></div>
+    <div id="mobile-hud"></div>
+    <div id="mobile-settings-panel"></div>
+    
+    <!-- Import Socket.IO for multiplayer -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    
+    <!-- Import Web3.js for wallet integration -->
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.8.0/dist/web3.min.js"></script>
+    
+    <!-- Import Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- Import Cannon.js (non-module version) -->
+    <script src="https://cdn.jsdelivr.net/npm/cannon@0.6.2/build/cannon.min.js"></script>
+    
+    <!-- Import SimplexNoise -->
+    <script src="https://cdn.jsdelivr.net/npm/simplex-noise@2.4.0/simplex-noise.min.js"></script>
+    
+    <!-- Import GSAP for animations -->
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.9.1/dist/gsap.min.js"></script>
+    
+    <!-- Gelişmiş animasyon kütüphaneleri -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+    
+    <!-- Import OrbitControls for debugging -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <!-- Stats.js removed - using custom FPS counter -->
+    
+    <!-- Mobile Compatibility Libraries -->
+    <!-- Touch controls and gestures -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.2/nipplejs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+    
+    <!-- Device detection -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mobile-detect/1.4.5/mobile-detect.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/UAParser.js/1.0.37/ua-parser.min.js"></script>
+    
+    <!-- Audio management -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.4/howler.min.js"></script>
+    
+    <!-- Daha gelişmiş mobil kütüphaneler -->
+    <!-- Performans izleme -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/web-vitals/3.5.0/web-vitals.min.js"></script>
+    
+    <!-- Mobil viewport yönetimi -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/viewport-units-buggyfill/0.6.2/viewport-units-buggyfill.min.js"></script>
+    
+    <!-- Touch gesture gelişmiş desteği -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/interact.js/1.10.19/interact.min.js"></script>
+    
+    <!-- Mobil performans optimizasyonu -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js"></script>
+    
+    <!-- Enhanced Collision Detection -->
+    <script src="https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.7.0/build/index.umd.js"></script>
+    
+    <!-- Essential Shaders (load first) -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/FXAAShader.js"></script>
+    
+    <!-- Base Post-Processing Classes (load before specific passes) -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/Pass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+    
+    <!-- Safe Post-Processing Effects (minimal dependencies) -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+    
+    <!-- Lens Flare Effects -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/objects/Lensflare.js"></script>
+    
+    <!-- Import additional visual modules in correct order -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/objects/Sky.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/objects/Water.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/objects/Reflector.js"></script>
+    
+    <!-- Import our game scripts -->
+    <script src="js/audio.js"></script>
+    <script src="js/physics.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/environment.js"></script>
+    <script src="js/terrain.js"></script>
+    <script src="js/objects.js"></script>
+    <script src="js/vehicle.js"></script>
+    
+    <!-- Import vehicle type scripts -->
+    <script src="js/vehicles/police.js"></script>
+    <script src="js/vehicles/thief.js"></script>
+    <script src="js/vehicles/courier.js"></script>
+    
+    <!-- Import multiplayer manager -->
+    <script src="js/multiplayer.js"></script>
+    
+        <!-- GSAP Animation Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    
+    <!-- Import new systems -->
+
+    <script src="js/mobile-controls.js"></script>
+    
+    <!-- Import mobile-related files -->
+    <script src="js/mobile-config.js"></script>
+    
+    <!-- Web3 Integration -->
+    <script src="js/web3handler.js"></script>
+    
+    <!-- Service Worker -->
+    <script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js');
+    }
+    </script>
+    
+    <!-- Initialize game -->
+    <script src="js/game.js"></script>
+</body>
+</html>

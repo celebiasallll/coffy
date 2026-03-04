@@ -1,0 +1,54 @@
+{
+  "inputs": [
+    {
+      "internalType": "uint256",
+      "name": "id",
+      "type": "uint256"
+    }
+  ],
+  "name": "getGameInfo",
+  "outputs": [
+    {
+      "internalType": "address",
+      "name": "player1",
+      "type": "address"
+    },
+    {
+      "internalType": "address",
+      "name": "player2",
+      "type": "address"
+    },
+    {
+      "internalType": "uint128",
+      "name": "stakePerPlayer",
+      "type": "uint128"
+    },
+    {
+      "internalType": "uint128",
+      "name": "totalStaked",
+      "type": "uint128"
+    },
+    {
+      "internalType": "uint64",
+      "name": "createdAt",
+      "type": "uint64"
+    },
+    {
+      "internalType": "uint8",
+      "name": "status",
+      "type": "uint8"
+    },
+    {
+      "internalType": "address",
+      "name": "winner",
+      "type": "address"
+    },
+    {
+      "internalType": "bool",
+      "name": "canCancel",
+      "type": "bool"
+    }
+  ],
+  "stateMutability": "view",
+  "type": "function"
+}

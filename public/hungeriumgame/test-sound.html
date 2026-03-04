@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sound Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        #log {
+            margin-top: 20px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Sound Test</h1>
+    <p>Click the buttons below to test sounds:</p>
+    
+    <button onclick="playDirectSound()">Play Direct Sound</button>
+    <button onclick="playHTMLAudio()">Play HTML Audio</button>
+    <button onclick="playAllMethods()">Play All Methods</button>
+    
+    <div id="log">Log messages will appear here...</div>
+    
+    <script>
+        // Log function
+        function log(message) {
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        // Play using Audio constructor
+        function playDirectSound() {
+            log("Attempting to play with Audio constructor...");
+            
+            try {
+                const sound = new Audio();
+                sound.src = 'assets/sounds/collision.mp3';
+                sound.volume = 0.5;
+                
+                sound.oncanplaythrough = () => {
+                    log("Sound loaded and ready to play");
+                };
+                
+                sound.onplay = () => {
+                    log("Sound playback started");
+                };
+                
+                sound.onended = () => {
+                    log("Sound playback completed");
+                };
+                
+                sound.onerror = (e) => {
+                    log(`Sound error: ${e.type} - ${sound.error ? sound.error.code : 'unknown'}`);
+                };
+                
+                const playPromise = sound.play();
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        log("Play promise resolved successfully");
+                    }).catch(error => {
+                        log(`Play promise rejected: ${error}`);
+                    });
+                }
+            } catch (error) {
+                log(`Critical error: ${error.message}`);
+            }
+        }
+        
+        // Play using HTML Audio element
+        function playHTMLAudio() {
+            log("Attempting to play with HTML Audio element...");
+            
+            try {
+                const sound = document.createElement('audio');
+                sound.src = 'assets/sounds/collision.mp3';
+                sound.volume = 0.5;
+                
+                sound.oncanplaythrough = () => {
+                    log("HTML Audio loaded and ready to play");
+                };
+                
+                sound.onplay = () => {
+                    log("HTML Audio playback started");
+                };
+                
+                sound.onended = () => {
+                    log("HTML Audio playback completed");
+                };
+                
+                sound.onerror = (e) => {
+                    log(`HTML Audio error: ${e.type} - ${sound.error ? sound.error.code : 'unknown'}`);
+                };
+                
+                const playPromise = sound.play();
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        log("HTML Audio promise resolved successfully");
+                    }).catch(error => {
+                        log(`HTML Audio promise rejected: ${error}`);
+                    });
+                }
+            } catch (error) {
+                log(`HTML Audio critical error: ${error.message}`);
+            }
+        }
+        
+        // Try all methods
+        function playAllMethods() {
+            log("Trying all sound playback methods in sequence...");
+            
+            // Method 1: Audio constructor
+            try {
+                const sound1 = new Audio('assets/sounds/collision.mp3');
+                sound1.volume = 0.5;
+                log("Method 1: Created Audio object");
+                
+                const promise1 = sound1.play();
+                if (promise1 !== undefined) {
+                    promise1.then(() => {
+                        log("Method 1: Success");
+                    }).catch(e => {
+                        log(`Method 1: Failed - ${e}`);
+                        
+                        // Method 2: HTML Audio Element
+                        try {
+                            log("Method 2: Trying HTML Audio element");
+                            const sound2 = document.createElement('audio');
+                            sound2.src = 'assets/sounds/collision.mp3';
+                            sound2.volume = 0.5;
+                            
+                            const promise2 = sound2.play();
+                            if (promise2 !== undefined) {
+                                promise2.then(() => {
+                                    log("Method 2: Success");
+                                }).catch(e => {
+                                    log(`Method 2: Failed - ${e}`);
+                                    
+                                    // Method 3: In-page audio element
+                                    log("Method 3: Creating in-page audio element");
+                                    const audioElement = document.createElement('audio');
+                                    audioElement.controls = false;
+                                    audioElement.src = 'assets/sounds/collision.mp3';
+                                    document.body.appendChild(audioElement);
+                                    
+                                    const promise3 = audioElement.play();
+                                    if (promise3 !== undefined) {
+                                        promise3.then(() => {
+                                            log("Method 3: Success");
+                                            setTimeout(() => {
+                                                audioElement.remove();
+                                            }, 1000);
+                                        }).catch(e => {
+                                            log(`Method 3: Failed - ${e}`);
+                                            audioElement.remove();
+                                        });
+                                    }
+                                });
+                            }
+                        } catch (error2) {
+                            log(`Method 2 critical error: ${error2.message}`);
+                        }
+                    });
+                }
+            } catch (error1) {
+                log(`Method 1 critical error: ${error1.message}`);
+            }
+        }
+        
+        // Log page load
+        window.onload = function() {
+            log("Page loaded. Click a button to test sound playback.");
+        };
+    </script>
+</body>
+</html> 

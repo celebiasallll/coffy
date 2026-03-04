@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#3a2614">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Coffyverse">
+    <title>Coffyverse</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="mobile.css" id="mobile-style" media="(orientation: landscape) and (max-width: 933px), (orientation: portrait) and (max-width: 949px)">
+    <style>
+      html, body {
+        width: 100vw; height: 100vh; margin: 0; padding: 0;
+        overflow: hidden; /* Mobilde scroll'u engelle */
+        touch-action: none; /* Mobilde zoom/scroll engelle */
+        overscroll-behavior: none;
+        background: #3a2614;
+      }
+      body {
+        -webkit-user-select: none; user-select: none;
+        -webkit-touch-callout: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      #mobileDebugPanel {
+        position: fixed;
+        bottom: 10px;
+        left: 10px;
+        background: rgba(0,0,0,0.5);
+        color: #ffd700;
+        font-size: 10px;
+        padding: 5px;
+        border-radius: 4px;
+        z-index: 9999;
+        display: none;
+        pointer-events: auto;
+        font-family: monospace;
+      }
+      #recoverControlsBtn {
+        background: #ffd700;
+        color: #000;
+        border: none;
+        padding: 3px 6px;
+        font-size: 9px;
+        margin-top: 4px;
+        border-radius: 3px;
+        cursor: pointer;
+      }
+      
+      /* Mobile notification system */
+      #notification-container {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 99999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        pointer-events: none;
+      }
+      
+      .notification {
+        background-color: rgba(58, 38, 20, 0.85);
+        color: #ffd700;
+        padding: 10px 15px;
+        border-radius: 20px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        font-size: 14px;
+        font-weight: bold;
+        text-align: center;
+        animation: notification-fade 0.3s ease-in-out;
+        opacity: 0.9;
+        pointer-events: none;
+        max-width: 80vw;
+      }
+      
+      @keyframes notification-fade {
+        0% { transform: translateY(-20px); opacity: 0; }
+        100% { transform: translateY(0); opacity: 0.9; }
+      }
+      
+      /* Improved loading screen */
+      #loadingScreen {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        width: 100vw;
+        position: fixed;
+        top: 0;
+        left: 0;
+        background: #2a1c12;
+        color: #ffd700;
+        z-index: 9999;
+        font-family: Arial, sans-serif;
+        text-align: center;
+      }
+      
+      .loading-logo {
+        width: 150px;
+        height: 150px;
+        margin-bottom: 20px;
+        background: linear-gradient(135deg, #ffd700 0%, #a67c52 100%);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 60px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        animation: pulse 2s infinite;
+      }
+      
+      @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+      }
+      
+      .loading-bar-container {
+        width: 80%;
+        max-width: 300px;
+        height: 10px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 5px;
+        margin: 20px 0;
+        overflow: hidden;
+      }
+      
+      .loading-bar {
+        width: 0%;
+        height: 100%;
+        background: linear-gradient(90deg, #ffd700, #a67c52);
+        border-radius: 5px;
+        transition: width 0.3s ease;
+      }
+      
+      .loading-tips {
+        margin-top: 20px;
+        font-size: 14px;
+        color: #fffbe8;
+        max-width: 80%;
+      }
+      
+      /* Mobile-specific loading screen adjustments */
+      @media (max-width: 600px) {
+        .loading-logo {
+          width: 120px;
+          height: 120px;
+          font-size: 50px;
+        }
+        
+        .loading-tips {
+          font-size: 12px;
+        }
+      }
+    </style>
+</head>
+<body>
+    <!-- Improved loading screen -->
+    <div id="loadingScreen">
+        <div class="loading-logo">☕</div>
+        <h2>Coffy Yükleniyor</h2>
+        <div class="loading-bar-container">
+            <div class="loading-bar" id="loading-progress"></div>
+        </div>
+        <div id="loading-status">Oyun dosyaları hazırlanıyor...</div>
+        <div class="loading-tips">
+            İPUCU: Mobilde joystick ile aracı yönlendir, sağ butonlarla ateş et ve fren yap.
+        </div>
+    </div>
+    
+    <div id="instructions">
+        <h1>Coffy: Drive, Rescue, Earn</h1>
+        <p>WASD to drive | SPACE to brake/drift | MOUSE to steer | F to fire | M to fire missile</p>
+        <p>Press SHIFT+P for police car | SHIFT+T for thief car | SHIFT+C for courier car</p>
+        <div id="introButtons">
+            <button id="startButton">Start Game</button>
+        </div>
+    </div>
+    
+    <div id="pauseOverlay" style="display:none;">
+        <div>
+            <h2>Game Paused</h2>
+            <button id="resumeButton">Resume Game</button>
+            <button id="mainMenuButton">Main Menu</button>
+        </div>
+    </div>
+    
+    <!-- Mobile Debug Panel -->
+    <div id="mobileDebugPanel">
+        <div id="mobilePerformance">FPS: -- | MEM: --</div>
+        <div id="mobileInputStatus">Joystick: OK | Touch: OK</div>
+        <button id="mobileForceFix" style="font-size:10px;margin-top:5px;">Force Fix Controls</button>
+    </div>
+    
+    <!-- Notification container -->
+    <div id="notification-container"></div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.151.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.151.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module" src="main.js"></script>
+    <script src="nipplejs.min.js"></script>
+    <script src="mobileHud.js"></script>
+    <script>
+        // Initialize loading progress animation
+        let loadingProgress = 0;
+        const progressBar = document.getElementById('loading-progress');
+        const loadingStatus = document.getElementById('loading-status');
+        const loadingTips = [
+            "İPUCU: Mobilde joystick ile aracı yönlendir, sağ butonlarla ateş et ve fren yap.",
+            "İPUCU: Farklı kamera açıları için kamera butonunu kullan.",
+            "İPUCU: Aracın hasar aldığında siren sesi duyarsın.",
+            "İPUCU: Rehineleri kurtarmak için yakınlarına git.",
+            "İPUCU: Coffy toplamak için sarı parlak nesnelere çarp."
+        ];
+        
+        // Random loading tip rotation
+        setInterval(() => {
+            const tipsElement = document.querySelector('.loading-tips');
+            if (tipsElement) {
+                const randomTip = loadingTips[Math.floor(Math.random() * loadingTips.length)];
+                tipsElement.innerHTML = randomTip;
+                tipsElement.style.opacity = 0;
+                setTimeout(() => tipsElement.style.opacity = 1, 200);
+            }
+        }, 5000);
+        
+        // Simulate loading progress
+        const loadingInterval = setInterval(() => {
+            // Increment with randomness for more natural feel
+            loadingProgress += Math.random() * 2;
+            
+            if (loadingProgress >= 100) {
+                loadingProgress = 100;
+                clearInterval(loadingInterval);
+            }
+            
+            progressBar.style.width = `${loadingProgress}%`;
+            
+            // Update loading status text
+            if (loadingProgress < 30) {
+                loadingStatus.textContent = "Oyun dosyaları hazırlanıyor...";
+            } else if (loadingProgress < 60) {
+                loadingStatus.textContent = "Grafikler yükleniyor...";
+            } else if (loadingProgress < 90) {
+                loadingStatus.textContent = "Fizik motoru başlatılıyor...";
+            } else {
+                loadingStatus.textContent = "Hazırlanıyor...";
+            }
+        }, 100);
+        
+        // Global notification function
+        window.showNotification = function(message, duration = 3000) {
+            // Create notification container if it doesn't exist
+            let container = document.getElementById('notification-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'notification-container';
+                document.body.appendChild(container);
+            }
+            
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.textContent = message;
+            
+            // Add to container
+            container.appendChild(notification);
+            
+            // Set up removal
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.style.transform = 'translateY(-20px)';
+                notification.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }, duration);
+        };
+        
+        // Debug panel functionality
+        document.getElementById('mobileForceFix')?.addEventListener('click', function() {
+            if (window.game && typeof window.game.recoverMobileControls === 'function') {
+                window.game.recoverMobileControls();
+                window.showNotification('Kontroller yenilendi!', 2000);
+            } else if (window.mobileHud && typeof window.mobileHud.forceRefresh === 'function') {
+                window.mobileHud.forceRefresh();
+                window.showNotification('Kontroller yenilendi!', 2000);
+            }
+        });
+        
+        // Enable debug panel with secret gesture (tap 5 times in top right corner)
+        let tapCount = 0;
+        let lastTapTime = 0;
+        
+        document.addEventListener('touchstart', function(e) {
+            const now = new Date().getTime();
+            const touch = e.touches[0];
+            
+            // Check if touch is in top right corner
+            if (touch.clientX > window.innerWidth * 0.8 && touch.clientY < window.innerHeight * 0.2) {
+                if (now - lastTapTime < 500) {
+                    tapCount++;
+                    
+                    if (tapCount >= 5) {
+                        const debugPanel = document.getElementById('mobileDebugPanel');
+                        debugPanel.style.display = debugPanel.style.display === 'none' ? 'block' : 'none';
+                        tapCount = 0;
+                        window.showNotification('Debug panel toggled', 1500);
+                    }
+                } else {
+                    tapCount = 1;
+                }
+                
+                lastTapTime = now;
+            }
+        });
+        
+        // Update debug info if panel is visible
+        setInterval(() => {
+            const debugPanel = document.getElementById('mobileDebugPanel');
+            if (debugPanel && debugPanel.style.display !== 'none') {
+                const perfElement = document.getElementById('mobilePerformance');
+                const inputElement = document.getElementById('mobileInputStatus');
+                
+                // Get performance data
+                const fps = window.fpsHistory && window.fpsHistory.length > 0 ? 
+                    Math.round(window.fpsHistory[window.fpsHistory.length - 1]) : '--';
+                    
+                const memory = navigator.deviceMemory || '--';
+                
+                // Get input status
+                const joystickStatus = window.joystickIssuesDetected ? 'ISSUE' : 
+                                      (window.lastJoystickActivity && (Date.now() - window.lastJoystickActivity < 5000)) ? 'OK' : '--';
+                                      
+                const touchStatus = ('ontouchstart' in window) ? 'OK' : '--';
+                
+                // Update elements
+                if (perfElement) perfElement.textContent = `FPS: ${fps} | MEM: ${memory}GB`;
+                if (inputElement) inputElement.textContent = `Joystick: ${joystickStatus} | Touch: ${touchStatus}`;
+            }
+        }, 1000);
+    </script>
+</body>
+</html> 

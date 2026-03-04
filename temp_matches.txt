@@ -1,0 +1,14 @@
+1803: const game = await moduleContract.games(gameId);
+1822: const game = await moduleContract.games(gameId);
+1834: const claimed = await moduleContract.hasClaimedGame(gameId, userAddress);
+1849: const tx = await moduleContract.claimGameWin(gameId, signature);
+1859: const claimed = await moduleContract.hasClaimedGame(gameId, userAddress);
+1875: const tx = await moduleContract.claimGameDraw(gameId, signature);
+2200: const txPromise = moduleContract.createGame(stakeWei);
+2216: const parsed = moduleContract.interface.parseLog(log);
+2233: const nextId = await moduleContract.nextGameId();
+2441: const joinTx = await moduleContract.joinGame(gameId);
+2526: let gameInfo = await moduleContract.games(gameId);
+2549: const claimed = await moduleContract.hasClaimedGame(gameId, userAddress);
+2570: tx = await moduleContract.claimGameDraw(gameId, signature);
+2573: tx = await moduleContract.claimGameWin(gameId, signature);

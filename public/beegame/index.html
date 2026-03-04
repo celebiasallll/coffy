@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Bee Game - Open World Adventure (Enhanced)</title>
+  <link rel="stylesheet" href="style.css">
+  <link id="mobile-style" rel="stylesheet" href="mobile.css"
+    media="(orientation: landscape) and (max-width: 933px), (orientation: portrait) and (max-width: 949px)">
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
+  <style>
+    /* Giriş ve overlay UI için ek CSS */
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+    }
+
+    #entryOverlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.85);
+      color: #fff;
+      z-index: 99999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #entryOverlay h1 {
+      font-size: 2.2em;
+      margin-bottom: 18px;
+      color: #ffd700;
+    }
+
+    #entryOverlay .web3-btns {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .web3-button {
+      padding: 10px 15px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.3s;
+    }
+
+    .connect-wallet {
+      background-color: #4169E1;
+      color: white;
+    }
+
+    .claim-reward {
+      background-color: #DAA520;
+      color: white;
+    }
+
+    .web3-button:disabled {
+      background-color: #665720;
+      color: rgba(255, 255, 255, 0.7);
+      cursor: not-allowed;
+    }
+
+    #notification {
+      position: fixed;
+      top: 120px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 12px 15px;
+      border-radius: 5px;
+      font-size: 14px;
+      display: none;
+      z-index: 100001;
+      max-width: 300px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .success {
+      border-left: 4px solid #4CAF50;
+    }
+
+    .error {
+      border-left: 4px solid #f44336;
+    }
+
+    .info {
+      border-left: 4px solid #2196F3;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.4);
+      }
+
+      70% {
+        box-shadow: 0 0 0 10px rgba(33, 150, 243, 0);
+      }
+
+      100% {
+        box-shadow: 0 0 0 0 rgba(33, 150, 243, 0);
+      }
+    }
+
+    #settings-btn {
+      position: fixed;
+      bottom: 14px;
+      right: 14px;
+      z-index: 9999;
+      background: rgba(40, 40, 40, 0.5);
+      border: none;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+      opacity: 0.5;
+      transition: opacity 0.2s;
+    }
+
+    #settings-btn svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    #settings-menu {
+      position: fixed;
+      bottom: 54px;
+      right: 14px;
+      z-index: 10000;
+      background: rgba(30, 30, 40, 0.97);
+      color: #ffd700;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px #00000033;
+      padding: 6px 0;
+      min-width: 110px;
+      display: none;
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    #settings-menu button {
+      background: none;
+      border: none;
+      color: #ffd700;
+      font-size: 13px;
+      padding: 7px 10px;
+      text-align: left;
+      cursor: pointer;
+      width: 100%;
+    }
+
+    #settings-menu button:hover {
+      background: rgba(255, 255, 255, 0.07);
+    }
+
+    @media (max-width: 950px) {
+      #settings-btn {
+        width: 24px;
+        height: 24px;
+      }
+
+      #settings-menu {
+        min-width: 90px;
+        font-size: 11px;
+      }
+    }
+
+    #mainMenuOverlay {
+      backdrop-filter: blur(2.5px);
+    }
+
+    #mainMenuBox {
+      animation: popin 0.7s cubic-bezier(.23, 1.32, .64, 1) 1;
+    }
+
+    @keyframes popin {
+      0% {
+        transform: scale(0.7);
+        opacity: 0;
+      }
+
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    #mainMenuBox button {
+      box-shadow: 0 2px 8px #0002;
+      font-size: 1.08em;
+    }
+
+    #mainMenuBox button:active {
+      transform: scale(0.97);
+    }
+
+    #mainMenuBox h1 {
+      font-family: 'Segoe UI', Arial, sans-serif;
+    }
+
+    @media (max-width:600px) {
+      #mainMenuBox {
+        min-width: unset;
+        padding: 18px 6vw;
+      }
+    }
+
+    /* Honeycomb background effect */
+    #mainMenuHoneycombBg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 0;
+      background-image: repeating-linear-gradient(60deg, #ffe066 0 8px, transparent 8px 32px),
+        repeating-linear-gradient(-60deg, #ffe066 0 8px, transparent 8px 32px),
+        repeating-linear-gradient(120deg, #fffbe8 0 8px, transparent 8px 32px),
+        repeating-linear-gradient(-120deg, #fffbe8 0 8px, transparent 8px 32px);
+      opacity: 0.13;
+      pointer-events: none;
+    }
+
+    #mainMenuOverlay {
+      animation: fadein-bg 1.2s cubic-bezier(.23, 1.32, .64, 1);
+    }
+
+    @keyframes fadein-bg {
+      0% {
+        opacity: 0;
+      }
+
+      100% {
+        opacity: 1;
+      }
+    }
+
+    #mainMenuBox {
+      animation: popin 0.8s cubic-bezier(.23, 1.32, .64, 1) 1;
+      border: 2.5px solid #ffd70055;
+    }
+
+    @keyframes popin {
+      0% {
+        transform: scale(0.7);
+        opacity: 0;
+      }
+
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    #mainMenuBox h1 {
+      font-family: 'Fredoka One', cursive, sans-serif;
+      color: #ffd700;
+      letter-spacing: 2px;
+      text-shadow: 0 4px 24px #000a, 0 1px 0 #fffbe8;
+      margin-bottom: 14px;
+      font-size: 2.7em;
+    }
+
+    .bee-btn {
+      background: linear-gradient(90deg, #ffd700 60%, #ffe066 100%);
+      color: #3a2614;
+      font-family: 'Fredoka One', Arial, sans-serif;
+      font-size: 1.13em;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      box-shadow: 0 2px 12px #ffd70033, 0 1.5px 0 #fffbe8 inset;
+      padding: 12px 0;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: background 0.18s, box-shadow 0.18s, transform 0.13s;
+      outline: none;
+    }
+
+    .bee-btn:active {
+      background: #ffe066;
+      box-shadow: 0 1px 4px #ffd70033;
+      transform: scale(0.97);
+    }
+
+    .bee-btn:focus {
+      outline: 2px solid #ffd70099;
+    }
+
+    #mainMenuBox button:disabled {
+      background: #e0e0e0;
+      color: #aaa;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    @media (max-width:600px) {
+      #mainMenuBox {
+        min-width: unset;
+        padding: 18px 4vw;
+      }
+
+      #mainMenuBox h1 {
+        font-size: 2em;
+      }
+
+      .bee-btn {
+        font-size: 1em;
+        padding: 10px 0;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Settings Button and Menu -->
+  <button id="settings-btn">
+    <svg viewBox="0 0 20 20" fill="none">
+      <circle cx="10" cy="10" r="7" stroke="#ffd700" stroke-width="2" fill="none" />
+      <path d="M10 3V0M10 20v-3M3 10H0M20 10h-3M15.5 4.5l2-2M2.5 17.5l2-2M15.5 15.5l2 2M2.5 2.5l2 2" stroke="#ffd700"
+        stroke-width="1.2" />
+    </svg>
+  </button>
+  <div id="settings-menu">
+    <button id="toggle-mobile-mode">Toggle Mobile Mode</button>
+    <button id="fix-mobile-ui">Fix Mobile UI</button>
+  </div>
+
+  <!-- Game UI -->
+  <div id="game-ui">
+    <!-- Top HUD Container -->
+    <div class="top-hud-container">
+      <!-- Left Side: Health and Stats -->
+      <div class="hud-left-group">
+        <!-- Health Bar -->
+        <div class="ui-panel top-left">
+          <div class="health-container">
+            <span class="icon">❤️</span>
+            <div class="bar-container">
+              <div class="bar health-bar">
+                <div class="bar-fill" id="health-fill"></div>
+              </div>
+            </div>
+            <span id="health-text">100</span>
+          </div>
+        </div>
+
+        <!-- Coffy Counter -->
+        <div class="ui-panel top-right">
+          <div class="coffy-container">
+            <span id="coffy-count">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Side: Compact Level/Hive HUD (will be created by JS) -->
+    </div>
+
+    <!-- Power-up Status (Center when active) -->
+    <div class="ui-panel power-ups" id="powerup-status">
+      <div class="powerups-title">Active Power-ups:</div>
+    </div>
+
+    <!-- Controls Help (Bottom Left) -->
+    <div class="ui-panel bottom-left controls-help">
+      <div class="controls-title">Mission Controls:</div>
+      <div class="control-item">WASD - Move & Turn</div>
+      <div class="control-item">Mouse - Look Around</div>
+      <div class="control-item">Space - Fly Up</div>
+      <div class="control-item">Shift - Fly Down</div>
+      <div class="control-item">F - Attack Enemies</div>
+      <div class="control-item">Q - Dodge</div>
+      <div class="control-item">⚔️ Survive enemy attacks</div>
+      <div class="control-item">🎯 Survival Mode - Fight to stay alive!</div>
+      <div class="control-item">⚔️ Defeat waves of enemies</div>
+    </div>
+
+    <!-- Mobile Controls -->
+    <div id="mobile-controls">
+      <div class="joystick-container left">
+        <div class="joystick" id="movement-joystick">
+          <div class="joystick-knob"></div>
+        </div>
+      </div>
+      <div class="mobile-buttons right">
+        <button class="mobile-btn fly-up-btn" id="fly-up-btn">↑</button>
+        <button class="mobile-btn fly-down-btn" id="fly-down-btn">↓</button>
+        <button class="mobile-btn attack-btn" id="attack-btn">🗡️</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Canvas -->
+  <canvas id="game-canvas"></canvas>
+
+  <!-- Scripts -->
+  <!-- Oyun ve UI scriptleri (sıralı ve tekrar yok) -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.155.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/web3@4.5.0/dist/web3.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <script src="js/Pass.js"></script>
+  <script src="js/CopyShader.js"></script>
+  <script src="js/LuminosityHighPassShader.js"></script>
+  <script src="js/FXAAShader.js"></script>
+  <script src="js/ShaderPass.js"></script>
+  <script src="js/EffectComposer.js"></script>
+  <script src="js/RenderPass.js"></script>
+  <script src="js/UnrealBloomPass.js"></script>
+  <script src="js/Sky.js"></script>
+  <script src="js/Water.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/graphics-manager.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/world.js"></script>
+  <script src="js/enemies.js"></script>
+  <script src="js/flowers.js"></script>
+  <script src="js/powerups.js"></script>
+  <script src="js/gsap.min.js"></script>
+  <script src="js/simplex-noise.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/game.js"></script>
+  <!-- Web3 ve mobil HUD scriptleri en sonda ve global -->
+  <script src="js/web3handler.js"></script>
+  <script src="js/mobileControls.js"></script>
+  <script src="js/mobileConfig.js"></script>
+  <script>
+    // Global web3Handler ve mobileHud erişimi
+    window.addEventListener('DOMContentLoaded', function () {
+      if (!window.web3Handler && typeof Web3Handler === 'function') {
+        window.web3Handler = new Web3Handler();
+      }
+      if (!window.mobileHud && typeof window.mobileHud !== 'undefined') {
+        window.mobileHud = window.mobileHud;
+      }
+    });
+  </script>
+  <script>
+    // Ana Menü ve Web3 entegrasyonu
+    const mainMenuOverlay = document.getElementById('mainMenuOverlay');
+    const mainMenuConnectWallet = document.getElementById('mainMenuConnectWallet');
+    const mainMenuClaimReward = document.getElementById('mainMenuClaimReward');
+    const mainMenuStartGame = document.getElementById('mainMenuStartGame');
+    const walletStatus = document.getElementById('walletStatus');
+    const scoreSection = document.getElementById('scoreSection');
+    const totalScore = document.getElementById('totalScore');
+    const claimableCoffy = document.getElementById('claimableCoffy');
+    let web3Handler = null;
+    let walletConnected = false;
+    let gameStarted = false;
+    function updateWalletStatus() {
+      if (!walletStatus || !mainMenuClaimReward || !scoreSection || !totalScore || !claimableCoffy) return;
+      if (web3Handler && web3Handler.currentAccount) {
+        walletStatus.textContent = 'Wallet Connected: ' + web3Handler.currentAccount.slice(0, 6) + '...' + web3Handler.currentAccount.slice(-4);
+        mainMenuClaimReward.disabled = false;
+        scoreSection.style.display = 'flex';
+        walletConnected = true;
+        if (typeof web3Handler.totalEarnedTokens !== 'undefined') {
+          totalScore.textContent = web3Handler.totalEarnedTokens;
+        }
+        // TUTARLI COFFY GÖSTERME
+        let coffy = 0;
+
+        // Önce localStorage'dan al
+        const localCoffy = parseInt(localStorage.getItem('coffyEarned') || '0', 10);
+
+        // Sonra oyuncu nesnesinden al
+        if (window.game && window.game.player) {
+          const playerCoffy = window.game.player.coffy || 0;
+          const playerLocalCoffy = typeof window.game.player.getLocalCoffy === 'function' ? window.game.player.getLocalCoffy() : 0;
+
+          // En yüksek değeri kullan (tutarlılık için)
+          coffy = Math.max(localCoffy, playerCoffy, playerLocalCoffy);
+        } else {
+          coffy = localCoffy;
+        }
+
+        claimableCoffy.textContent = coffy;
+      } else {
+        walletStatus.textContent = 'Wallet Not Connected';
+        mainMenuClaimReward.disabled = true;
+        scoreSection.style.display = 'none';
+        walletConnected = false;
+      }
+    }
+    // Canvas inputlarını yönetmek için yardımcı fonksiyon
+    function setCanvasInputEnabled(enabled) {
+      const canvas = document.getElementById('game-canvas');
+      if (canvas) {
+        canvas.style.pointerEvents = enabled ? 'auto' : 'none';
+      }
+    }
+    // Başlangıçta overlay açıkken canvas inputlarını kapat
+    setCanvasInputEnabled(false);
+
+    // Oyun başlatma fonksiyonunu sadece bir kez çağırmak için koruma
+    // let gameStarted = false; // Bu satır artık burada tanımlanmıyor
+
+    window.addEventListener('DOMContentLoaded', function () {
+      const mainMenuOverlay = document.getElementById('mainMenuOverlay');
+      const mainMenuConnectWallet = document.getElementById('mainMenuConnectWallet');
+      const mainMenuClaimReward = document.getElementById('mainMenuClaimReward');
+      const mainMenuStartGame = document.getElementById('mainMenuStartGame');
+      const walletStatus = document.getElementById('walletStatus');
+      const scoreSection = document.getElementById('scoreSection');
+      const totalScore = document.getElementById('totalScore');
+      const claimableCoffy = document.getElementById('claimableCoffy');
+      let web3Handler = null;
+      let walletConnected = false;
+      let gameStarted = false;
+      function updateWalletStatus() {
+        if (!walletStatus || !mainMenuClaimReward || !scoreSection || !totalScore || !claimableCoffy) return;
+        if (web3Handler && web3Handler.currentAccount) {
+          walletStatus.textContent = 'Wallet Connected: ' + web3Handler.currentAccount.slice(0, 6) + '...' + web3Handler.currentAccount.slice(-4);
+          mainMenuClaimReward.disabled = false;
+          scoreSection.style.display = 'flex';
+          walletConnected = true;
+          if (typeof web3Handler.totalEarnedTokens !== 'undefined') {
+            totalScore.textContent = web3Handler.totalEarnedTokens;
+          }
+          // TUTARLI COFFY GÖSTERME (2. KOPYA)
+          let coffy = 0;
+
+          // Önce localStorage'dan al
+          const localCoffy = parseInt(localStorage.getItem('coffyEarned') || '0', 10);
+
+          // Sonra oyuncu nesnesinden al
+          if (window.game && window.game.player) {
+            const playerCoffy = window.game.player.coffy || 0;
+            const playerLocalCoffy = typeof window.game.player.getLocalCoffy === 'function' ? window.game.player.getLocalCoffy() : 0;
+
+            // En yüksek değeri kullan (tutarlılık için)
+            coffy = Math.max(localCoffy, playerCoffy, playerLocalCoffy);
+          } else {
+            coffy = localCoffy;
+          }
+
+          claimableCoffy.textContent = coffy;
+        } else {
+          walletStatus.textContent = 'Wallet Not Connected';
+          mainMenuClaimReward.disabled = true;
+          scoreSection.style.display = 'none';
+          walletConnected = false;
+        }
+      }
+      function setCanvasInputEnabled(enabled) {
+        const canvas = document.getElementById('game-canvas');
+        if (canvas) {
+          canvas.style.pointerEvents = enabled ? 'auto' : 'none';
+        }
+      }
+      setCanvasInputEnabled(false);
+      if (window.Web3Handler) {
+        web3Handler = new window.Web3Handler();
+        document.addEventListener('wallet-update', function () {
+          updateWalletStatus();
+        });
+        updateWalletStatus();
+      }
+      if (mainMenuConnectWallet) mainMenuConnectWallet.onclick = async function () {
+        if (web3Handler && typeof web3Handler.connectWallet === 'function') {
+          showNotification('Connecting wallet...', 'info');
+          try {
+            await web3Handler.connectWallet();
+            showNotification('Wallet connected!', 'success');
+            updateWalletStatus();
+          } catch (e) {
+            showNotification('Failed to connect wallet!', 'error');
+          }
+        }
+      };
+      if (mainMenuClaimReward) mainMenuClaimReward.onclick = async function () {
+        // GÜÇLE DÜZELTME - Coffy miktarını tutarlı şekilde al
+        let coffy = 0;
+
+        // Önce oyuncu nesnesinden al
+        if (window.game && window.game.player && typeof window.game.player.getLocalCoffy === 'function') {
+          coffy = window.game.player.getLocalCoffy();
+          console.log('📊 Coffy from player:', coffy);
+        }
+
+        // Eğer oyuncu yoksa localStorage'dan al
+        if (coffy <= 0) {
+          coffy = parseInt(localStorage.getItem('coffyEarned') || '0', 10);
+          console.log('📊 Coffy from localStorage:', coffy);
+        }
+
+        // Son kontrol - hem oyuncu hem localStorage'u senkronize et
+        if (window.game && window.game.player) {
+          const playerCoffy = window.game.player.coffy || 0;
+          const localCoffy = parseInt(localStorage.getItem('coffyEarned') || '0', 10);
+          coffy = Math.max(playerCoffy, localCoffy);
+          console.log('📊 Final coffy amount (max of both):', coffy, 'Player:', playerCoffy, 'Local:', localCoffy);
+        }
+
+        if (coffy <= 0) {
+          showNotification('No Coffy to claim!', 'info');
+          return;
+        }
+
+        if (web3Handler && typeof web3Handler.claimRewards === 'function') {
+          showNotification(`${coffy} Coffy is being claimed...`, 'info');
+          try {
+            // DOĞRU ÇAĞRI - claimGameRewards kontrata gönderilecek
+            console.log('🌐 Calling claimRewards with amount:', coffy);
+            await web3Handler.claimRewards(coffy);
+            showNotification(`Successfully claimed ${coffy} Coffy!`, 'success');
+
+            // Hem player hem localStorage'u sıfırla
+            if (window.game && window.game.player && typeof window.game.player.resetLocalCoffy === 'function') {
+              window.game.player.resetLocalCoffy();
+              window.game.player.coffy = 0; // Player coffy'sini de sıfırla
+            }
+            localStorage.setItem('coffyEarned', '0');
+
+            updateWalletStatus();
+            console.log('✅ Claim successful, all coffy reset to 0');
+          } catch (e) {
+            console.error('❌ Claim failed:', e);
+            showNotification('Failed to claim reward: ' + (e.message || e), 'error');
+          }
+        }
+      };
+      if (mainMenuStartGame) mainMenuStartGame.onclick = async function () {
+        // Çoklu tıklama koruması
+        if (gameStarted) {
+          console.log('🎮 Game already started, ignoring additional clicks');
+          return;
+        }
+        if (window.game && window.game.isRunning) {
+          console.log('🎮 Game already running, ignoring additional clicks');
+          return;
+        }
+
+        // Butonu devre dışı bırak
+        mainMenuStartGame.disabled = true;
+        mainMenuStartGame.style.opacity = '0.5';
+        mainMenuStartGame.textContent = 'Starting...';
+
+        gameStarted = true;
+        console.log('🎮 Starting new game...');
+
+        try {
+          window.game = new BeeGame();
+
+          // Eğer ethereum varsa ama henüz bağlanmadıysa veya init olmadıysa bekle
+          if (window.ethereum && window.web3Handler) {
+            console.log('🎮 Waiting for wallet/contract initialization...');
+            try {
+              // initializationPromise'ın çözülmesini bekle (timeout ile)
+              if (window.web3Handler.initializationPromise) {
+                await Promise.race([
+                  window.web3Handler.initializationPromise,
+                  new Promise(resolve => setTimeout(resolve, 3000)) // 3 sn limit
+                ]);
+              }
+            } catch (e) {
+              console.warn("Web3 init bekleme hatası veya timeout:", e);
+            }
+          }
+
+          if (window.web3Handler && typeof window.web3Handler.startGameOnContract === 'function') {
+            await window.web3Handler.startGameOnContract();
+          }
+          if (mainMenuOverlay) mainMenuOverlay.style.display = 'none';
+          setCanvasInputEnabled(true);
+          setTimeout(() => { window.focus(); }, 100);
+          console.log('✅ Game started successfully');
+        } catch (error) {
+          console.error('❌ Error starting game:', error);
+          // Hata durumunda butonu tekrar aktif et
+          gameStarted = false;
+          mainMenuStartGame.disabled = false;
+          mainMenuStartGame.style.opacity = '1';
+          mainMenuStartGame.textContent = 'Start Game';
+        }
+      };
+    });
+  </script>
+  <script>
+    // Global notification fonksiyonu
+    const notification = document.getElementById('notification');
+    function showNotification(msg, type = 'info', duration = 2000) {
+      if (!notification) return;
+      notification.textContent = msg;
+      notification.className = type;
+      notification.style.display = 'block';
+      setTimeout(() => { notification.style.display = 'none'; }, duration);
+    }
+    window.showNotification = showNotification;
+  </script>
+  <!-- window.game = new BeeGame(); kodunu kaldırıyorum, çünkü artık sadece Start Game butonunda çağrılıyor -->
+  <!-- Mobil algılama ve mobil CSS'i zorunlu kılma -->
+  <script>
+    function isMobileDevice() {
+      // Daha katı mobil algılama - Sadece gerçek mobil cihazlar
+      const userAgent = navigator.userAgent.toLowerCase();
+      const mobileKeywords = [
+        'android', 'webos', 'iphone', 'ipad', 'ipod',
+        'blackberry', 'iemobile', 'opera mini', 'mobile'
+      ];
+
+      // User agent kontrolü
+      const hasAgentKeyword = mobileKeywords.some(keyword => userAgent.includes(keyword));
+
+      // Touch support kontrolü
+      const hasTouchSupport = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+      // Ekran boyutu kontrolü (çok küçük ekranlar)
+      const isSmallScreen = window.innerWidth <= 768 && window.innerHeight <= 1024;
+
+      // Sadece GERÇEK mobil cihazlarda true döndür
+      return hasAgentKeyword && hasTouchSupport && isSmallScreen;
+    }
+
+    window.isMobileDevice = isMobileDevice;
+    window.isMobileMode = isMobileDevice();
+
+    // Mobil durumu takip et
+    function updateMobileMode() {
+      const wasMobile = window.isMobileMode;
+      window.isMobileMode = isMobileDevice();
+
+      if (wasMobile !== window.isMobileMode) {
+        console.log('📱 Mobile mode changed:', window.isMobileMode);
+
+        // CSS sınıfını güncelle
+        if (window.isMobileMode) {
+          document.body.classList.add('mobile-mode');
+          var mobileStyle = document.getElementById('mobile-style');
+          if (mobileStyle) {
+            mobileStyle.media = 'all';
+          }
+        } else {
+          document.body.classList.remove('mobile-mode');
+          var mobileStyle = document.getElementById('mobile-style');
+          if (mobileStyle) {
+            mobileStyle.media = 'not all'; // Disable mobile CSS
+          }
+        }
+      }
+    }
+
+    window.addEventListener('resize', updateMobileMode);
+    window.addEventListener('orientationchange', updateMobileMode);
+
+    // Sayfa yüklendiğinde mobil modunu ayarla
+    updateMobileMode();
+
+    console.log("📱 Mobile detection initialized. Mobile mode:", window.isMobileMode);
+    console.log("📱 User agent:", navigator.userAgent);
+    console.log("📱 Touch support:", 'ontouchstart' in window);
+    console.log("📱 Max touch points:", navigator.maxTouchPoints);
+    console.log("📱 Screen size:", window.innerWidth + 'x' + window.innerHeight);
+  </script>
+  <!-- Ayar butonu ve menü kontrolü -->
+  <script>
+    const settingsBtn = document.getElementById('settings-btn');
+    const settingsMenu = document.getElementById('settings-menu');
+    const toggleMobileModeBtn = document.getElementById('toggle-mobile-mode');
+    const fixMobileUiBtn = document.getElementById('fix-mobile-ui');
+    settingsBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (settingsMenu.style.display === 'flex') {
+        settingsMenu.style.display = 'none';
+      } else {
+        settingsMenu.style.display = 'flex';
+      }
+    });
+    document.addEventListener('click', function (e) {
+      if (settingsMenu.style.display === 'flex' && !settingsMenu.contains(e.target) && e.target !== settingsBtn) {
+        settingsMenu.style.display = 'none';
+      }
+    });
+    toggleMobileModeBtn.addEventListener('click', function () {
+      if (!window.isMobileMode && window.game && window.game.mobileControls && typeof window.game.mobileControls.enable === 'function') {
+        window.game.mobileControls.enable();
+        window.isMobileMode = true;
+      } else if (window.isMobileMode && window.game && window.game.mobileControls && typeof window.game.mobileControls.disable === 'function') {
+        window.game.mobileControls.disable();
+        window.isMobileMode = false;
+      }
+      settingsMenu.style.display = 'none';
+    });
+    fixMobileUiBtn.addEventListener('click', function () {
+      if (window.game && window.game.mobileControls && typeof window.game.mobileControls.forceRefresh === 'function') {
+        window.game.mobileControls.forceRefresh();
+        if (window.showNotification) window.showNotification("Mobile UI has been reset", 'info', 2000);
+      }
+      settingsMenu.style.display = 'none';
+    });
+    settingsBtn.addEventListener('mouseenter', function () {
+      settingsBtn.style.opacity = '1';
+    });
+    settingsBtn.addEventListener('mouseleave', function () {
+      settingsBtn.style.opacity = '0.5';
+    });
+  </script>
+  <!-- Ana menü overlay ve notification en sonda -->
+  <div id="mainMenuOverlay"
+    style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:999999 !important;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle at 60% 40%, #fffbe8 0%, #ffe066 40%, #ffd700 100%);overflow:hidden;pointer-events:auto !important;">
+    <div id="mainMenuHoneycombBg"></div>
+    <div id="mainMenuBox"
+      style="background:rgba(30,30,40,0.97);padding:38px 36px 30px 36px;border-radius:22px;box-shadow:0 8px 40px #0007,0 1.5px 0 #ffd70055 inset;display:flex;flex-direction:column;align-items:center;min-width:320px;max-width:92vw;position:relative;backdrop-filter:blur(2.5px);">
+      <h1
+        style="font-family:'Fredoka One',cursive,sans-serif;color:#ffd700;font-size:2.7em;margin-bottom:14px;letter-spacing:2px;text-shadow:0 4px 24px #000a,0 1px 0 #fffbe8;line-height:1.1;">
+        Bee Adventure</h1>
+      <div id="walletStatus" style="margin-bottom:18px;font-size:1.1em;color:#fff;">Wallet Not Connected</div>
+      <button id="mainMenuConnectWallet" class="web3-button connect-wallet bee-btn"
+        style="width:220px;margin-bottom:12px;">Connect Wallet</button>
+      <div id="scoreSection" style="display:none;flex-direction:column;align-items:center;margin-bottom:12px;">
+        <div style="color:#ffd700;font-size:1.1em;margin-bottom:4px;">Total Score: <span id="totalScore">0</span></div>
+        <div style="color:#fffbe8;font-size:0.98em;">Claimable Coffy: <span id="claimableCoffy">0</span></div>
+      </div>
+      <button id="mainMenuClaimReward" class="web3-button claim-reward bee-btn" style="width:220px;margin-bottom:12px;"
+        disabled>Claim Reward</button>
+      <button id="mainMenuStartGame" class="bee-btn"
+        style="width:220px;padding:12px 0;border:none;border-radius:8px;background:#4CAF50;color:white;font-size:1.15em;font-weight:bold;cursor:pointer;transition:all 0.2s;box-shadow:0 2px 8px #0002;">Start
+        Game</button>
+    </div>
+  </div>
+  <div id="notification" style="z-index:999999 !important;pointer-events:auto !important;"></div>
+</body>
+
+</html>

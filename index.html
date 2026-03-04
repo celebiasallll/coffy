@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Open World Driving Game</title>
+    <link rel="stylesheet" href="styles.css">
+    <link id="mobile-style" rel="stylesheet" href="mobile.css" media="(orientation: landscape) and (max-width: 933px), (orientation: portrait) and (max-width: 949px)">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        
+        #loadingScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            z-index: 100;
+        }
+        
+        #hud-container {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 6px;
+            z-index: 10;
+        }
+        
+        #speedometer, #gear-indicator {
+            position: static;
+            margin: 0;
+            width: 70px;
+            text-align: right;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 18px;
+            opacity: 0.5;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+        }
+        
+        @media (max-width: 950px) {
+            #hud-container {
+                bottom: 10px;
+                right: 10px;
+            }
+            #speedometer, #gear-indicator {
+                font-size: 12px;
+                padding: 6px;
+                width: 48px;
+            }
+        }
+        
+        #instructions {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        
+        #terrain-info {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        #tachometer {
+            position: absolute;
+            bottom: 60px;
+            right: 20px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        .web3-button {
+            padding: 10px 15px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        
+        .connect-wallet {
+            background-color: #4169E1;
+            color: white;
+        }
+        
+        .claim-reward {
+            background-color: #DAA520;
+            color: white;
+        }
+        
+        .web3-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        .web3-button:disabled {
+            background-color: #888;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        #pauseMenu {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.85);
+            padding: 30px;
+            border-radius: 10px;
+            color: white;
+            display: none;
+            z-index: 1000;
+            text-align: center;
+        }
+        
+        #pauseMenu button {
+            width: 200px;
+            margin: 10px 0;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            background-color: #4CAF50;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        
+        #pauseMenu button:hover {
+            background-color: #45a049;
+        }
+        
+        #notification {
+            position: absolute;
+            top: 150px;
+            right: 20px;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 12px 15px;
+            border-radius: 5px;
+            font-size: 14px;
+            display: none;
+            z-index: 1001;
+            max-width: 300px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+        
+        .success {
+            border-left: 4px solid #4CAF50;
+        }
+        
+        .error {
+            border-left: 4px solid #f44336;
+        }
+        
+        .info {
+            border-left: 4px solid #2196F3;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(33, 150, 243, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(33, 150, 243, 0); }
+        }
+        
+        /* Add wallet connection icons */
+        .wallet-icon {
+            display: none;
+        }
+        .connect-wallet, .claim-reward {
+            padding-left: 15px !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="loadingScreen">Loading...</div>
+    <!-- Settings button (gear) -->
+    <button id="settings-btn" style="position:fixed; bottom:14px; right:14px; z-index:9999; background:rgba(40,40,40,0.5); border:none; width:16px; height:16px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 4px rgba(0,0,0,0.18); opacity:0.5; transition:opacity 0.2s;">
+      <svg width="10" height="10" viewBox="0 0 20 20" fill="none" style="display:block; margin:auto;">
+        <circle cx="10" cy="10" r="7" stroke="#ffd700" stroke-width="2" fill="none"/>
+        <path d="M10 3V0M10 20v-3M3 10H0M20 10h-3M15.5 4.5l2-2M2.5 17.5l2-2M15.5 15.5l2 2M2.5 2.5l2 2" stroke="#ffd700" stroke-width="1.2"/>
+      </svg>
+    </button>
+    <!-- Settings menu -->
+    <div id="settings-menu" style="position:fixed; bottom:34px; right:14px; z-index:10000; background:rgba(30,30,40,0.97); color:#ffd700; border-radius:8px; box-shadow:0 2px 8px #00000033; padding:6px 0; min-width:110px; display:none; flex-direction:column; align-items:stretch;">
+      <button id="toggle-mobile-mode" style="background:none; border:none; color:#ffd700; font-size:11px; padding:7px 10px; text-align:left; cursor:pointer; width:100%;">Toggle Mobile Mode</button>
+      <button id="fix-mobile-ui" style="background:none; border:none; color:#ffd700; font-size:11px; padding:7px 10px; text-align:left; cursor:pointer; width:100%;">Fix Mobile UI</button>
+    </div>
+    <!-- Mobile mode instructions - shown only on hover -->
+    <div id="mobile-mode-instructions" style="position:fixed; bottom:40px; right:10px; z-index:9998; background:rgba(0,0,0,0.8); color:white; padding:8px; border-radius:4px; font-size:11px; display:none; max-width:200px; text-align:center; line-height:1.3;">
+        • Press <b>Shift+M</b> for mobile mode<br>
+        • <b>M</b> button toggles mobile UI<br>
+        • <b>F</b> button fixes issues
+    </div>
+    <!-- <div id="hud-container">
+        <div id="speedometer" style="opacity:0.5;">0 km/h</div>
+        <div id="gear-indicator" style="opacity:0.5;">1</div>
+    </div> -->
+    <div id="instructions" class="">
+        <b>CONTROLS</b><br>
+        W/S - Accelerate/Brake<br>
+        A/D - Turn Left/Right<br>
+        Space - Brake<br>
+        Shift - Handbrake<br>
+        F - Fire Bullet<br>
+        P - Pause Game<br>
+        R - Respawn Vehicle<br>
+        F3 - Debug Info<br>
+        <span style="border-top: 1px solid rgba(255,255,255,0.2); display: block; margin-top: 5px; padding-top: 5px;">
+            <b>WEATHER & TIME</b><br>
+            1/2/3 - Clear/Rain/Snow<br>
+            7/8/9/0 - Morning/Noon/Evening/Night
+        </span>
+    </div>
+    <!-- Notification element -->
+    <div id="notification"></div>
+    <!-- Audio Notification element -->
+    <div id="audioNotification" style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background-color:rgba(0,0,0,0.7);color:white;padding:8px 16px;border-radius:4px;font-size:14px;opacity:0;transition:opacity 0.3s;z-index:9999;pointer-events:none;"></div>
+    <!-- Pause Menu -->
+    <div id="pauseMenu">
+        <h2>Game Paused</h2>
+        <button id="resumeButton">Resume Game</button>
+        <button id="mainMenuButton">Main Menu</button>
+        <div id="pauseMenuBalance" style="margin-top: 20px;">
+            <p>Earned this session: <span id="earnedTokens">0</span> COFFY</p>
+        </div>
+    </div>
+
+    <!-- Tüm kütüphaneleri doğrudan script olarak yükle -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/cannon@0.6.2/build/cannon.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/simplex-noise@2.4.0/simplex-noise.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.11.5/dist/gsap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stats.js@0.17.0/build/stats.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/web3@4.5.0/dist/web3.min.js"></script>
+    
+    <!-- Force mobile detection and initial setup -->
+    <script>
+        // More reliable mobile detection function
+        function isMobileDevice() {
+            // Landscape: width <= 933px is always mobile
+            if (window.innerWidth > window.innerHeight) {
+                return window.innerWidth <= 933;
+            }
+            // Portrait: width <= 950px or mobile user agent
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 950;
+        }
+        
+        // Initialize mobile detection immediately
+        window.isMobileDevice = isMobileDevice;
+        window.isMobileMode = isMobileDevice();
+        
+        // Force apply mobile class immediately if needed
+        if (window.isMobileMode) {
+            document.body.classList.add('mobile-mode');
+            // Force mobile CSS
+            var mobileStyle = document.getElementById('mobile-style');
+            if (mobileStyle) {
+                mobileStyle.media = 'all';
+            }
+            console.log("Mobile mode detected and initialized on page load");
+        }
+    </script>
+    
+    <!-- Three.js eklentilerini yükle -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/examples/js/objects/Sky.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/examples/js/objects/Water.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/examples/js/shaders/CopyShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/examples/js/shaders/FXAAShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/examples/js/postprocessing/Pass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+    
+    <!-- Audio Manager -->
+    <script src="js/audioManager.js"></script>
+    
+    <!-- Oyun scriptlerini yüklemeden önce ObjectPool'u ekle -->
+    <script src="js/objectPool.js"></script>
+    <!-- Oyun scriptlerini yükle -->
+    <script src="js/web3handler.js"></script>
+    <script src="js/physics.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/environment.js"></script>
+    <script src="js/terrain.js"></script>
+    <script src="js/objects.js"></script>
+    <script src="js/coins.js"></script>
+    <script src="js/vehicle.js"></script>
+    <script src="js/vehicles/police.js"></script>
+    <script src="js/vehicles/thief.js"></script>
+    <script src="js/vehicles/courier.js"></script>
+    <script src="js/robots.js"></script>
+    <script src="js/robots/attackRobot.js"></script>
+    <script src="js/robots/guardRobot.js"></script>
+    <script src="js/game.js"></script>
+    
+    <script src="js/nipplejs.min.js"></script>
+    <script src="js/mobileHud.js"></script>
+    <script>
+        // Sayfa yüklendiğinde yükleme ekranını gizle
+        window.addEventListener('load', function() {
+            // Tüm scriptlerin yüklendiğinden emin olmak için kısa bir gecikme ekle
+            setTimeout(function() {
+                console.log("Kütüphaneler yüklendi:", {
+                    THREE: typeof THREE !== 'undefined',
+                    CANNON: typeof CANNON !== 'undefined',
+                    SimplexNoise: typeof SimplexNoise !== 'undefined',
+                    Web3: typeof Web3 !== 'undefined'
+                });
+                
+                // Hide loading screen
+                const loadingScreen = document.getElementById('loadingScreen');
+                if (loadingScreen) {
+                    loadingScreen.style.display = 'none';
+                }
+                
+                // Show mobile toggle button after loading
+                const mobileToggleBtn = document.getElementById('mobile-mode-toggle');
+                const mobileInstructions = document.getElementById('mobile-mode-instructions');
+                const forceRefreshBtn = document.getElementById('force-refresh-btn');
+                
+                if (mobileToggleBtn) {
+                    mobileToggleBtn.style.display = 'block';
+                    mobileToggleBtn.addEventListener('click', function() {
+                        enableMobileMode();
+                    });
+                    
+                    // Add hover functionality for instructions
+                    mobileToggleBtn.addEventListener('mouseenter', function() {
+                        if (mobileInstructions) {
+                            mobileInstructions.style.display = 'block';
+                        }
+                    });
+                    
+                    mobileToggleBtn.addEventListener('mouseleave', function() {
+                        if (mobileInstructions) {
+                            setTimeout(function() {
+                                // Don't hide if hovering over the instructions or the refresh button
+                                if (!mobileInstructions.matches(':hover') && 
+                                    (forceRefreshBtn && !forceRefreshBtn.matches(':hover'))) {
+                                    mobileInstructions.style.display = 'none';
+                                }
+                            }, 300);
+                        }
+                    });
+                }
+                
+                // Setup force refresh button
+                if (forceRefreshBtn) {
+                    forceRefreshBtn.style.display = 'block';
+                    forceRefreshBtn.addEventListener('click', function() {
+                        if (window.mobileHud && typeof window.mobileHud.forceRefresh === 'function') {
+                            window.mobileHud.forceRefresh();
+                            window.showNotification("Mobile UI reset complete", 2000);
+                        } else {
+                            window.showNotification("Mobile HUD not available", 2000);
+                        }
+                    });
+                    
+                    // Add hover functionality for instructions
+                    forceRefreshBtn.addEventListener('mouseenter', function() {
+                        if (mobileInstructions) {
+                            mobileInstructions.style.display = 'block';
+                        }
+                    });
+                    
+                    forceRefreshBtn.addEventListener('mouseleave', function() {
+                        if (mobileInstructions) {
+                            setTimeout(function() {
+                                // Don't hide if hovering over the instructions or the mobile button
+                                if (!mobileInstructions.matches(':hover') && 
+                                    (mobileToggleBtn && !mobileToggleBtn.matches(':hover'))) {
+                                    mobileInstructions.style.display = 'none';
+                                }
+                            }, 300);
+                        }
+                    });
+                    
+                    // Handle hover on instructions itself
+                    if (mobileInstructions) {
+                        mobileInstructions.addEventListener('mouseleave', function() {
+                            setTimeout(function() {
+                                if (!mobileToggleBtn.matches(':hover') && !forceRefreshBtn.matches(':hover')) {
+                                    mobileInstructions.style.display = 'none';
+                                }
+                            }, 300);
+                        });
+                    }
+                }
+                
+                // Make sure mobile mode is applied correctly on page load
+                const isMobile = window.isMobileDevice ? window.isMobileDevice() : 
+                   (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (window.innerWidth <= 600));
+                
+                if (isMobile && window.mobileHud && !document.getElementById('mobile-hud')) {
+                    console.log("Mobile device detected on window load, forcing mobile HUD");
+                    window.mobileHud.enable();
+                }
+                
+                // Force mobile mode initialization after a delay
+                setTimeout(function() {
+                    if (window.mobileHud && !document.getElementById('mobile-hud') && window.innerWidth <= 800) {
+                        console.log("Delayed mobile initialization - forcing mobile HUD");
+                        window.mobileHud.enable();
+                    }
+                }, 3000);
+                
+                // Make sure weather HUD is visible
+                if (window.game && window.game.environment) {
+                    if (typeof window.game.environment.forceDisplayWeatherHUD === 'function') {
+                        window.game.environment.forceDisplayWeatherHUD();
+                        console.log("Weather HUD initialized on page load");
+                    }
+                    
+                    // Initialize all HUD elements
+                    if (typeof window.game.initializeHUD === 'function') {
+                        window.game.initializeHUD();
+                        console.log("All HUD elements initialized on page load");
+                    }
+                } else {
+                    console.log("Game or environment not loaded yet, will retry...");
+                    // Try again after a delay
+                    setTimeout(function() {
+                        if (window.game && window.game.environment) {
+                            if (typeof window.game.environment.forceDisplayWeatherHUD === 'function') {
+                                window.game.environment.forceDisplayWeatherHUD();
+                            }
+                            if (typeof window.game.initializeHUD === 'function') {
+                                window.game.initializeHUD();
+                            }
+                        }
+                    }, 2000);
+                }
+                
+                // Yükleme ekranını gizle (oyun başlatılmış olmalı)
+                if (typeof Game !== 'undefined') {
+                    console.log("Oyun sınıfı yüklendi");
+                } else {
+                    console.error("Game sınıfı bulunamadı!");
+                    document.getElementById('loadingScreen').innerHTML = 
+                        "Oyun yüklenemedi. Lütfen sayfayı yenileyin veya tarayıcı konsolunu kontrol edin.";
+                }
+            }, 1000);
+        });
+
+        // Helper function to show audio notifications
+        window.showNotification = function(message, duration = 2000) {
+            const notification = document.getElementById('audioNotification');
+            if (notification) {
+                notification.textContent = message;
+                notification.style.opacity = '1';
+                
+                setTimeout(() => {
+                    notification.style.opacity = '0';
+                }, duration);
+            }
+        };
+
+        // Global function to force mobile mode
+        window.forceMobileMode = function() {
+            if (window.mobileHud && typeof window.mobileHud.enable === 'function') {
+                console.log("Manually forcing mobile HUD");
+                window.mobileHud.enable();
+                window.showNotification("Mobile mode activated", 2000);
+                return true;
+            }
+            return false;
+        };
+
+        // Add beforeunload handler to clean up audio resources
+        window.addEventListener('beforeunload', function() {
+            // Clean up any open audio contexts when page unloads
+            try {
+                if (window.game) {
+                    // Stop engine and siren sounds if they exist
+                    if (typeof stopEngineSound === 'function') {
+                        stopEngineSound();
+                    }
+                    if (typeof stopSirenSound === 'function') {
+                        stopSirenSound();
+                    }
+                    
+                    // Stop environment sounds if available
+                    if (window.game.environment && 
+                        typeof window.game.environment.stopAtmosphereSound === 'function') {
+                        window.game.environment.stopAtmosphereSound();
+                    }
+                }
+            } catch (e) {
+                console.log("Error cleaning up audio on page unload:", e);
+            }
+        });
+
+        // Mobile mode activation
+        window.isMobileMode = false;
+        function enableMobileMode() {
+            if (!window.isMobileMode && window.mobileHud && typeof window.mobileHud.enable === 'function') {
+                console.log("Mobile mode toggle pressed, enabling mobile mode");
+                window.mobileHud.enable();
+                return true;
+            } else if (window.isMobileMode && window.mobileHud && typeof window.mobileHud.disable === 'function') {
+                console.log("Mobile mode toggle pressed, disabling mobile mode");
+                window.mobileHud.disable();
+                return true;
+            }
+            return false;
+        }
+        document.addEventListener('keydown', function(e) {
+            // Change from F12 to Shift+M for toggling mobile mode
+            if (e.key === 'M' && e.shiftKey) {
+                e.preventDefault();
+                enableMobileMode();
+            }
+        });
+    </script>
+    <script>
+        // Ayar butonu ve menü kontrolü
+        const settingsBtn = document.getElementById('settings-btn');
+        const settingsMenu = document.getElementById('settings-menu');
+        const toggleMobileModeBtn = document.getElementById('toggle-mobile-mode');
+        const fixMobileUiBtn = document.getElementById('fix-mobile-ui');
+
+        // Menü aç/kapat
+        settingsBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            if (settingsMenu.style.display === 'flex') {
+                settingsMenu.style.display = 'none';
+            } else {
+                settingsMenu.style.display = 'flex';
+            }
+        });
+        // Menü dışına tıklanınca kapat
+        document.addEventListener('click', function(e) {
+            if (settingsMenu.style.display === 'flex' && !settingsMenu.contains(e.target) && e.target !== settingsBtn) {
+                settingsMenu.style.display = 'none';
+            }
+        });
+        // Mobil Modu Aç/Kapat
+        toggleMobileModeBtn.addEventListener('click', function() {
+            if (typeof enableMobileMode === 'function') {
+                enableMobileMode();
+            } else if (window.mobileHud && typeof window.mobileHud.enable === 'function') {
+                if (!window.isMobileMode) {
+                    window.mobileHud.enable();
+                } else if (typeof window.mobileHud.disable === 'function') {
+                    window.mobileHud.disable();
+                }
+            }
+            settingsMenu.style.display = 'none';
+        });
+        // Mobil UI'yi Düzelt
+        fixMobileUiBtn.addEventListener('click', function() {
+            if (window.mobileHud && typeof window.mobileHud.forceRefresh === 'function') {
+                window.mobileHud.forceRefresh();
+                window.showNotification("Mobil UI sıfırlandı", 2000);
+            }
+            settingsMenu.style.display = 'none';
+        });
+        // Ayar butonuna hover olunca opaklığı artır
+        settingsBtn.addEventListener('mouseenter', function() {
+            settingsBtn.style.opacity = '1';
+        });
+        settingsBtn.addEventListener('mouseleave', function() {
+            settingsBtn.style.opacity = '0.5';
+        });
+    </script>
+</body>
+</html>

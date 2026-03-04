@@ -1,0 +1,197 @@
+body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #181818;
+}
+
+/* Hide desktop HUD elements only in mobile mode (in-game) */
+body.mobile-mode #speedometer,
+body.mobile-mode #gear-indicator,
+body.mobile-mode #instructions,
+body.mobile-mode #pauseMenu,
+body.mobile-mode #notification,
+body.mobile-mode #audioNotification,
+body.mobile-mode #coinCounter,
+body.mobile-mode #playerNameUI,
+body.mobile-mode #vehicleLabel,
+body.mobile-mode #passengerCounter,
+body.mobile-mode #hostageIndicator,
+body.mobile-mode #policeIndicator,
+body.mobile-mode #top-hud,
+body.mobile-mode #weatherInfoBox,
+body.mobile-mode #cameraModeInfoBox {
+    display: none !important;
+}
+
+/* Mobile HUD container */
+#mobile-hud {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    z-index: 3000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    pointer-events: none;
+}
+
+#mobile-hud .hud-row {
+    width: 100vw;
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    margin-top: 10px;
+}
+
+#mobile-hud .hud-item {
+    background: rgba(30,30,40,0.85);
+    color: #ffd700;
+    font-size: 18px;
+    font-weight: bold;
+    border-radius: 12px;
+    padding: 7px 16px;
+    margin: 0 4px;
+    box-shadow: 0 2px 8px #00000033;
+    text-align: center;
+    min-width: 60px;
+    pointer-events: auto;
+}
+
+#mobile-hud .hud-item.health {
+    color: #ff4d4d;
+}
+#mobile-hud .hud-item.rescued {
+    color: #aaddff;
+}
+
+/* Mobile controls */
+#mobile-controls {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 4000;
+}
+
+#mobile-joystick {
+    position: absolute;
+    left: 18px;
+    bottom: 18px;
+    width: 120px;
+    height: 120px;
+    z-index: 4100;
+    pointer-events: auto;
+}
+
+#mobile-buttons {
+    position: absolute;
+    right: 18px;
+    bottom: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    z-index: 4100;
+    pointer-events: auto;
+}
+
+.mobile-btn {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ffd700 60%, #ffb300 100%);
+    color: #3a2614;
+    font-size: 22px;
+    font-weight: bold;
+    border: none;
+    box-shadow: 0 2px 8px #ffd70055;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 8px;
+    opacity: 0.95;
+    transition: background 0.2s, box-shadow 0.2s;
+    pointer-events: auto;
+    touch-action: manipulation;
+}
+.mobile-btn:active {
+    background: #ffb300;
+    box-shadow: 0 1px 4px #ffd70033;
+}
+
+#mobile-respawn-container {
+    position: fixed;
+    left: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 4100;
+    pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+}
+#mobile-camera {
+    width: 50px !important;
+    height: 50px !important;
+    font-size: 18px !important;
+    opacity: 0.7 !important;
+    background: linear-gradient(135deg, #a67c52 60%, #ffd7a0 100%) !important;
+    color: #3a2614 !important;
+    border: 2px solid #ffd70055 !important;
+    border-radius: 50% !important;
+}
+#mobile-respawn, #mobile-mainmenu {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 16px !important;
+    opacity: 0.7 !important;
+    background: linear-gradient(135deg, #a67c52 60%, #ffd7a0 100%) !important;
+    color: #3a2614 !important;
+    border: 2px solid #ffd70055 !important;
+    border-radius: 50% !important;
+    margin-bottom: 10px !important;
+}
+
+@media (orientation: landscape) and (min-width: 934px), (orientation: portrait) and (min-width: 950px) {
+    #mobile-hud, #mobile-controls {
+        display: none !important;
+    }
+}
+
+@media (orientation: landscape) and (max-width: 933px) {
+    #mobile-hud .hud-row {
+        padding: 0;
+        margin-top: 2px;
+    }
+    
+    #mobile-hud .hud-item {
+        font-size: 9px !important;
+    }
+    
+    #mobile-joystick {
+        left: 60px !important;
+        bottom: 30px !important;
+    }
+    
+    #mobile-buttons {
+        right: 30px !important;
+        bottom: 30px !important;
+    }
+    
+    .mobile-btn {
+        width: 42px !important;
+        height: 42px !important;
+    }
+    
+    #mobile-respawn-container {
+        left: 18px !important;
+        bottom: unset !important;
+    }
+    
+    #mobile-camera, #mobile-respawn, #mobile-mainmenu {
+        width: 32px !important;
+        height: 32px !important;
+    }
+} 

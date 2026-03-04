@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+   <meta name="mobile-web-app-capable" content="yes">
+   <meta name="apple-mobile-web-app-capable" content="yes">
+   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+   <meta name="theme-color" content="#1a202c">
+   <title>Coffy Adventure</title>
+   <link rel="icon" href="favicon.ico" type="image/x-icon">
+   <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+   
+   <!-- Ethers.js Loading Script -->
+   <script>
+     window.ethersLoaded = false;
+     
+     function loadEthers() {
+       const cdnUrls = [
+         "https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js",
+         "libs/ethers-5.7.2.min.js" // Local fallback
+       ];
+       
+       let currentIndex = 0;
+       
+       function attemptLoad() {
+         if (currentIndex >= cdnUrls.length) {
+           console.log("ethers.js could not be loaded, Web3 features will be disabled");
+           return;
+         }
+         
+         const script = document.createElement('script');
+         script.src = cdnUrls[currentIndex];
+         script.async = false;
+         
+         script.onload = function() {
+           console.log(`✅ Ethers.js loaded successfully`);
+           window.ethersLoaded = true;
+           window.dispatchEvent(new CustomEvent('ethersLoaded'));
+         };
+         
+         script.onerror = function() {
+           currentIndex++;
+           attemptLoad();
+         };
+         
+         document.head.appendChild(script);
+       }
+       
+       attemptLoad();
+     }
+     
+     loadEthers();
+     
+     setTimeout(function() {
+       if (!window.ethersLoaded && typeof window.ethers === 'undefined') {
+         console.log("Web3 functionality may be limited");
+       }
+     }, 2000);
+   </script>
+   
+   <!-- Stylesheets -->
+   <link rel="stylesheet" href="game.css">
+   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500&display=swap" rel="stylesheet">
+   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">   
+   <link rel="stylesheet" href="mobile-hud.css">
+   
+   <!-- ES Module Support Check (Not a Module) -->
+   <script src="module-check.js"></script>
+   
+   <!-- Preload Game Script -->
+   <!-- <link rel="preload" href="game.js" as="script" crossorigin="anonymous"> -->
+</head>
+<body class="no-select optimize-gpu">
+    <div id="game-container" class="optimize-gpu">
+        <canvas id="game-canvas"></canvas>
+        
+        <!-- Boss Health Bar -->
+        <div id="boss-health-bar" class="boss-health-bar">
+            <div id="boss-health-fill" class="boss-health-fill"></div>
+        </div>
+        <div id="boss-name" class="boss-name"></div>
+
+        <!-- Loading Screen -->
+        <div id="loading-screen" class="screen">
+            <div class="spinner"></div>
+            <div class="screen-title">Loading...</div>
+        </div>
+
+        <!-- Start Screen -->
+        <div id="start-screen" class="screen">
+            <div class="screen-title">Coffy Adventure</div>
+            <p class="start-screen-description">Collect coffee cups, avoid tea cups!</p>
+            <div class="start-screen-total-reward">Total Reward: <span id="total-reward">0</span> COFFY</div>
+            <div class="start-screen-high-score">High Score: <span id="start-high-score">0</span></div>
+            
+            <button id="claim-total-reward" class="game-button" data-tooltip="Daily claim limit: 1 per IP address">CLAIM REWARDS</button>
+            <button id="connect-wallet" class="game-button touch-target">CONNECT WALLET</button>
+            <button id="start-button" class="game-button touch-target">START GAME</button>
+            <h3 class="section-title">Characters</h3>
+            <div class="characters-container">
+                <div class="character-item">
+                    <i class="fas fa-coffee"></i>
+                    <span class="character-name">Genesis</span>
+                    <span class="character-price">1M COFFY</span>
+                    <span class="character-multiplier">1.5x rewards</span>
+                    <button id="character-1" class="buy-button">Buy</button>
+                </div>
+                <div class="character-item">
+                    <i class="fas fa-chess-knight"></i>
+                    <span class="character-name">Mocha Knight</span>
+                    <span class="character-price">3M COFFY</span>
+                    <span class="character-multiplier">2x rewards</span>
+                    <button id="character-2" class="buy-button">Buy</button>
+                </div>
+                <div class="character-item">
+                    <i class="fas fa-hat-wizard"></i>
+                    <span class="character-name">Arabica Archmage</span>
+                    <span class="character-price">5M COFFY</span>
+                    <span class="character-multiplier">3x rewards</span>
+                    <button id="character-3" class="buy-button">Buy</button>
+                </div>
+                <div class="character-item">
+                    <i class="fas fa-user-ninja"></i>
+                    <span class="character-name">Robusta Shadowblade</span>
+                    <span class="character-price">8M COFFY</span>
+                    <span class="character-multiplier">4x rewards</span>
+                    <button id="character-4" class="buy-button">Buy</button>
+                </div>
+                <div class="character-item legendary">
+                    <i class="fas fa-dragon"></i>
+                    <span class="character-name">Legendary Dragon</span>
+                    <span class="character-price">10M COFFY</span>
+                    <span class="character-multiplier">5x rewards + DAO</span>
+                    <button id="character-5" class="buy-button">Buy</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="game-over-screen" class="screen" style="display: none;">
+            <div class="screen-title">GAME OVER</div>
+            <div id="final-score-container">
+                <div id="final-score">Score: 0</div>
+                <div id="high-score">High Score: 0</div>
+                <div id="reward">Total Reward: 0 COFFY</div>
+            </div>
+            <button id="restart-button" class="game-button">PLAY AGAIN</button>
+            <button id="main-menu-reward-button" class="game-button">MAIN MENU & CLAIM REWARD</button>
+            <a id="share-twitter-button" class="game-button social-share-button twitter" href="#" target="_blank" rel="noopener noreferrer">
+                <i class="fab fa-twitter"></i> Share Score
+            </a>
+        </div>
+
+        <!-- Pause Screen -->
+        <div id="pause-screen" class="screen" style="display: none;">
+            <div class="screen-title">PAUSED</div>
+            <button id="resume-button" class="game-button">RESUME</button>
+        </div>
+
+        <!-- HUD (User Interface) -->
+        <div id="hud">
+            <div class="hud-item"><i class="fas fa-star"></i> <span id="score">0</span></div>
+            <div class="hud-item"><i class="fas fa-level-up-alt"></i> <span id="level">1</span></div>
+            <div class="hud-item"><i class="fas fa-bolt"></i> Combo: <span id="combo-count">0</span>x</div>
+            <div class="hud-item"><i class="fas fa-coffee"></i> <span id="coffee-count">0</span></div>
+            <div class="hud-item"><i class="fas fa-coins"></i> <span id="token-count">0</span></div>
+            <div class="hud-item"><i class="fas fa-trophy"></i> <span id="total-rewards-hud">0</span></div>
+            <div class="hud-item wallet"><i class="fas fa-wallet"></i> <span id="wallet-address">Not Connected</span></div>
+        </div>
+
+        <!-- Superpower Notification -->
+        <div id="superpower-notification" class="superpower-notification">
+            <i class="fas fa-bolt"></i>
+            <span id="superpower-text">Superpower Ready!</span>
+        </div>
+
+        <!-- Controls Info -->
+        <div id="controls-info">
+            <div>WASD/Arrow Keys: Move</div>
+            <div>P: Pause</div>
+            <div>SPACE: Superpower</div>
+        </div>
+
+        <!-- Top HUD -->
+        <div class="top-hud">
+            <div class="left-section">
+                <div class="balance-container">
+                    <div class="token-info">
+                        <span id="tokenCount">0</span> COFFY
+                    </div>
+                    <button id="claimTotalRewardButton" class="claim-button">
+                        CLAIM <span id="totalRewardsHud">0</span> COFFY
+                    </button>
+                </div>
+            </div>
+            
+            <div class="center-section">
+                <div class="score-display">
+                    <span>Score: </span><span id="currentScore">0</span>
+                </div>
+            </div>
+            
+            <div class="right-section">
+                <div class="wallet-info">
+                    <button id="connectButton" class="connect-btn">
+                        <i class="fas fa-wallet"></i> Connect Wallet
+                    </button>
+                    <div id="walletInfo" class="wallet-connected" style="display: none;">
+                        <span id="walletAddress">0x...</span>
+                        <button id="disconnectButton" class="disconnect-btn">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Migration Section -->
+                <div id="migration-section" class="migration-section" style="display: none;">
+                    <div id="migration-info" class="migration-info">
+                        You have COFFY tokens in your old contract. You can migrate them.
+                    </div>
+                    <button id="migration-button" class="migration-button">
+                        🚀 Migrate to V2
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audio Elements -->
+    <audio id="background-music" preload="none" loop>
+        <source src="background.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="collect-sound">
+        <source src="collect.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="levelup-sound">
+        <source src="levelup.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="gameover-sound">
+        <source src="gameover.mp3" type="audio/mpeg">
+    </audio>
+    
+    <!-- Game Scripts (Modules) -->
+    <script type="module" src="constants.js?v=1703002"></script>
+    <script type="module" src="utils.js?v=1703002"></script>
+    <script type="module" src="PlayerBullet.js?v=1703002"></script>
+    <script type="module" src="gameLogic.js?v=1703002"></script>
+    <script type="module" src="mobile-controls.js?v=1703002"></script>
+    <script type="module" src="web3Integration.js?v=1703002"></script>
+    <script type="module" src="game.js?v=1703002"></script>
+
+    <!-- Seslerin Çalınması İçin Kullanıcı Etkileşimi -->
+    <script>
+        document.getElementById('start-button').addEventListener('click', () => {
+            const backgroundMusic = document.getElementById('background-music');
+            backgroundMusic.play().catch(error => console.log('Background music error:', error));
+        });
+    </script>
+</body>
+</html>

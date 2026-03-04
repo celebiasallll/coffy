@@ -1,0 +1,8 @@
+<svg style="filter: drop-shadow(0px 0px 10px #0ff); stroke-width: 2; stroke-linecap: round;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="30" fill="#8B4513"/>
+  <circle cx="24" cy="24" r="5" fill="white"/>
+  <circle cx="40" cy="24" r="5" fill="white"/>
+  <circle cx="24" cy="24" r="2" fill="black"/>
+  <circle cx="40" cy="24" r="2" fill="black"/>
+  <path d="M20 45 Q32 35 44 45" stroke="white" stroke-width="3" fill="none"/>
+</svg>

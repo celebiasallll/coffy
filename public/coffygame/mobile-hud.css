@@ -1,0 +1,385 @@
+/* Mobil cihazlar için HUD düzenlemeleri */
+@media screen and (max-width: 768px) {
+    body {
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+        user-select: none; /* Metin seçimini önle */
+    }
+
+    #hud {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center; /* Center items within the HUD */
+        align-items: center;
+        gap: 2px; /* Further reduced gap */
+        padding: 3px 5px; /* Further reduced padding */
+        border-radius: 8px; /* Slightly smaller radius */
+        max-width: 95%; /* Re-added max-width */
+        background: linear-gradient(135deg, rgba(61, 44, 30, 0.9), rgba(81, 55, 38, 0.8));
+        backdrop-filter: blur(8px); /* Slightly less blur */
+        -webkit-backdrop-filter: blur(10px);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        /* Mobile centering uses margin auto */
+        position: fixed;
+        top: 8px; /* Slightly higher */
+        left: 0; /* Use left/right 0 */
+        right: 0; /* Use left/right 0 */
+        /* transform: translateX(-50%); */ /* Remove transform */
+        margin-left: auto; /* Use margin auto */
+        margin-right: auto; /* Use margin auto */
+        z-index: 1000;
+        width: fit-content; /* Use fit-content with margin auto */
+        /* max-width: 95%; */ /* Already set above */
+        flex-wrap: nowrap; /* Ensure single row */
+        overflow-x: auto; /* Re-added overflow scrolling if needed */
+    }
+
+    .hud-item {
+        display: flex;
+        align-items: center;
+        justify-content: center; /* Keep centered */
+        min-width: auto; /* Allow items to shrink */
+        height: 24px; /* Further reduced height */
+        padding: 2px 4px; /* Further reduced padding */
+        font-size: 11px; /* Further reduced font size */
+        color: #fff;
+        text-shadow: 0 1px 1px rgba(0, 0, 0, 0.6); /* Adjusted shadow */
+    }
+
+    .hud-item i { /* Adjust icon size */
+        font-size: 10px; /* Smaller icon */
+        margin-right: 2px; /* Less space */
+    }
+
+    #controls-info { /* Hide desktop controls info */
+        display: none;
+    }
+    
+    /* Dokunmatik kontroller için özel stil Removed */
+    
+    .touch-button {
+        width: 60px;
+        height: 60px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        transition: all 0.2s ease;
+        pointer-events: auto;
+    }
+    
+    .touch-button:active {
+        transform: scale(0.9);
+        background: rgba(255, 255, 255, 0.3);
+    }
+    
+    .touch-button svg {
+        width: 30px;
+        height: 30px;
+        fill: rgba(255, 255, 255, 0.8);
+    }
+    
+    /* Joystick stili Removed */
+    
+    /* Mermi atış kontrolü */
+    .shooting-area {
+        position: fixed;
+        bottom: 100px;
+        right: 70px;
+        width: 120px;
+        height: 120px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        z-index: 900;
+        pointer-events: auto;
+    }
+    
+    /* Atış göstergesi Removed */
+    
+    /* Süper güç düğmesi */
+    .superpower-button {
+        z-index: 901;
+        pointer-events: auto;
+    }
+    
+    .superpower-button.active {
+        background: rgba(255, 215, 0, 0.5);
+        border-color: rgba(255, 215, 0, 0.8);
+        box-shadow: 0 0 15px rgba(255, 215, 0, 0.8);
+    }
+    
+    /* Animasyon ve görsel efektler için yakalayıcı katman */
+    .effects-layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 800;
+        overflow: hidden;
+    }
+    
+    /* Farklı efekt türleri için animasyon sınıfları */
+    @keyframes pulse {
+        0% { transform: scale(1); opacity: 0.7; }
+        50% { transform: scale(1.1); opacity: 1; }
+        100% { transform: scale(1); opacity: 0.7; }
+    }
+    
+    @keyframes rotate {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    @keyframes fadeIn {
+        0% { opacity: 0; }
+        100% { opacity: 1; }
+    }
+    
+    @keyframes fadeOut {
+        0% { opacity: 1; }
+        100% { opacity: 0; }
+    }
+    
+    /* Powerup ve süper güç görsel efektleri */
+    .powerup-effect {
+        position: absolute;
+        pointer-events: none;
+        animation: pulse 1.5s infinite, fadeOut 1s forwards;
+    }
+    
+    .shield-effect {
+        border-radius: 50%;
+        border: 3px solid #FFD700;
+        box-shadow: 0 0 15px #FFD700;
+        animation: pulse 2s infinite;
+    }
+    
+    .speed-effect {
+        background: linear-gradient(90deg, transparent, rgba(0, 255, 0, 0.3), transparent);
+        animation: fadeOut 0.5s forwards;
+    }
+    
+    .superpower-active {
+        position: absolute;
+        pointer-events: none;
+        animation: pulse 1s infinite, rotate 3s infinite linear;
+    }
+}
+
+/* Çok küçük ekranlar için ek düzenlemeler */
+@media screen and (max-width: 360px) {
+    .hud-item {
+        min-width: 40px;
+        height: 26px;
+        padding: 2px 6px;
+        font-size: 0.7rem;
+    }
+
+    .hud-item i {
+        font-size: 0.8rem;
+        margin-right: 3px;
+    }
+}
+
+/* Yatay mod için düzenlemeler */
+@media screen and (max-height: 500px) and (orientation: landscape) {
+    #hud {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-around;
+        padding: 3px;
+        background: rgba(0, 0, 0, 0.5);
+    }
+    
+    #hud > div {
+        margin: 0 3px;
+    }
+
+    #total-rewards-container {
+        position: absolute;
+        top: 5px;
+        left: 50%;
+        transform: translateX(-50%);
+    }
+    
+    #hud > div {
+        margin: 0 3px;
+        font-size: 10px; /* Yatay modda fontu küçült */
+    }
+
+    #total-rewards-container {
+        position: absolute;
+        top: 5px;
+        left: 50%;
+        transform: translateX(-50%);
+    }
+}
+
+/* HUD geçiş animasyonu */
+@keyframes hud-enter {
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* HUD gösterme animasyonu */
+#hud.visible {
+    animation: hud-enter 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+/* Dokunma hedeflerinin büyütülmesi */
+.touch-target {
+    min-height: 44px;
+    min-width: 44px;
+}
+
+/* Mobile HUD styles with joystick and shoot indicators removed */
+
+/* Hide default joystick and shoot indicators */
+.joystick-base, .joystick-thumb, .shoot-indicator {
+    display: none !important;
+}
+
+/* Improved touch areas for mobile */
+.touch-control-area {
+    position: absolute;
+    z-index: 100;
+    opacity: 0; /* Make invisible but still functional */
+}
+
+/* Left side for movement */
+.touch-control-area.movement {
+    left: 0;
+    bottom: 0;
+    width: 50%;
+    height: 50%;
+}
+
+/* Right side for actions */
+.touch-control-area.action {
+    right: 0;
+    bottom: 0;
+    width: 50%;
+    height: 50%;
+}
+
+/* Right top for superpower */
+.touch-control-area.superpower {
+    right: 0;
+    top: 0;
+    width: 50%;
+    height: 50%;
+}
+
+/* Mobile-specific UI adjustments */
+@media (max-width: 768px) {
+    /* Make buttons bigger on mobile */
+    .game-button {
+        padding: 12px 18px;
+        font-size: 16px;
+    }
+    
+    /* Increase HUD text size */
+    .hud-text {
+        font-size: 18px;
+    }
+    
+    /* Adjust spacing for better touch targets */
+    .game-controls {
+        padding: 10px;
+    }
+    
+    /* Ensure HUD elements don't overlap edges */
+    .hud-container {
+        padding: 10px;
+    }
+}
+
+/* Optional indicator for active touch areas (for debugging) */
+.debug-mode .touch-control-area {
+    opacity: 0.2;
+    background-color: rgba(255, 255, 255, 0.3);
+    border: 1px dashed rgba(255, 255, 255, 0.5);
+}
+
+/* Disable highlighting on touch elements */
+.touch-control-area, 
+.game-button, 
+.pause-button {
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+}
+
+/* Mobile HUD styles - optimized for touch interaction */
+
+/* Hide any joystick visuals since we're using direct touch */
+.joystick-base, .joystick-thumb, .shoot-indicator {
+    display: none !important;
+}
+
+/* Improve touch target sizes on mobile */
+@media (max-width: 768px) {
+    .game-button, .menu-button {
+        min-height: 44px; /* Apple's recommended minimum touch target size */
+        min-width: 44px;
+        padding: 12px 20px;
+        margin: 8px;
+        font-size: 16px;
+    }
+    
+    /* Make sure controls have proper spacing */
+    .game-controls {
+        padding: 10px;
+    }
+    
+    /* Prevent text selection during touch events */
+    canvas, .game-container, .game-controls {
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+    }
+    
+    /* Make sure HUD elements don't interfere with gameplay */
+    .hud-container {
+        pointer-events: none; /* Let touch events pass through to the canvas */
+    }
+    
+    /* But allow interaction with specific HUD elements that need it */
+    .hud-container .interactive {
+        pointer-events: auto;
+    }
+    
+    /* Add visual feedback for touch interactions */
+    .game-button:active, .menu-button:active {
+        opacity: 0.7;
+        transform: scale(0.95);
+    }
+}
+
+/* Add helper class for debugging touch areas if needed */
+.debug-touch-area {
+    position: absolute;
+    background-color: rgba(255, 0, 0, 0.2);
+    border: 1px dashed red;
+    z-index: 100;
+    pointer-events: none;
+    display: none;
+}
+
+/* Show debug areas when debug mode is active */
+.debug-mode .debug-touch-area {
+    display: block;
+}

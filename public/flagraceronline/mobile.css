@@ -1,0 +1,814 @@
+/* Mobile-First CSS for Multiplayer Driving Game */
+/* Optimized for 90% mobile user base */
+
+/* ✅ MODERN LOGIN SCREEN STYLES */
+@media only screen and (max-width: 950px) {
+    /* Modern login overlay responsive design */
+    #loginOverlay {
+        padding: 10px !important;
+        box-sizing: border-box;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        min-height: 100vh !important;
+        width: 100vw !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Login form mobile optimizations */
+    #loginOverlay > div {
+        width: 95% !important;
+        max-width: 400px !important;
+        min-width: 280px !important;
+        padding: 20px !important;
+        margin: 10px auto !important;
+        border-radius: 15px !important;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
+    }
+    
+    /* Mobile-optimized input fields */
+    #playerNameInput {
+        width: calc(100% - 24px) !important;
+        padding: 12px !important;
+        font-size: 16px !important; /* Prevents zoom on iOS */
+        border-radius: 12px !important;
+        border: 2px solid rgba(255,255,255,0.3) !important;
+        background: rgba(255,255,255,0.1) !important;
+        color: white !important;
+        text-align: center;
+        box-sizing: border-box;
+    }
+    
+    #playerNameInput::placeholder {
+        color: rgba(255,255,255,0.7) !important;
+        font-size: 15px;
+    }
+    
+    /* Web3 wallet buttons mobile styling */
+    #connectWalletBtn, #claimRewardsBtn {
+        min-width: 110px !important;
+        padding: 10px 16px !important;
+        font-size: 0.85rem !important;
+        border-radius: 20px !important;
+        margin: 5px !important;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+    }
+    
+    /* Quick join button mobile optimization */
+    button[onclick*="startGameWithTeam"] {
+        width: 100% !important;
+        padding: 14px !important;
+        font-size: 1rem !important;
+        border-radius: 12px !important;
+        margin-bottom: 12px !important;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+    }
+    
+    /* Team selection buttons for mobile */
+    #teamSelection button {
+        flex: 1 !important;
+        padding: 12px 8px !important;
+        font-size: 0.8rem !important;
+        border-radius: 12px !important;
+        margin: 2px !important;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+    }
+    
+    /* Wallet status and balance display */
+    #walletStatus, #balanceDisplay {
+        font-size: 0.85rem !important;
+        margin-bottom: 12px !important;
+        word-break: break-word;
+        text-align: center;
+    }
+    
+    /* Form title mobile optimization */
+    #loginOverlay h1 {
+        font-size: 1.5rem !important;
+        margin: 0 0 15px 0 !important;
+        line-height: 1.2;
+        text-align: center;
+    }
+    
+    /* Game info text mobile styling */
+    #loginOverlay div[style*="color: rgba(255,255,255,0.9)"] {
+        font-size: 0.8rem !important;
+        line-height: 1.3 !important;
+        margin-bottom: 15px !important;
+        text-align: center;
+    }
+    
+    /* Team toggle button mobile styling */
+    div[onclick*="teamSelection"] {
+        font-size: 0.8rem !important;
+        padding: 8px !important;
+        margin-bottom: 12px !important;
+        text-align: center;
+        cursor: pointer;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+    }
+    
+    /* Web3 buttons container mobile layout */
+    #loginOverlay div[style*="display: flex"][style*="gap: 10px"] {
+        flex-direction: column !important;
+        gap: 8px !important;
+        align-items: stretch !important;
+    }
+    
+    /* Hide team selection initially */
+    #teamSelection {
+        margin-top: 10px !important;
+        gap: 8px !important;
+    }
+    
+    /* Make all buttons mobile-friendly */
+    #loginOverlay button {
+        transition: all 0.2s ease !important;
+        -webkit-user-select: none;
+        user-select: none;
+        outline: none;
+    }
+    
+    #loginOverlay button:active {
+        transform: scale(0.95) !important;
+    }
+    
+    /* Responsive button hover effects for touch devices */
+    @media (hover: none) and (pointer: coarse) {
+        #loginOverlay button:hover {
+            transform: none !important;
+        }
+        
+        #loginOverlay button:active {
+            opacity: 0.8 !important;
+            transform: scale(0.95) !important;
+        }
+    }
+}
+
+/* ✅ PORTRAIT MODE SPECIFIC LOGIN ADJUSTMENTS */
+@media only screen and (max-width: 950px) and (orientation: portrait) {
+    #loginOverlay {
+        padding: 15px 10px !important;
+    }
+    
+    #loginOverlay > div {
+        margin: 15px auto !important;
+        max-height: 85vh !important;
+        overflow-y: auto !important;
+    }
+    
+    /* Stack web3 buttons vertically in portrait */
+    #loginOverlay div[style*="display: flex"][style*="gap: 10px"] {
+        flex-direction: column !important;
+    }
+    
+    #connectWalletBtn, #claimRewardsBtn {
+        width: 100% !important;
+        margin: 4px 0 !important;
+    }
+}
+
+/* ✅ LANDSCAPE MODE SPECIFIC LOGIN ADJUSTMENTS */
+@media only screen and (max-width: 950px) and (orientation: landscape) {
+    #loginOverlay {
+        padding: 5px !important;
+    }
+    
+    #loginOverlay > div {
+        max-width: 450px !important;
+        padding: 15px !important;
+        margin: 5px auto !important;
+        max-height: 95vh !important;
+        overflow-y: auto !important;
+    }
+    
+    #loginOverlay h1 {
+        font-size: 1.3rem !important;
+        margin-bottom: 10px !important;
+    }
+    
+    /* Keep web3 buttons side by side in landscape if space allows */
+    #loginOverlay div[style*="display: flex"][style*="gap: 10px"] {
+        flex-direction: row !important;
+    }
+}
+
+/* ✅ ENHANCED: Orientation-independent tutorial styles */
+@media only screen and (max-width: 950px) {
+    #gameTutorial {
+        position: fixed !important;
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%) !important;
+        max-width: 90vw !important;
+        max-height: 85vh !important;
+        overflow-y: auto !important;
+        z-index: 10001 !important;
+        box-sizing: border-box !important;
+    }
+    
+    /* Portrait-specific tutorial adjustments */
+    @media (orientation: portrait) {
+        #gameTutorial {
+            padding: 15px 20px !important;
+            font-size: 14px !important;
+        }
+        
+        #gameTutorial h2 {
+            font-size: 18px !important;
+            margin-bottom: 12px !important;
+        }
+    }
+    
+    /* Landscape-specific tutorial adjustments */
+    @media (orientation: landscape) {
+        #gameTutorial {
+            padding: 10px 15px !important;
+            font-size: 12px !important;
+            transform: translate(-50%, -50%) scale(0.9) !important;
+        }
+        
+        #gameTutorial h2 {
+            font-size: 16px !important;
+            margin-bottom: 8px !important;
+        }
+        
+        #gameTutorial div[style*="margin-bottom"] {
+            margin-bottom: 8px !important;
+        }
+    }
+    
+    /* Ensure tutorial survives orientation changes */
+    #gameTutorial {
+        transition: none !important;
+        -webkit-transition: none !important;
+        -moz-transition: none !important;
+        -o-transition: none !important;
+    }
+}
+
+/* ✅ CRITICAL: Safe area support for all mobile devices */
+:root {
+    --safe-area-inset-top: env(safe-area-inset-top, 0px);
+    --safe-area-inset-right: env(safe-area-inset-right, 0px);
+    --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-area-inset-left: env(safe-area-inset-left, 0px);
+    
+    /* Default minimum safe areas */
+    --safe-top: max(var(--safe-area-inset-top), 30px);
+    --safe-right: max(var(--safe-area-inset-right), 25px);
+    --safe-bottom: max(var(--safe-area-inset-bottom), 30px);
+    --safe-left: max(var(--safe-area-inset-left), 25px);
+}
+
+/* ✅ ANDROID SPECIFIC SAFE AREAS */
+body.android-device {
+    --safe-top: max(var(--safe-area-inset-top), 45px);
+    --safe-right: max(var(--safe-area-inset-right), 35px);
+    --safe-bottom: max(var(--safe-area-inset-bottom), 40px);
+    --safe-left: max(var(--safe-area-inset-left), 35px);
+}
+
+/* ✅ SAMSUNG SPECIFIC SAFE AREAS (S20 FE optimized) */
+body.samsung-device {
+    --safe-top: max(var(--safe-area-inset-top), 60px);
+    --safe-right: max(var(--safe-area-inset-right), 45px);
+    --safe-bottom: max(var(--safe-area-inset-bottom), 50px);
+    --safe-left: max(var(--safe-area-inset-left), 45px);
+}
+
+/* ✅ iOS SPECIFIC SAFE AREAS (already working well) */
+body.ios-device {
+    --safe-top: max(var(--safe-area-inset-top), 35px);
+    --safe-right: max(var(--safe-area-inset-right), 25px);
+    --safe-bottom: max(var(--safe-area-inset-bottom), 35px);
+    --safe-left: max(var(--safe-area-inset-left), 25px);
+}
+
+/* Base mobile styles */
+@media only screen and (max-width: 950px) {
+    body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
+        -webkit-tap-highlight-color: transparent;
+        /* Performance optimizations - EXCLUDE joystick elements */
+        transform: translateZ(0);
+        -webkit-transform: translateZ(0);
+    }
+    
+    /* Prevent scrolling and zooming */
+    html, body {
+        height: 100vh;
+        width: 100vw;
+        position: fixed;
+        background: #000;
+        /* GPU acceleration */
+        -webkit-backface-visibility: hidden;
+        backface-visibility: hidden;
+        -webkit-perspective: 1000;
+        perspective: 1000;
+    }
+    
+    /* ✅ CRITICAL: Safe area support for mobile devices */
+    body.mobile-device {
+        /* Don't add padding to body for canvas - let safe areas handle UI positioning */
+        margin: 0 !important;
+        padding: 0 !important;
+        min-height: 100vh !important;
+        min-width: 100vw !important;
+        height: 100vh !important;
+        width: 100vw !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        overflow: hidden !important;
+    }
+    
+    /* ✅ CANVAS OPTIMIZATION - Full screen with proper sizing */
+    canvas {
+        width: 100vw !important;
+        height: 100vh !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        z-index: 1 !important;
+        touch-action: none !important;
+        background: #000 !important; /* Fallback background */
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        /* Performance optimizations */
+        transform: translateZ(0);
+        -webkit-transform: translateZ(0);
+        will-change: auto;
+        /* Ensure proper aspect ratio */
+        object-fit: cover;
+        object-position: center;
+    }
+    
+    /* ✅ CRITICAL: Ensure canvas is never cut off */
+    body.mobile-device canvas {
+        /* Override safe area padding for canvas to fill entire screen */
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        outline: none !important;
+        max-width: none !important;
+        max-height: none !important;
+        min-width: 100vw !important;
+        min-height: 100vh !important;
+    }
+    
+    /* Performance indicators - HIDDEN ON MOBILE */
+    #fps-counter, #quality-indicator, #debugPanel, #stats, 
+    .stats, .debug, .fps, .performance-monitor,
+    #playerNameUI, #vehicleLabel, .desktop-only, .pc-only,
+    .debug-info, .performance-hud, .desktop-controls {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        transform: scale(0) !important;
+        height: 0 !important;
+        width: 0 !important;
+        overflow: hidden !important;
+        position: absolute !important;
+        left: -9999px !important;
+        top: -9999px !important;
+        z-index: -1 !important;
+    }
+    
+    /* Hide desktop keyboard controls hints */
+    .keyboard-controls, .desktop-only, .pc-only {
+        display: none !important;
+    }
+    
+    /* ✅ MOBILE HUD ADJUSTMENTS - Safe Area Based PERCENTAGE POSITIONING */
+    #hud-container {
+        position: fixed;
+        bottom: calc(2vh + var(--safe-bottom));
+        right: calc(2vw + var(--safe-right));
+        z-index: 1000;
+        pointer-events: none;
+        /* NO transform optimization for HUD */
+    }
+    
+    #speedometer, #gear-indicator {
+        font-size: 2.5vw !important;
+        padding: 1.5vw !important;
+        min-width: 10vw !important;
+        max-width: 15vw !important;
+        background: rgba(0, 0, 0, 0.8) !important;
+        border-radius: 1.5vw !important;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        /* NO transform optimization for HUD */
+        color: white !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    
+    /* ✅ INSTRUCTIONS PANEL - Safe Area Based */
+    #instructions {
+        position: fixed;
+        top: calc(2vh + var(--safe-top));
+        left: calc(2vw + var(--safe-left));
+        font-size: 2.8vw !important;
+        padding: 2vw !important;
+        max-width: 45vw;
+        min-width: 25vw;
+        background: rgba(0, 0, 0, 0.8) !important;
+        backdrop-filter: blur(10px);
+        border-radius: 1.5vw;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: white !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        /* NO transform optimization for HUD */
+    }
+    
+    /* ✅ TERRAIN INFO - Safe Area Based */
+    #terrain-info {
+        position: fixed;
+        bottom: calc(2vh + var(--safe-bottom));
+        left: calc(2vw + var(--safe-left));
+        font-size: 2.2vw !important;
+        padding: 1.5vw !important;
+        max-width: 40vw;
+        min-width: 20vw;
+        background: rgba(0, 0, 0, 0.8) !important;
+        backdrop-filter: blur(10px);
+        border-radius: 1.5vw;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: white !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        /* NO transform optimization for HUD */
+    }
+    
+    /* Loading screen mobile optimization */
+    #loadingScreen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: linear-gradient(135deg, #1e3c72, #2a5298);
+        color: white;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        font-size: 4vw;
+        z-index: 9999;
+        /* Performance optimizations */
+        transform: translateZ(0);
+        will-change: opacity;
+    }
+    
+    /* Performance HUD mobile adjustments - DISABLED */
+    #performance-hud {
+        display: none !important;
+    }
+    
+    /* ✅ MOBILE TOUCH CONTROLS - Safe positioning */
+    #mobile-touch-controls {
+        /* NO performance optimizations here - can interfere with joystick */
+        position: relative;
+        z-index: 1001;
+    }
+    
+    /* CRITICAL: Exclude joystick elements from global transform optimizations */
+    #mobile-touch-controls .simple-joystick-container,
+    .simple-joystick-container,
+    .simple-joystick-base,
+    .simple-joystick-knob {
+        will-change: auto !important;
+        /* Only apply transforms when specifically needed */
+    }
+}
+
+/* ✅ Portrait orientation optimizations - Safe Area Based */
+@media only screen and (max-width: 950px) and (orientation: portrait) {
+    #hud-container {
+        bottom: calc(3vh + var(--safe-bottom));
+        right: calc(3vw + var(--safe-right));
+    }
+    
+    #instructions {
+        max-width: 50vw;
+        font-size: 3.2vw !important;
+        padding: 2.5vw !important;
+        top: calc(2vh + var(--safe-top));
+        left: calc(2vw + var(--safe-left));
+    }
+    
+    #speedometer, #gear-indicator {
+        font-size: 3vw !important;
+        padding: 2vw !important;
+        min-width: 12vw !important;
+        max-width: 18vw !important;
+    }
+    
+    #terrain-info {
+        max-width: 45vw;
+        font-size: 2.5vw !important;
+        padding: 2vw !important;
+        bottom: calc(2vh + var(--safe-bottom));
+        left: calc(2vw + var(--safe-left));
+    }
+}
+
+/* ✅ Landscape orientation optimizations - Safe Area Based */
+@media only screen and (max-width: 950px) and (orientation: landscape) {
+    #instructions {
+        max-width: 35vw;
+        font-size: 2.2vw !important;
+        padding: 1.5vw !important;
+        top: calc(1vh + var(--safe-top));
+        left: calc(1vw + var(--safe-left));
+    }
+    
+    #terrain-info {
+        max-width: 30vw;
+        font-size: 1.8vw !important;
+        padding: 1.2vw !important;
+        bottom: 1.5vh;
+        left: 1.5vw;
+    }
+    
+    #hud-container {
+        bottom: 1.5vh;
+        right: 1.5vw;
+    }
+    
+    #speedometer, #gear-indicator {
+        font-size: 2.2vw !important;
+        padding: 1.5vw !important;
+        min-width: 8vw !important;
+        max-width: 12vw !important;
+    }
+}
+
+/* Small screen optimizations - PERCENTAGE BASED */
+@media only screen and (max-width: 400px) {
+    #instructions {
+        font-size: 3.5vw !important;
+        padding: 2.5vw !important;
+        max-width: 55vw;
+    }
+    
+    #speedometer, #gear-indicator {
+        font-size: 3.5vw !important;
+        padding: 2.5vw !important;
+        min-width: 15vw !important;
+        max-width: 20vw !important;
+    }
+    
+    #terrain-info {
+        font-size: 3vw !important;
+        padding: 2vw !important;
+        max-width: 50vw;
+    }
+}
+
+/* Performance-based optimizations - EXCLUDE joystick */
+.mobile-device {
+    /* Disable expensive CSS features on mobile - EXCEPT joystick */
+    #instructions, #terrain-info, #speedometer, #gear-indicator {
+        box-shadow: none !important;
+        text-shadow: none !important;
+        filter: none !important;
+    }
+    
+    /* Simplify animations - EXCEPT joystick */
+    #instructions, #terrain-info, #speedometer, #gear-indicator {
+        animation-duration: 0.1s !important;
+        animation-delay: 0s !important;
+        transition-duration: 0.1s !important;
+        transition-delay: 0s !important;
+    }
+}
+
+/* Low-end device optimizations - EXCLUDE joystick */
+.low-end-device {
+    /* Disable all non-essential visual effects - EXCEPT joystick */
+    #instructions, #terrain-info, #speedometer, #gear-indicator {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        text-shadow: none !important;
+        filter: none !important;
+    }
+    
+    /* Simplify backgrounds */
+    #instructions, #terrain-info, #speedometer, #gear-indicator {
+        background: rgba(0, 0, 0, 0.9) !important;
+        border: 1px solid #333 !important;
+    }
+}
+
+/* Battery saving mode - EXCLUDE joystick */
+.battery-saving {
+    /* Reduce refresh rates - EXCEPT joystick */
+    #instructions, #terrain-info, #speedometer, #gear-indicator,
+    #mobileSpeedometer, #mobileHealthBar, #mobileConnectionStatus {
+        animation-play-state: paused !important;
+        transition: none !important;
+    }
+}
+
+/* Disable scrollbars completely */
+::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+}
+
+/* Animation keyframes for mobile */
+@keyframes mobileSlideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes mobileFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Apply animations with performance considerations */
+@media only screen and (max-width: 950px) {
+    #hud-container {
+        animation: mobileSlideIn 0.5s ease-out;
+    }
+    
+    #instructions, #terrain-info {
+        animation: mobileFadeIn 0.3s ease-out;
+    }
+}
+
+/* iOS Safari specific fixes */
+@supports (-webkit-overflow-scrolling: touch) {
+    body {
+        -webkit-overflow-scrolling: touch;
+        position: fixed;
+        width: 100%;
+        height: 100%;
+    }
+    
+    /* Fix iOS Safari viewport issues */
+    html {
+        height: -webkit-fill-available;
+    }
+    
+    body {
+        min-height: -webkit-fill-available;
+    }
+}
+
+/* Android Chrome specific fixes */
+@media screen and (max-width: 950px) {
+    /* Fix Chrome mobile viewport issues */
+    .chrome-mobile body {
+        height: 100vh;
+        height: calc(var(--vh, 1vh) * 100);
+    }
+}
+
+/* High DPI display adjustments */
+@media only screen and (max-width: 950px) and (-webkit-min-device-pixel-ratio: 2) {
+    #speedometer, #gear-indicator {
+        font-size: 13px !important;
+        padding: 7px !important;
+    }
+    
+    #instructions {
+        font-size: 13px !important;
+        padding: 7px !important;
+    }
+    
+    /* FPS indicators disabled for high DPI mobile screens */
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) and (max-width: 950px) {
+    #instructions, #terrain-info, #speedometer, #gear-indicator {
+        background: rgba(0, 0, 0, 0.9) !important;
+        color: #ffffff;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+}
+
+/* Reduce motion for accessibility - EXCLUDE joystick */
+@media (prefers-reduced-motion: reduce) and (max-width: 950px) {
+    #hud-container, #instructions, #terrain-info,
+    #mobileSpeedometer, #mobileHealthBar, #mobileConnectionStatus {
+        animation: none !important;
+        transition: none !important;
+    }
+    
+    /* DON'T disable joystick transforms - they're essential for functionality */
+    :not(.simple-joystick-container):not(.simple-joystick-base):not(.simple-joystick-knob) {
+        transform: none !important;
+        -webkit-transform: none !important;
+    }
+}
+
+/* Emergency fallback styles */
+.mobile-emergency-mode {
+    /* Ultra-minimal styles for extreme performance issues */
+    * {
+        background: #000 !important;
+        color: #fff !important;
+        border: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        text-shadow: none !important;
+        backdrop-filter: none !important;
+        filter: none !important;
+        animation: none !important;
+        transition: none !important;
+        transform: none !important;
+    }
+}
+
+/* Print styles (hide everything for print) */
+@media print {
+    body * {
+        visibility: hidden;
+    }
+    
+    .print-message:before {
+        content: "This is a web-based game and cannot be printed.";
+        visibility: visible;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+    }
+}
+
+/* Optimize mobile viewport */
+@media only screen and (max-width: 950px) {
+    body {
+        -webkit-text-size-adjust: 100%;
+        -ms-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+    }
+    
+    /* Ensure joystick area is touch-friendly */
+    .simple-joystick-container {
+        touch-action: none !important;
+        -webkit-touch-callout: none !important;
+        -webkit-user-select: none !important;
+        user-select: none !important;
+    }
+    
+    /* Prevent accidental zoom on double-tap for joystick */
+    .simple-joystick-container, 
+    .simple-joystick-base, 
+    .simple-joystick-knob {
+        -webkit-user-select: none !important;
+        -moz-user-select: none !important;
+        -ms-user-select: none !important;
+        user-select: none !important;
+        -webkit-touch-callout: none !important;
+    }
+} 

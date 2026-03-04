@@ -1,0 +1,44 @@
+
+> coffy-coin@0.1.0 build
+> next build
+
+   ▲ Next.js 14.0.4
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+Browserslist: browsers data (caniuse-lite) is 9 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+ ✓ Compiled successfully
+   Skipping validation of types
+   Skipping linting
+   Collecting page data ...
+   Generating static pages (0/13) ...
+   Generating static pages (3/13) 
+   Generating static pages (6/13) 
+   Generating static pages (9/13) 
+ ✓ Generating static pages (13/13) 
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                              Size     First Load JS
+┌ ○ /                                    6.04 kB        88.8 kB
+├ ○ /_not-found                          0 B                0 B
+├ λ /api/activity-claim                  0 B                0 B
+├ λ /api/game-claim                      0 B                0 B
+├ λ /api/snap-verify                     0 B                0 B
+├ λ /api/socket                          0 B                0 B
+├ λ /api/step-verify                     0 B                0 B
+├ ○ /beegame                             142 B          82.9 kB
+├ ○ /flagracer                           1.03 kB        83.8 kB
+└ ○ /hungeriumgame                       142 B          82.9 kB
++ First Load JS shared by all            82.8 kB
+  ├ chunks/938-e1b483175377b74b.js       26.7 kB
+  ├ chunks/fd9d1056-eb232ed0e38ec503.js  53.3 kB
+  ├ chunks/main-app-d79431b828731df8.js  220 B
+  └ chunks/webpack-d8cee6ad97d711cd.js   2.58 kB
+
+
+○  (Static)   prerendered as static content
+λ  (Dynamic)  server-rendered on demand using Node.js
+

@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#000000">
+    <title>3D Maze Shooter</title>
+    
+    <!-- Fix preload links with crossorigin attribute -->
+    <link rel="preload" href="js/index.js" as="script" crossorigin="anonymous">
+    <link rel="preload" href="js/modules/config.js" as="script" crossorigin="anonymous">
+    
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/mobile.css">
+    <link rel="stylesheet" href="css/game.css">
+    
+    <!-- Ethers.js CDN with optimized loading -->
+    <script>
+      window.ethersLoaded = false;
+      
+      function loadEthers() {
+        const cdnUrls = [
+          "https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js",
+          "https://cdn.ethers.io/lib/ethers-5.7.umd.min.js", // Backup CDN
+          "https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js" // Third backup
+        ];
+        
+        let currentIndex = 0;
+        let loadTimeout;
+        
+        function attemptLoad() {
+          if (currentIndex >= cdnUrls.length) {
+            console.log("ethers.js could not be loaded, Web3 features will be disabled");
+            window.ethersLoaded = false;
+            window.ethersLoadFailed = true;
+            window.dispatchEvent(new CustomEvent('ethersLoadFailed'));
+            return;
+          }
+          
+          const script = document.createElement('script');
+          script.src = cdnUrls[currentIndex];
+          script.async = true; // Changed to true for better page loading performance
+          script.crossOrigin = "anonymous"; // Add cross-origin attribute
+          
+          // Set timeout to detect very slow loads
+          loadTimeout = setTimeout(() => {
+            console.log(`Timeout loading ethers.js from ${cdnUrls[currentIndex]}`);
+            currentIndex++;
+            attemptLoad();
+          }, 5000); // 5 second timeout
+          
+          script.onload = function() {
+            clearTimeout(loadTimeout);
+            console.log(`✅ Ethers.js loaded successfully from ${cdnUrls[currentIndex]}`);
+            window.ethersLoaded = true;
+            window.ethersLoadFailed = false;
+            window.dispatchEvent(new CustomEvent('ethersLoaded'));
+            
+            // Initialize Web3 features after load
+            if (typeof initializeWeb3Features === 'function') {
+              initializeWeb3Features();
+            }
+          };
+          
+          script.onerror = function() {
+            clearTimeout(loadTimeout);
+            console.log(`Failed to load ethers.js from ${cdnUrls[currentIndex]}`);
+            currentIndex++;
+            attemptLoad();
+          };
+          
+          document.head.appendChild(script);
+        }
+        
+        // Start loading attempt
+        attemptLoad();
+        
+        // Add fallback mechanism for when the user goes offline and back online
+        window.addEventListener('online', function() {
+          if (!window.ethersLoaded && window.ethersLoadFailed) {
+            console.log("Network connection restored. Retrying ethers.js load.");
+            currentIndex = 0;
+            window.ethersLoadFailed = false;
+            attemptLoad();
+          }
+        });
+      }
+      
+      // Load ethers after a small delay to prioritize UI loading first
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+          setTimeout(loadEthers, 500);
+        });
+      } else {
+        setTimeout(loadEthers, 500);
+      }
+      
+      // Function that will be called when ethers is loaded
+      function initializeWeb3Features() {
+        // This will be called automatically when ethers is loaded
+        console.log("Web3 features are now available");
+      }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
+    <!-- <script src="js/hud.js"></script> -->
+</head>
+<body>
+    <canvas id="three-canvas"></canvas>
+    <div class="hud-container" id="hud">
+        <!-- Removed score and ammo HUD elements -->
+    </div>
+    <div id="gameContainer">
+        <!-- Mobile hit feedback overlay -->
+        <div id="hitFeedback" class="hit-feedback"></div>
+        
+        <!-- Mobile pause button -->
+        <div id="mobilePauseBtn" class="mobile-pause-btn mobile-only">⏸️</div>
+        
+        <!-- Game UI Elements -->
+        <div id="ui">
+            <div>Level: <span id="level">Loading...</span></div>
+            <div>COFFY: <span id="coffyCounter">0</span> 💰</div>
+        </div>
+        
+        <div id="minimap"></div>
+        
+        <div id="controls">
+            <div>Move: WASD</div>
+            <div>Sprint: SHIFT</div>
+            <div>Jump: SPACE</div>
+            <div>Shoot: Left Click</div>
+            <div>Reload: R</div>
+            <div>Flashlight: F</div>
+            <div>Pause: ESC</div>
+        </div>
+        
+        <div id="health">
+            <div class="health-bar">
+                <div id="healthFill" class="health-fill" style="width: 100%;"></div>
+            </div>
+            <span id="healthValue" class="health-value">100</span>
+        </div>
+        
+        <div id="ammoDisplay">
+            <div>🔫</div>
+            <div id="ammoCount">30</div>
+        </div>
+        
+        <div id="crosshair"></div>
+        
+        <!-- Audio Controls -->
+        <div id="audioControls" class="audio-controls">
+            <button id="toggleAudio" class="audio-btn">🔊</button>
+            <div id="audioSettings" class="audio-settings">
+                <div class="audio-slider">
+                    <label for="musicVolume">Music</label>
+                    <input type="range" id="musicVolume" min="0" max="100" value="30">
+                </div>
+                <div class="audio-slider">
+                    <label for="sfxVolume">SFX</label>
+                    <input type="range" id="sfxVolume" min="0" max="100" value="70">
+                </div>
+                <div class="audio-slider">
+                    <label for="ambientVolume">Ambient</label>
+                    <input type="range" id="ambientVolume" min="0" max="100" value="50">
+                </div>
+            </div>
+        </div>
+        
+        <!-- Visual Effect Alerts -->
+        <div id="damageOverlay" class="damage-overlay"></div>
+        <div id="breathingEffect" class="breathing-effect"></div>
+        
+        <!-- Start Screen -->
+        <div id="startScreen" class="game-screen main-menu">
+            <div class="screen-content">
+                <h2 class="screen-title">3D Maze Horror</h2>
+                <p class="screen-text">Collect all gems and find your way to the exit!</p>
+                <p class="screen-text">Watch out for enemies and traps along the way.</p>
+                <div class="warning-message">⚠️ This game contains flashing lights and horror elements</div>
+                <div class="keyboard-hint">Press SPACE or ENTER to Start</div>
+                <div class="mobile-only">Tap anywhere to start</div>
+                
+                <div class="stats-container">
+                    <div id="walletInfo" class="stat-item wallet-info" style="display: none;">
+                        <div class="wallet-header">Connected Wallet</div>
+                        <div class="wallet-address-container">
+                            <span id="connected-wallet-address">Not Connected</span>
+                            <button id="disconnectWalletButton" class="mini-button">Disconnect</button>
+                        </div>
+                        <div id="walletBalance" class="stat-item wallet-balance">
+                            <span id="wallet-coffy-balance">0</span> COFFY
+                        </div>
+                    </div>
+                    
+                    <div id="pendingRewards" class="stat-item">
+                        <div class="reward-header">COFFY Rewards</div>
+                        <div class="reward-amount"><span id="totalCoffyTokens">0</span> <span class="token-status">💰</span></div>
+                    </div>
+                </div>
+                
+                <div class="button-container">
+                    <button id="startButton" class="pulse action-button">Start Game</button>
+                    <button id="connectWalletButton" class="action-button">Connect Wallet</button>
+                    <button id="claimRewardsButton" class="action-button" disabled>Claim Rewards</button>
+                </div>
+                
+                <div class="wallet-note">
+                    <p>You can play without connecting a wallet. Tokens will be stored locally.</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Game Over Screen -->
+        <div id="gameOverScreen" class="game-screen">
+            <div class="screen-content">
+                <h2 class="screen-title">GAME OVER</h2>
+                <div class="stats-container">
+                    <div class="stat-item">Final Score: <span id="finalScore">0</span></div>
+                    <div class="stat-item">COFFY: <span id="rewardsEarned">0</span></div>
+                    <div class="stat-item">Time Survived: <span id="timeAlive">0:00</span></div>
+                </div>
+                <div class="button-container">
+                    <button id="tryAgainButton" class="action-button">Try Again</button>
+                    <button id="returnToMenuButton" class="action-button">Return to Menu</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Pause Screen -->
+        <div id="pauseScreen" class="game-screen">
+            <div class="screen-content">
+                <h2 class="screen-title">Game Paused</h2>
+                <div class="button-container">
+                    <button id="resumeButton" class="action-button">Resume Game</button>
+                    <button id="exitToMenuButton" class="action-button">Exit to Menu</button>
+                    <button id="audioSettingsButton" class="action-button">Audio Settings</button>
+                </div>
+                <div class="controls-help">
+                    <h3>Controls:</h3>
+                    <ul>
+                        <li>WASD - Move</li>
+                        <li>Mouse - Look</li>
+                        <li>Left Click - Shoot</li>
+                        <li>R - Reload</li>
+                        <li>F - Flashlight</li>
+                        <li>Shift - Sprint</li>
+                        <li>ESC - Pause</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Level Complete Screen -->
+        <div id="levelCompleteMessage">
+            <h2>Level Complete!</h2>
+            <p>You've collected all the gems and found the exit!</p>
+            <button id="nextLevelButton">Next Level</button>
+        </div>
+        
+        <div id="winMessage">
+            <h2>Congratulations!</h2>
+            <p>You've completed all levels!</p>
+            <p>Your final score: <span id="finalScore">0</span></p>
+            <button id="restartButton">Play Again</button>
+        </div>
+        
+        <!-- FPS counter for development -->
+        <div id="fpsCounter" style="position: absolute; top: 5px; left: 5px; font-size: 12px; color: white; display: none;"></div>
+    </div>
+
+    <!-- Scripts -->
+    <script type="module" src="js/index.js"></script>
+
+    <!-- Add styles for token display -->
+    <style>
+        /* Hide game HUDs when on the main menu */
+        body:not(.game-started) #ui,
+        body:not(.game-started) #health,
+        body:not(.game-started) #ammoDisplay,
+        body:not(.game-started) #crosshair,
+        body:not(.game-started) #minimap {
+            display: none !important;
+        }
+        
+        .token-status {
+            font-size: 0.8em;
+            color: #ffcc00;
+        }
+        
+        /* Wallet connection and balance styles */
+        .wallet-info {
+            background-color: rgba(78, 205, 196, 0.15);
+            border-left: 3px solid #4ecdc4;
+            padding: 10px 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+        }
+        
+        .wallet-header {
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #4ecdc4;
+        }
+        
+        .wallet-address-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        #connected-wallet-address {
+            font-family: monospace;
+            color: #eee;
+            font-size: 0.9em;
+        }
+        
+        .mini-button {
+            background-color: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 4px 8px;
+            font-size: 0.8em;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .mini-button:hover {
+            background-color: rgba(255, 255, 255, 0.25);
+        }
+        
+        /* Token rewards */
+        #pendingRewards {
+            background-color: rgba(255, 204, 0, 0.15);
+            border-left: 3px solid #ffcc00;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .reward-header {
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #ffcc00;
+        }
+        
+        .reward-amount {
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        
+        /* Wallet balance highlight */
+        .wallet-balance {
+            background-color: rgba(255, 204, 0, 0.1);
+            border-left: 3px solid #ffcc00;
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-size: 0.9em;
+        }
+        
+        #wallet-coffy-balance {
+            color: #ffcc00;
+            font-weight: bold;
+        }
+        
+        /* Make wallet connection buttons slightly less prominent */
+        #connectWalletButton {
+            background-color: #333;
+            border: 1px solid #4ecdc4;
+            color: #4ecdc4;
+        }
+        
+        #claimRewardsButton {
+            background-color: #333;
+            border: 1px solid #ffcc00;
+            color: #ffcc00;
+        }
+        
+        #claimRewardsButton:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* Start game button */
+        #startButton {
+            background-color: #4ecdc4;
+            color: #000;
+            font-weight: bold;
+            box-shadow: 0 0 10px rgba(78, 205, 196, 0.5);
+        }
+        
+        /* Wallet note styling */
+        .wallet-note {
+            margin-top: 15px;
+            font-size: 12px;
+            opacity: 0.7;
+            max-width: 80%;
+            text-align: center;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        /* Saved level info styling */
+        .saved-level-info {
+            background-color: rgba(78, 205, 196, 0.2);
+            border-left: 3px solid #4ecdc4;
+            padding: 12px 15px;
+            margin: 15px auto;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #4ecdc4;
+            animation: pulse-light 2s infinite;
+            max-width: 80%;
+        }
+        
+        @keyframes pulse-light {
+            0% { box-shadow: 0 0 0 0 rgba(78, 205, 196, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(78, 205, 196, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(78, 205, 196, 0); }
+        }
+        
+        /* Mobile optimizations */
+        @media (max-width: 480px) {
+            .stats-container {
+                width: 90%;
+            }
+            
+            .button-container {
+                flex-direction: column;
+                width: 90%;
+            }
+            
+            .button-container button {
+                margin: 5px 0;
+            }
+        }
+    </style>
+</body>
+</html>

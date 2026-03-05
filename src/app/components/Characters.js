@@ -298,14 +298,13 @@ export default function Characters() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
                 {/* Header */}
-                <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-10">
+                <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-6">
                     <span className="inline-block px-4 py-1.5 rounded-full bg-[#D4A017]/10 border border-[#D4A017]/30 text-[#D4A017] text-xs font-bold tracking-widest uppercase mb-4 font-outfit">🎭 Characters</span>
                     <h2 className="text-4xl md:text-5xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-[#D4A017] via-[#F4C430] to-[#D4A017] mb-3 font-outfit tracking-tight">Choose Your Character</h2>
-                    <p className="text-[#E8D5B5]/70 text-base max-w-lg mx-auto font-outfit">Swipe right to buy, left to skip. Burn COFFY to unlock — stored permanently on-chain.</p>
 
-                    {/* Wallet stats */}
-                    {account ? (
-                        <div className="flex flex-wrap items-center justify-center gap-3 mt-4">
+                    {/* Wallet stats - Compact & Clean */}
+                    {account && (
+                        <div className="flex flex-wrap items-center justify-center gap-3 mt-2">
                             <div className="bg-[#2A1810]/80 border border-[#D4A017]/20 rounded-xl px-4 py-1.5 text-sm font-outfit">
                                 <span className="text-[#E8D5B5]/50">Balance: </span>
                                 <span className="text-[#D4A017] font-bold">{coffyBalance !== null ? `${formatCoffy(coffyBalance)} COFFY` : '…'}</span>
@@ -314,17 +313,11 @@ export default function Characters() {
                                 <span className="text-[#E8D5B5]/50">Multiplier: </span>
                                 <span className="text-[#F4C430] font-bold">{multiplier}%</span>
                             </div>
-                            {isDAO && <div className="bg-[#D4A017]/10 border border-[#D4A017]/40 rounded-xl px-4 py-1.5 text-sm flex items-center gap-1 font-outfit"><span>👑</span><span className="text-[#D4A017] font-bold">DAO Member</span></div>}
                         </div>
-                    ) : (
-                        <motion.button onClick={connectWallet} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-                            className="mt-4 bg-gradient-to-r from-[#D4A017] to-[#A77B06] text-white font-bold py-2.5 px-7 rounded-2xl shadow-lg shadow-[#D4A017]/20 font-outfit text-sm">
-                            🔗 Connect Wallet to Buy
-                        </motion.button>
                     )}
                 </motion.div>
 
-                <div className="flex flex-col items-center justify-center gap-6 mt-12 pb-12">
+                <div className="flex flex-col items-center justify-center gap-6 mt-20 md:mt-28 pb-12">
 
                     {/* Swipe stack */}
                     <div className="flex flex-col items-center gap-6 md:scale-110 lg:scale-125 transition-transform duration-300">

@@ -51,8 +51,7 @@ const About = ({ id }) => {
           <p
             className="text-lg text-[#E8D5B5]/80 max-w-3xl mx-auto"
           >
-            Coffy Coin V2 introduces a revolutionary modular ecosystem combining gaming, DeFi, and community governance.
-            Our advanced smart contract architecture provides sustainable rewards through character-based gameplay and enhanced staking mechanisms.
+            We didn&apos;t just build a token. We built an on-chain economy where every cup of coffee, every step you take, and every game you win puts real COFFY in your wallet — permanently, transparently, on Base Mainnet.
           </p>
         </div>
 
@@ -95,21 +94,17 @@ const About = ({ id }) => {
 
           {/* Right side - Information */}
           <div className="flex flex-col justify-center reveal-on-scroll">
-            <div
-              className="space-y-6"
-            >
-              <h3 className="text-2xl md:text-3xl font-semibold text-[#E8D5B5]">Our Mission</h3>
+            <div className="space-y-5">
               <p className="text-[#E8D5B5]/80">
-                Our V2 modular smart contract creates a transparent, secure ecosystem that revolutionizes
-                the coffee gaming experience. With advanced sybil protection
-                and a character-based reward system, we provide sustainable value across our entire gaming ecosystem.
+                COFFY is deployed on <span className="text-[#D4A017] font-semibold">Base Mainnet</span> with a fully modular V7 smart contract architecture — auditable on-chain, zero hidden mechanics. Advanced sybil protection and oracle-signed EIP-712 rewards ensure every token you earn is legitimate. Your rewards are earned, not inflated.
               </p>
               <p className="text-[#E8D5B5]/80">
-                Through our enhanced staking system (dynamic APY) and modular-ready architecture planned for
-                DAO, NFT, Social, and Cross-chain modules in 2026, token holders will actively shape the project's future
-                while earning through engaging gameplay and community participation.
+                Earn COFFY by gaming PvP battles, staking for up to <span className="text-[#D4A017] font-semibold">50% dynamic APY</span>, walking (Step-to-Earn), or photographing your coffee (Snap-to-Earn). Characters permanently boost rewards up to <span className="text-[#D4A017] font-semibold">+100%</span> and the Legend tier unlocks on-chain DAO governance.
               </p>
-              <div className="pt-4">
+              <p className="text-[#E8D5B5]/80">
+                On the horizon: <span className="text-[#D4A017] font-semibold">real-world coffee chain partnerships</span> where you pay with COFFY at partner cafés and earn cashback rewards, the <span className="text-[#D4A017] font-semibold">Coffy Wallet</span> for seamless in-app token management without MetaMask friction, and an expanding game library — from Coffee Chess to new strategy and casual titles — all sharing the same on-chain economy.
+              </p>
+              <div className="pt-2">
                 <a href="#tokenomics" className="btn-primary">Explore Tokenomics</a>
               </div>
             </div>
@@ -121,7 +116,6 @@ const About = ({ id }) => {
           className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-16"
         >
           <div className="card-coffee hover-lift reveal-on-scroll p-4 text-center">
-            {/* SVG icon inline for better performance - Path: /public/icons/blockchain-icon.svg */}
             <div className="h-16 flex items-center justify-center mb-4">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#D4A017" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-10 h-10">
                 <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
@@ -132,14 +126,13 @@ const About = ({ id }) => {
                 <path d="M14 15h4"></path>
               </svg>
             </div>
-            <h4 className="text-lg font-semibold mb-2 text-[#E8D5B5]">Modular Ready</h4>
+            <h4 className="text-lg font-semibold mb-2 text-[#E8D5B5]">3 Live Contracts</h4>
             <p className="text-[#E8D5B5]/70 text-sm">
-              V2 contract ready for DAO, NFT, Social, and Cross-chain modules starting 2026.
+              CoffyCore V7 + GameModule V16 + ActivityModule V14 — all verified on BaseScan.
             </p>
           </div>
 
           <div className="card-coffee hover-lift reveal-on-scroll p-4 text-center">
-            {/* SVG icon inline - Path: /public/icons/staking-icon.svg */}
             <div className="h-16 flex items-center justify-center mb-4">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#D4A017" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-10 h-10">
                 <circle cx="12" cy="12" r="10"></circle>
@@ -148,14 +141,13 @@ const About = ({ id }) => {
                 <path d="M8 14h8"></path>
               </svg>
             </div>
-            <h4 className="text-lg font-semibold mb-2 text-[#E8D5B5]">Enhanced Staking</h4>
+            <h4 className="text-lg font-semibold mb-2 text-[#E8D5B5]">2–50% Dynamic APY</h4>
             <p className="text-[#E8D5B5]/70 text-sm">
-              Dynamic APY with no minimum stake and early unstake protection.
+              Stake COFFY, earn up to 50% APY boosted by your character multiplier. No minimum.
             </p>
           </div>
 
           <div className="card-coffee hover-lift reveal-on-scroll p-4 text-center">
-            {/* SVG icon inline - Path: /public/icons/community-icon.svg */}
             <div className="h-16 flex items-center justify-center mb-4">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#D4A017" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-10 h-10">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
@@ -164,14 +156,13 @@ const About = ({ id }) => {
                 <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
               </svg>
             </div>
-            <h4 className="text-lg font-semibold mb-2 text-[#E8D5B5]">Future DAO</h4>
+            <h4 className="text-lg font-semibold mb-2 text-[#E8D5B5]">Walk & Earn</h4>
             <p className="text-[#E8D5B5]/70 text-sm">
-              Legendary Dragon holders will get DAO membership for protocol governance in Q2.
+              Step-to-Earn + Snap-to-Earn — get paid for moving and drinking coffee in real life.
             </p>
           </div>
 
           <div className="card-coffee hover-lift reveal-on-scroll p-4 text-center">
-            {/* SVG icon inline - Path: /public/icons/gaming-icon.svg */}
             <div className="h-16 flex items-center justify-center mb-4">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#D4A017" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-10 h-10">
                 <rect x="2" y="6" width="20" height="12" rx="2"></rect>
@@ -181,19 +172,13 @@ const About = ({ id }) => {
                 <path d="M18 11h.01"></path>
               </svg>
             </div>
-            <h4 className="text-lg font-semibold mb-2 text-[#E8D5B5]">Character System</h4>
+            <h4 className="text-lg font-semibold mb-2 text-[#E8D5B5]">5 Tier Characters</h4>
             <p className="text-[#E8D5B5]/70 text-sm">
-              5 unique characters with 2x-10x multipliers and advanced sybil protection.
+              +10% to +100% reward multipliers on-chain. Legend tier unlocks DAO membership forever.
             </p>
           </div>
         </div>
 
-        {/* Minimal Call to Action */}
-        <div className="mt-12 text-center reveal-on-scroll">
-          <a href="#community" className="btn-primary mx-auto inline-block">
-            Join Community
-          </a>
-        </div>
       </div>
     </section>
   );

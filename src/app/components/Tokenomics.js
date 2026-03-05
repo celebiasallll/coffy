@@ -216,19 +216,26 @@ const Tokenomics = () => {
 
               {/* Legend with improved readability - moved below for better balance */}
               <div className="grid grid-cols-2 gap-3 mt-5">
-                {tokenDistribution.map((item, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-sm shadow-sm" style={{ backgroundColor: item.color }}></div>
-                    <div className="text-xs">
-                      <div className="text-white font-medium">{item.name}</div>
-                      <div className="text-[#E8D5B5]/80 text-[10px] flex justify-between">
-                        <span>{item.percentage === 50 ? '7.5B' : item.percentage === 20 ? '3B' : '2.25B'}</span>
-                        <span className="ml-1">({item.percentage}%)</span>
+                {tokenDistribution.map((item, index) => {
+                  // Calculate correct amount from percentage × 15B total
+                  const totalSupply = 15;
+                  const amount = ((item.percentage / 100) * totalSupply).toFixed(2);
+                  const displayAmount = amount % 1 === 0 ? `${parseInt(amount)}B` : `${amount}B`;
+                  return (
+                    <div key={index} className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-sm shadow-sm flex-shrink-0" style={{ backgroundColor: item.color }}></div>
+                      <div className="text-xs">
+                        <div className="text-white font-medium">{item.name}</div>
+                        <div className="text-[#E8D5B5]/80 text-[10px] flex gap-1">
+                          <span>{displayAmount}</span>
+                          <span>({item.percentage}%)</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
+
             </motion.div>
           </div>
 

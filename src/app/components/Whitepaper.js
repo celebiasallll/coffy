@@ -15,7 +15,7 @@ export default function Whitepaper() {
         >
           <h2 className="text-5xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-[#D4A017] to-[#A77B06]">Whitepaper</h2>
           <div className="w-24 h-1 bg-[#D4A017] mx-auto rounded-full mb-8"></div>
-          
+
           <p className="text-xl text-[#E8D5B5] mb-12">
             Explore the technical details, tokenomics model, and vision of Coffy Coin in our comprehensive whitepaper.
           </p>

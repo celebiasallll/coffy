@@ -7,35 +7,8 @@ export default function Partners() {
   const { scrollY } = useScroll();
   const opacity = useTransform(scrollY, [0, 300], [1, 0.8]);
 
-  const partnerMotion = {
-    rest: { scale: 1 },
-    hover: { 
-      scale: 1.05,
-      transition: {
-        duration: 0.2,
-        type: "tween",
-        ease: "easeOut"
-      }
-    }
-  };
-
-  const cardVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: {
-      y: 0,
-      opacity: 1,
-      transition: {
-        type: "spring",
-        stiffness: 100,
-        damping: 15
-      }
-    }
-  };
-
   return (
     <section className="py-24 bg-gradient-to-b from-[#3A2A1E] to-[#1A0F0A] relative overflow-hidden" id="partners">
-      {/* Background Effects removed for performance */}
-
       <motion.div style={{ opacity }} className="container mx-auto px-6 relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 50 }}
@@ -44,94 +17,103 @@ export default function Partners() {
           viewport={{ once: true }}
           className="text-center mb-12"
         >
-          <h2 className="text-5xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-[#D4A017] to-[#A77B06]">Strategic Partners</h2>
+          <h2 className="text-5xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-[#D4A017] to-[#A77B06]">
+            Ecosystem &amp; Partners
+          </h2>
           <div className="w-24 h-1 bg-[#D4A017] mx-auto rounded-full"></div>
-          <p className="text-xl text-[#E8D5B5] mt-4">Proud to collaborate with the finest coffee brands</p>
+          <p className="text-xl text-[#E8D5B5] mt-4">Built on leading Web3 infrastructure</p>
         </motion.div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-5xl mx-auto">
-          {[
-            { name: "RoastBrew", logo: "/images/partners/roastbrew-logo.png" },
-            { name: "Javamingle", logo: "/images/partners/javamingle-logo.png" },
-            { name: "Cafénest", logo: "/images/partners/cafenest-logo.png" },
-            { name: "PerkCafé", logo: "/images/partners/perkcafe-logo.png" }
-          ].map((partner, i) => (
-            <div
-              key={partner.name}
-              className="bg-[#2C1B12]/80 backdrop-blur-sm p-6 rounded-xl border border-[#D4A017]/20 hover:border-[#D4A017] shadow-lg hover:shadow-[#D4A017]/20 transition-all duration-300"
-            >
-              <div className="relative group aspect-video flex items-center justify-center">
-                <Image 
-                  src={partner.logo} 
-                  alt={partner.name} 
-                  width={200} 
-                  height={100} 
-                  className="w-full h-full object-contain filter brightness-90 group-hover:brightness-110 transition-all duration-300"
-                  loading="lazy"
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Partnership CTA */}
+        {/* Become a Partner CTA — prominent */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
           viewport={{ once: true }}
-          className="mt-16 text-center"
+          className="mb-14 flex flex-col items-center"
         >
-          <a 
-            href="https://forms.gle/CQyCEYMGt6t2WGVN7" // Güncellenmiş çalışan Google Form linki
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-block bg-gradient-to-r from-[#D4A017] to-[#A77B06] text-white font-bold py-3 px-8 rounded-xl hover:shadow-lg hover:shadow-[#D4A017]/30 transition-all duration-300 group"
-          >
-            <span>Become a Partner</span>
-            <i className="fas fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
-          </a>
+          <div className="bg-gradient-to-br from-[#3A2A1E]/80 to-[#2A1810]/80 border border-[#D4A017]/30 rounded-2xl px-8 py-6 max-w-xl w-full text-center backdrop-blur-sm shadow-xl">
+            <div className="text-3xl mb-2">🤝</div>
+            <h3 className="text-xl font-bold text-white mb-1">Become a Strategic Partner</h3>
+            <p className="text-[#E8D5B5]/80 text-sm mb-5">
+              Coffee brands, gaming studios &amp; Web3 projects — reach out to us directly
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <a
+                href="https://t.me/+DVdNX9nar99hN2Rk"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 bg-[#0088CC] hover:bg-[#0099DD] text-white font-bold py-2.5 px-6 rounded-xl transition-all duration-300"
+              >
+                <i className="fab fa-telegram-plane"></i>
+                Telegram
+              </a>
+              <a
+                href="https://x.com/coffycoinxyz"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 bg-[#1DA1F2] hover:bg-[#1A91DA] text-white font-bold py-2.5 px-6 rounded-xl transition-all duration-300"
+              >
+                <i className="fab fa-twitter"></i>
+                Twitter / X
+              </a>
+            </div>
+          </div>
         </motion.div>
 
-        {/* --- KAYAN WEB3 ECOSYSTEM LOGOLARI --- */}
-        <div className="relative w-full mt-12 overflow-x-hidden">
-          <div className="text-center mb-2">
-            <span className="text-sm md:text-base font-semibold text-[#E8D5B5]/80 tracking-wide uppercase">Web3 Ecosystem</span>
+        {/* Web3 Ecosystem Logos scrolling marquee */}
+        <div className="relative w-full overflow-x-hidden">
+          <div className="text-center mb-4">
+            <span className="text-sm md:text-base font-semibold text-[#E8D5B5]/80 tracking-wide uppercase">
+              Web3 Ecosystem
+            </span>
           </div>
-          <div className="marquee flex items-center gap-16 py-3 bg-[#1A0F0A]/70 rounded-xl shadow-inner px-4">
+          <div className="marquee-track flex items-center gap-16 py-4 bg-[#1A0F0A]/60 rounded-xl shadow-inner px-10">
             {(() => {
               const logos = [
+                { name: 'Base', logo: '/images/partners/base.png' },
                 { name: 'Unity', logo: '/images/partners/unity.png' },
                 { name: 'BNB Chain', logo: '/images/partners/bnbchain.png' },
                 { name: 'Polygon', logo: '/images/partners/polygon.png' },
                 { name: 'OpenSea', logo: '/images/partners/opensea.png' },
                 { name: 'Animoca', logo: '/images/partners/animoca.png' },
-                { name: 'Base', logo: '/images/partners/base.png' },
               ];
-              // Sonsuz döngü için iki kez render
-              return [...logos, ...logos].map((partner, i) => (
+              // Triple the list so the marquee is always full — no empty space visible
+              return [...logos, ...logos, ...logos].map((partner, i) => (
                 <div
                   key={i}
-                  className="flex-shrink-0 flex items-center justify-center bg-[#23180F]/80 rounded-lg border border-[#D4A017]/20 shadow-md h-12 w-12 md:h-14 md:w-14 aspect-square transition-all duration-300 hover:opacity-100 opacity-80"
+                  title={partner.name}
+                  className="flex-shrink-0 flex flex-col items-center gap-1 group"
                 >
-                  <div className="flex items-center justify-center w-full h-full">
+                  <div className="flex items-center justify-center bg-[#23180F]/80 rounded-xl border border-[#D4A017]/20 shadow-md h-16 w-16 transition-all duration-300 group-hover:border-[#D4A017]/50">
                     <img
                       src={partner.logo}
                       alt={partner.name}
-                      style={{ maxWidth: '80%', maxHeight: '80%', objectFit: 'contain', filter: 'grayscale(1) brightness(0.85)' }}
+                      style={{
+                        maxWidth: '75%',
+                        maxHeight: '75%',
+                        objectFit: 'contain',
+                        filter: 'grayscale(0.2) brightness(0.9)',
+                      }}
                     />
                   </div>
+                  <span className="text-[10px] text-[#E8D5B5]/50 group-hover:text-[#E8D5B5]/80 transition-colors">
+                    {partner.name}
+                  </span>
                 </div>
               ));
             })()}
           </div>
           <style jsx>{`
-            .marquee {
-              animation: marquee-scroll 16s linear infinite;
+            .marquee-track {
+              animation: marquee-scroll 12s linear infinite;
+            }
+            .marquee-track:hover {
+              animation-play-state: paused;
             }
             @keyframes marquee-scroll {
-              0% { transform: translateX(0); }
-              100% { transform: translateX(-50%); }
+              0%   { transform: translateX(0); }
+              100% { transform: translateX(-33.333%); }
             }
           `}</style>
         </div>

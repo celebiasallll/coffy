@@ -1,0 +1,16 @@
+From https://github.com/celebiasallll/coffy
+ * branch            main       -> FETCH_HEAD
+error: The following untracked working tree files would be overwritten by checkout:
+	public/CoffeeChess/coffytokenvemodülabi.js
+	public/CoffeeChess/config/baseConfig.js
+	public/CoffeeChess/hardhat.config.js
+	public/CoffeeChess/index.html
+	public/CoffeeChess/package.json
+	public/CoffeeChess/rateLimits.json
+	public/CoffeeChess/server.js
+	public/CoffeeChess/start-server.bat
+	public/CoffeeChess/start-server.sh
+	public/CoffeeChess/users.json
+Please move or remove them before you switch branches.
+Aborting
+error: could not detach HEAD

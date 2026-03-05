@@ -394,7 +394,7 @@ const GamesSection = ({ id }) => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <i className="fas fa-coins text-[#A77B06]" />
-                      <span className="text-[10px] text-[#E8D5B5]/80 font-medium">Daily Rewards</span>
+                      <span className="text-[10px] text-[#E8D5B5]/80 font-medium">Weekly Rewards</span>
                     </div>
                     <span className="text-xs font-bold text-[#F4C430]">{game.rewards}</span>
                   </div>

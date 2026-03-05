@@ -3,6 +3,15 @@
 import { motion } from 'framer-motion';
 
 export default function Roadmap() {
+  const achievements = [
+    { icon: '✅', text: 'Base Mainnet Smart Contract Deploy (V2 Modular)' },
+    { icon: '✅', text: '7 Play-to-Earn Games Launched' },
+    { icon: '✅', text: 'Anti-Sybil Protection V2 with Dynamic Rewards' },
+    { icon: '✅', text: 'Staking System (Dynamic APY 2–50%) Live' },
+    { icon: '✅', text: 'Coffee Chess & Checkers Multiplayer PvP Live' },
+    { icon: '✅', text: 'FlagRacer Online Multiplayer Racing Live' },
+  ];
+
   const roadmapData = [
     {
       quarter: "Q1 2026",
@@ -109,6 +118,40 @@ export default function Roadmap() {
           <div className="w-32 h-1 bg-gradient-to-r from-transparent via-[#D4A017] to-transparent mx-auto mt-6 rounded-full" />
         </motion.div>
 
+        {/* Achievements — What We've Built */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="max-w-4xl mx-auto mb-14"
+        >
+          <div className="bg-gradient-to-br from-[#2A1810]/80 to-[#3A2A1E]/60 border border-[#D4A017]/20 rounded-2xl p-6 backdrop-blur-sm">
+            <div className="flex items-center gap-2 mb-5">
+              <div className="w-6 h-6 rounded-full bg-[#D4A017]/20 flex items-center justify-center">
+                <span className="text-[#D4A017] text-xs">✓</span>
+              </div>
+              <h3 className="text-lg font-bold text-white font-outfit">What We&apos;ve Built</h3>
+              <span className="text-xs text-[#E8D5B5]/50 ml-1">— Completed milestones</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {achievements.map((a, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, x: -10 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.08 }}
+                  className="flex items-center gap-3 text-sm text-[#E8D5B5]/80"
+                >
+                  <span className="text-base flex-shrink-0">{a.icon}</span>
+                  <span className="leading-tight">{a.text}</span>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+
         {/* Roadmap Timeline */}
         <div className="max-w-4xl mx-auto space-y-6">
           {roadmapData.map((phase, index) => (
@@ -136,7 +179,7 @@ export default function Roadmap() {
                   <div className="relative w-full h-full flex flex-col items-center justify-center text-white">
                     <div className="text-3xl font-black gradient-text font-outfit">{phase.quarter.split(' ')[1]}</div>
                     <div className="text-[10px] font-bold text-[#E8D5B5] mt-0.5 tracking-widest">{phase.quarter.split(' ')[0]}</div>
-                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full animate-pulse shadow-lg" />
+                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-gradient-to-br from-[#D4A017] to-[#A77B06] rounded-full animate-pulse shadow-lg shadow-[#D4A017]/30" />
                   </div>
                 </motion.div>
 

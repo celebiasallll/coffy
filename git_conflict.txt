@@ -1,0 +1,258 @@
+interactive rebase in progress; onto 3a07d6a
+Last command done (1 command done):
+   pick f4c2be1 # update contracts and abis to latest
+Next commands to do (2 remaining commands):
+   pick 0a90ac3 # commit untracked changes in CoffeeChess before pulling
+   pick fff554b # fix coffeechess submodule conflict
+  (use "git rebase --edit-todo" to view and edit)
+You are currently rebasing branch 'main' on '3a07d6a'.
+  (fix conflicts and then run "git rebase --continue")
+  (use "git rebase --skip" to skip this patch)
+  (use "git rebase --abort" to check out the original branch)
+
+Changes to be committed:
+  (use "git restore --staged <file>..." to unstage)
+	new file:   abi_funcs.txt
+	new file:   abi_getGameInfo.json
+	new file:   activitymodule_v14.sol
+	new file:   build_out.txt
+	new file:   build_out2.txt
+	new file:   build_output.log
+	new file:   chinesee_diff.txt
+	new file:   coffycore_v6_remix.sol
+	new file:   coffycore_v7 (1).sol
+	new file:   gamemodule_v16.sol
+	new file:   git_diff.txt
+	new file:   git_staged.txt
+	new file:   git_untracked.txt
+	new file:   src/app/api/activity-claim/route.js
+	new file:   src/app/api/game-claim/route.js
+	new file:   src/app/api/snap-verify/route.js
+	new file:   src/app/api/step-verify/route.js
+	new file:   src/app/components/SnapToEarn.js
+	new file:   src/app/config/ActivityModuleABI.json
+	new file:   src/app/config/CoffyCoreABI.json
+	new file:   src/app/config/GameModuleABI.json
+	new file:   status.txt
+	new file:   temp_matches.txt
+	new file:   temp_update.js
+	new file:   update_web3_handlers.js
+
+Unmerged paths:
+  (use "git restore --staged <file>..." to unstage)
+  (use "git add <file>..." to mark resolution)
+	both added:      .eslintrc.json
+	both added:      .gitignore
+	both added:      .npmrc
+	both added:      README.md
+	both added:      assets/coffy_icon.png
+	both added:      assets/models/README.md
+	both added:      assets/textures/README.md
+	both added:      assets/vehicles/README.md
+	both added:      index.html
+	both added:      js/audioManager.js
+	both added:      js/coins.js
+	both added:      js/environment.js
+	both added:      js/index.html
+	both added:      js/main.js
+	both added:      js/mobileHud.js
+	both added:      js/objectPool.js
+	both added:      js/objects.js
+	both added:      js/particles.js
+	both added:      js/physics.js
+	both added:      js/robots.js
+	both added:      js/robots/attackRobot.js
+	both added:      js/robots/guardRobot.js
+	both added:      js/terrain.js
+	both added:      js/vehicle.js
+	both added:      js/vehicles/courier.js
+	both added:      js/vehicles/police.js
+	both added:      js/vehicles/thief.js
+	both added:      js/web3handler.js
+	both added:      mobile.css
+	both added:      package-lock.json
+	both added:      package.json
+	added by them:   public/CoffeeChess~f4c2be1 (update contracts and abis to latest)
+	both added:      public/beegame/.vscode/settings.json
+	both added:      public/beegame/README.md
+	both added:      public/beegame/index.html
+	both added:      public/beegame/js/ShaderPass.js
+	both added:      public/beegame/js/flowers.js
+	both added:      public/beegame/js/graphics-manager.js
+	both added:      public/beegame/js/input.js
+	both added:      public/beegame/js/mobileConfig.js
+	both added:      public/beegame/js/mobileControls.js
+	both added:      public/beegame/js/utils.js
+	both added:      public/beegame/js/web3handler.js
+	both added:      public/beegame/style.css
+	both added:      public/chinesee/FEATURES_ROADMAP.md
+	both added:      "public/chinesee/coffytokenvemod\303\274labi.js"
+	both added:      public/chinesee/index.html
+	both added:      "public/chinesee/mod\303\274l.sol"
+	both added:      public/chinesee/server.js
+	both added:      public/coffygame/PlayerBullet.js
+	both added:      public/coffygame/assets/coffee_boss.svg
+	both added:      public/coffygame/assets/coffee_cup.svg
+	both added:      public/coffygame/assets/magnet_powerup.svg
+	both added:      public/coffygame/assets/player_arabica.svg
+	both added:      public/coffygame/assets/player_arabica_sad.svg
+	both added:      public/coffygame/assets/player_arabica_smile.svg
+	both added:      public/coffygame/assets/player_cappuccino.svg
+	both added:      public/coffygame/assets/player_cappuccino_sad.svg
+	both added:      public/coffygame/assets/player_cappuccino_smile.svg
+	both added:      public/coffygame/assets/player_espresso.svg
+	both added:      public/coffygame/assets/player_espresso_sad.svg
+	both added:      public/coffygame/assets/player_espresso_smile.svg
+	both added:      public/coffygame/assets/player_mocha.svg
+	both added:      public/coffygame/assets/player_mocha_sad.svg
+	both added:      public/coffygame/assets/player_mocha_smile.svg
+	both added:      public/coffygame/assets/player_robusta.svg
+	both added:      public/coffygame/assets/player_robusta_sad.svg
+	both added:      public/coffygame/assets/player_robusta_smile.svg
+	both added:      public/coffygame/assets/shield_powerup.svg
+	both added:      public/coffygame/assets/speed_powerup.svg
+	both added:      public/coffygame/assets/tea_boss.svg
+	both added:      public/coffygame/assets/tea_cup.svg
+	both added:      public/coffygame/constants.js
+	both added:      public/coffygame/favicon.ico
+	both added:      public/coffygame/game.css
+	both added:      public/coffygame/game.html
+	both added:      public/coffygame/game.js
+	both added:      public/coffygame/gameLogic.js
+	both added:      public/coffygame/libs/ethers-5.7.2.min.js
+	both added:      public/coffygame/mobile-controls.js
+	both added:      public/coffygame/mobile-hud.css
+	both added:      public/coffygame/module-check.js
+	both added:      public/coffygame/start-game.bat
+	both added:      public/coffygame/touch-debug.js
+	both added:      public/coffygame/utils.js
+	both added:      public/coffygame/web3Integration.js
+	both added:      public/coffyinmaze/.vscode/settings.json
+	both added:      public/coffyinmaze/README.md
+	both added:      public/coffyinmaze/css/game.css
+	both added:      public/coffyinmaze/css/mobile.css
+	both added:      public/coffyinmaze/css/style.css
+	both added:      public/coffyinmaze/gameManager.js
+	both added:      public/coffyinmaze/index.html
+	both added:      public/coffyinmaze/js/gameManager.js
+	both added:      public/coffyinmaze/js/hud.js
+	both added:      public/coffyinmaze/js/index.js
+	both added:      public/coffyinmaze/js/modules/audioManager.js
+	both added:      public/coffyinmaze/js/modules/config.js
+	both added:      public/coffyinmaze/js/modules/effectsManager.js
+	both added:      public/coffyinmaze/js/modules/enemy.js
+	both added:      public/coffyinmaze/js/modules/gameManager.js
+	both added:      public/coffyinmaze/js/modules/loadLevel.js
+	both added:      public/coffyinmaze/js/modules/mazeGenerator.js
+	both added:      public/coffyinmaze/js/modules/particles.js
+	both added:      public/coffyinmaze/js/modules/physics.js
+	both added:      public/coffyinmaze/js/modules/player.js
+	both added:      public/coffyinmaze/js/modules/touchControls.js
+	both added:      public/coffyinmaze/js/modules/ui.js
+	both added:      public/coffyinmaze/js/modules/utils/lazyAssetLoader.js
+	both added:      public/coffyinmaze/js/modules/utils/memoryManager.js
+	both added:      public/coffyinmaze/js/modules/utils/mobile.js
+	both added:      public/coffyinmaze/js/modules/utils/objectPool.js
+	both added:      public/coffyinmaze/js/modules/utils/performance.js
+	both added:      public/coffyinmaze/js/modules/utils/performanceAutoScaler.js
+	both added:      public/coffyinmaze/js/modules/utils/saveManager.js
+	both added:      public/coffyinmaze/js/modules/utils/threeDisposer.js
+	both added:      public/coffyinmaze/manifest.json
+	both added:      public/coffyinmaze/package.json
+	both added:      public/flagraceronline/.vscode/settings.json
+	both added:      public/flagraceronline/README.md
+	both added:      public/flagraceronline/assets/audio/README.md
+	both added:      public/flagraceronline/assets/models/README.md
+	both added:      public/flagraceronline/assets/textures/README.md
+	both added:      public/flagraceronline/assets/vehicles/README.md
+	both added:      public/flagraceronline/index.html
+	both added:      public/flagraceronline/js/audio.js
+	both added:      public/flagraceronline/js/environment.js
+	both added:      public/flagraceronline/js/game.js
+	both added:      public/flagraceronline/js/mobile-config.js
+	both added:      public/flagraceronline/js/objects.js
+	both added:      public/flagraceronline/js/particles.js
+	both added:      public/flagraceronline/js/physics.js
+	both added:      public/flagraceronline/js/postprocessing.js
+	both added:      public/flagraceronline/js/storage.js
+	both added:      public/flagraceronline/js/terrain.js
+	both added:      public/flagraceronline/js/vehicle.js
+	both added:      public/flagraceronline/js/vehicles/courier.js
+	both added:      public/flagraceronline/js/vehicles/police.js
+	both added:      public/flagraceronline/js/vehicles/thief.js
+	both added:      public/flagraceronline/js/web3handler.js
+	both added:      public/flagraceronline/manifest.json
+	both added:      public/flagraceronline/mobile.css
+	both added:      public/flagraceronline/package-lock.json
+	both added:      public/flagraceronline/package.json
+	both added:      public/flagraceronline/server.js
+	both added:      public/flagraceronline/start-server.bat
+	both added:      public/flagraceronline/styles.css
+	both added:      public/flagraceronline/sw.js
+	both added:      public/flagraceronline/test-building-collision.html
+	both added:      public/flagraceronline/test-connection.html
+	both added:      public/flagraceronline/test-mobile.html
+	both added:      public/hungeriumgame/.eslintrc.json
+	both added:      public/hungeriumgame/.vscode/settings.json
+	both added:      public/hungeriumgame/README.md
+	both added:      public/hungeriumgame/assets/coffy_icon.png
+	both added:      public/hungeriumgame/assets/models/README.md
+	both added:      public/hungeriumgame/assets/textures/README.md
+	both added:      public/hungeriumgame/assets/vehicles/README.md
+	both added:      public/hungeriumgame/index.html
+	both added:      public/hungeriumgame/js/audioManager.js
+	both added:      public/hungeriumgame/js/coins.js
+	both added:      public/hungeriumgame/js/environment.js
+	both added:      public/hungeriumgame/js/game.js
+	both added:      public/hungeriumgame/js/index.html
+	both added:      public/hungeriumgame/js/main.js
+	both added:      public/hungeriumgame/js/mobileHud.js
+	both added:      public/hungeriumgame/js/objectPool.js
+	both added:      public/hungeriumgame/js/objects.js
+	both added:      public/hungeriumgame/js/particles.js
+	both added:      public/hungeriumgame/js/physics.js
+	both added:      public/hungeriumgame/js/robots.js
+	both added:      public/hungeriumgame/js/robots/attackRobot.js
+	both added:      public/hungeriumgame/js/robots/guardRobot.js
+	both added:      public/hungeriumgame/js/terrain.js
+	both added:      public/hungeriumgame/js/vehicle.js
+	both added:      public/hungeriumgame/js/vehicles/courier.js
+	both added:      public/hungeriumgame/js/vehicles/police.js
+	both added:      public/hungeriumgame/js/vehicles/thief.js
+	both added:      public/hungeriumgame/js/web3handler.js
+	both added:      public/hungeriumgame/mobile.css
+	both added:      public/hungeriumgame/styles.css
+	both added:      public/hungeriumgame/test-sound.html
+	both added:      public/images/game-previews/README.md
+	both added:      public/whitepaper/Coffy-Whitepaper-V6.md
+	both added:      src/app/api/socket/route.js
+	both added:      src/app/beegame/page.js
+	both added:      src/app/components/About.js
+	both added:      src/app/components/AlertModal.jsx
+	both added:      src/app/components/CoffyAdventure.jsx
+	both added:      src/app/components/ConfirmModal.jsx
+	both added:      src/app/components/ContractInfo.js
+	both added:      src/app/components/Footer.js
+	both added:      src/app/components/GamesSection.jsx
+	both added:      src/app/components/Migration.js
+	both added:      src/app/components/Navbar.js
+	both added:      src/app/components/Staking.js
+	both added:      src/app/components/Toast.jsx
+	both added:      src/app/components/contractDebugHelper.js
+	both added:      src/app/components/globals.css
+	both added:      src/app/components/presale.js
+	both added:      src/app/components/useWeb3Wallet.js
+	both added:      src/app/config/baseConfig.js
+	both added:      src/app/flagracer/page.js
+	both added:      src/app/hungeriumgame/page.js
+	both added:      src/app/providers/Web3Provider.jsx
+	both added:      src/app/stores/useAppStore.js
+	both added:      styles.css
+	both added:      test-sound.html
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	git_conflict.txt
+	git_error.txt
+	git_pull_error.txt
+

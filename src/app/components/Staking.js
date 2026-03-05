@@ -172,8 +172,10 @@ export default function Staking({ id }) {
         setApy(apyFormatted);
       } catch (err) { console.error('Error fetching APY:', err); }
 
-      // Lock/unlock logic
-      if (parseFloat(stakedAmount) > 0 && startTime > 0) {
+      // Lock/unlock logic — use already-fetched stakeInfo values
+      const stakedAmountNum = parseFloat(ethers.formatUnits(stakedAmountValue, 18));
+      const startTime = stakeInfo[1] ? Number(stakeInfo[1]) : 0;
+      if (stakedAmountNum > 0 && startTime > 0) {
         const currentTime = Math.floor(Date.now() / 1000);
         const lockPeriod = 7 * 24 * 60 * 60; // 7 days
         setStakeStartTime(startTime);
@@ -547,7 +549,7 @@ export default function Staking({ id }) {
                 <div className="bg-[#2A1810]/60 p-4 rounded-lg border border-[#BFA181]/20">
                   <FaCoins className="text-[#D4A017] text-xl mx-auto mb-2" />
                   <p className="text-xs text-gray-400 mb-1">No Min Stake</p>
-                  <p className="text-lg font-bold text-white">-</p>
+                  <p className="text-lg font-bold text-white">None</p>
                 </div>
               </div>
 
@@ -633,7 +635,7 @@ export default function Staking({ id }) {
                   {/* Your Balance */}
                   <motion.div
                     whileHover={{ scale: 1.07, y: -4, boxShadow: `0 8px 32px rgba(212,160,23,0.18)` }}
-                    className={`bg-[#3A2A1E]/80 p-2 rounded-lg border border-blue-400/20 hover:border-blue-400/60 transition-all duration-300 flex flex-col justify-center items-center min-h-[90px] h-full relative overflow-hidden`}
+                    className={`bg-[#3A2A1E]/80 p-2 rounded-lg border border-[#D4A017]/20 hover:border-[#D4A017]/50 transition-all duration-300 flex flex-col justify-center items-center min-h-[90px] h-full relative overflow-hidden`}
                   >
                     <motion.div
                       className="absolute inset-0 pointer-events-none rounded-lg"
@@ -643,8 +645,8 @@ export default function Staking({ id }) {
                       transition={{ duration: 0.4 }}
                     />
                     <div className="flex items-center gap-1 mb-1 justify-center z-10 relative">
-                      <i className="fas fa-wallet text-blue-400 text-base"></i>
-                      <p className="text-blue-300 text-xs font-medium">Your Balance</p>
+                      <i className="fas fa-wallet text-[#D4A017] text-base"></i>
+                      <p className="text-[#D4A017]/80 text-xs font-medium">Your Balance</p>
                     </div>
                     <p className="text-white font-bold text-base z-10 relative">
                       {Number(walletBalance).toLocaleString(undefined, { maximumFractionDigits: 2 })}
@@ -653,7 +655,7 @@ export default function Staking({ id }) {
                   {/* Your Staked */}
                   <motion.div
                     whileHover={{ scale: 1.07, y: -4, boxShadow: `0 8px 32px rgba(212,160,23,0.18)` }}
-                    className={`bg-[#3A2A1E]/80 p-2 rounded-lg border border-green-400/20 hover:border-green-400/60 transition-all duration-300 flex flex-col justify-center items-center min-h-[90px] h-full relative overflow-hidden`}
+                    className={`bg-[#3A2A1E]/80 p-2 rounded-lg border border-[#D4A017]/20 hover:border-[#D4A017]/50 transition-all duration-300 flex flex-col justify-center items-center min-h-[90px] h-full relative overflow-hidden`}
                   >
                     <motion.div
                       className="absolute inset-0 pointer-events-none rounded-lg"
@@ -663,8 +665,8 @@ export default function Staking({ id }) {
                       transition={{ duration: 0.4 }}
                     />
                     <div className="flex items-center gap-1 mb-1 justify-center z-10 relative">
-                      <i className="fas fa-lock text-green-400 text-base"></i>
-                      <p className="text-green-300 text-xs font-medium">Your Staked</p>
+                      <i className="fas fa-lock text-[#D4A017] text-base"></i>
+                      <p className="text-[#D4A017]/80 text-xs font-medium">Your Staked</p>
                     </div>
                     <p className="text-white font-bold text-base z-10 relative">
                       {Number(stakedBalance).toLocaleString(undefined, { maximumFractionDigits: 2 })}
@@ -677,7 +679,7 @@ export default function Staking({ id }) {
                   {/* Pending Rewards */}
                   <motion.div
                     whileHover={{ scale: 1.07, y: -4, boxShadow: `0 8px 32px rgba(212,160,23,0.18)` }}
-                    className={`bg-[#3A2A1E]/80 p-2 rounded-lg border border-purple-400/20 hover:border-purple-400/60 transition-all duration-300 flex flex-col justify-center items-center min-h-[90px] h-full relative overflow-hidden`}
+                    className={`bg-[#3A2A1E]/80 p-2 rounded-lg border border-[#D4A017]/20 hover:border-[#D4A017]/50 transition-all duration-300 flex flex-col justify-center items-center min-h-[90px] h-full relative overflow-hidden`}
                   >
                     <motion.div
                       className="absolute inset-0 pointer-events-none rounded-lg"
@@ -687,8 +689,8 @@ export default function Staking({ id }) {
                       transition={{ duration: 0.4 }}
                     />
                     <div className="flex items-center gap-1 mb-1 justify-center z-10 relative">
-                      <i className="fas fa-gift text-purple-400 text-base"></i>
-                      <p className="text-purple-300 text-xs font-medium">Pending Rewards</p>
+                      <i className="fas fa-gift text-[#D4A017] text-base"></i>
+                      <p className="text-[#D4A017]/80 text-xs font-medium">Pending Rewards</p>
                     </div>
                     <p className="text-white font-bold text-base z-10 relative">
                       {formatBalanceDisplay(rewards)}
@@ -697,7 +699,7 @@ export default function Staking({ id }) {
                   {/* Your Total */}
                   <motion.div
                     whileHover={{ scale: 1.07, y: -4, boxShadow: `0 8px 32px rgba(212,160,23,0.18)` }}
-                    className={`bg-[#3A2A1E]/80 p-2 rounded-lg border border-yellow-400/20 hover:border-yellow-400/60 transition-all duration-300 flex flex-col justify-center items-center min-h-[90px] h-full relative overflow-hidden`}
+                    className={`bg-[#3A2A1E]/80 p-2 rounded-lg border border-[#D4A017]/20 hover:border-[#D4A017]/50 transition-all duration-300 flex flex-col justify-center items-center min-h-[90px] h-full relative overflow-hidden`}
                   >
                     <motion.div
                       className="absolute inset-0 pointer-events-none rounded-lg"
@@ -707,8 +709,8 @@ export default function Staking({ id }) {
                       transition={{ duration: 0.4 }}
                     />
                     <div className="flex items-center gap-1 mb-1 justify-center z-10 relative">
-                      <i className="fas fa-coins text-yellow-400 text-base"></i>
-                      <p className="text-yellow-300 text-xs font-medium">Your Total</p>
+                      <i className="fas fa-coins text-[#D4A017] text-base"></i>
+                      <p className="text-[#D4A017]/80 text-xs font-medium">Your Total</p>
                     </div>
                     <p className="text-white font-bold text-base z-10 relative">
                       {(parseFloat(walletBalance) + parseFloat(stakedBalance) + parseFloat(rewards)).toLocaleString(undefined, { maximumFractionDigits: 2 })}

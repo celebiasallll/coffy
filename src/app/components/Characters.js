@@ -1,0 +1,414 @@
+'use client';
+
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { motion, AnimatePresence, useMotionValue, useTransform, useAnimation } from 'framer-motion';
+import { ethers } from 'ethers';
+import Image from 'next/image';
+
+const GAME_MODULE_ADDRESS = '0xEb00A304DD1aB9A5bC995d4eD9cAFc190bC593Ea';
+const COFFY_CORE_ADDRESS = '0x29248bA2420757bF50595Af6d8903E5d8Dcb9b41';
+
+const GAME_MODULE_ABI = [
+    'function purchaseCharacter(uint8 cid, uint128 amount) external',
+    'function getUserCharacterBalance(address user, uint256 cid) external view returns (uint128)',
+];
+const COFFY_CORE_ABI = [
+    'function balanceOf(address account) external view returns (uint256)',
+    'function getCharacterMultiplier(address user) external view returns (uint256)',
+    'function isDAOMember(address user) external view returns (bool)',
+];
+
+const CHARACTERS = [
+    { cid: 1, name: 'Barista', rarity: 'Common', tierLabel: 'TIER I', price: '1,000,000', priceWei: '1000000000000000000000000', multiplier: '+10%', accentColor: '#BFA181', image: '/characters/barista.png', perks: ['10% reward boost', 'Access to basic tournaments'], desc: 'The first step into the COFFY ecosystem.' },
+    { cid: 2, name: 'Brewmaster', rarity: 'Uncommon', tierLabel: 'TIER II', price: '3,000,000', priceWei: '3000000000000000000000000', multiplier: '+20%', accentColor: '#C8A86B', image: '/characters/brewmaster.png', perks: ['20% reward boost', 'Priority matchmaking', 'Weekly bonus pool'], desc: 'Mastery over the brew, mastery over the game.' },
+    { cid: 3, name: 'Alchemist', rarity: 'Rare', tierLabel: 'TIER III', price: '5,000,000', priceWei: '5000000000000000000000000', multiplier: '+30%', accentColor: '#D4A017', image: '/characters/alchemist.png', perks: ['30% reward boost', 'Custom battle rooms', 'Leaderboard badge'], desc: 'Transforms COFFY into pure gold with every match.' },
+    { cid: 4, name: 'Champion', rarity: 'Epic', tierLabel: 'TIER IV', price: '8,000,000', priceWei: '8000000000000000000000000', multiplier: '+50%', accentColor: '#F0C040', image: '/characters/champion.png', perks: ['50% reward boost', 'Exclusive tournaments', 'Champion title'], desc: 'Reserved for those who have proven themselves in the arena.' },
+    { cid: 5, name: 'Legend', rarity: 'Legendary', tierLabel: 'TIER V', price: '10,000,000', priceWei: '10000000000000000000000000', multiplier: '+100%', accentColor: '#FFD700', image: '/characters/legend.png', isDAO: true, perks: ['100% reward boost', 'DAO voting rights', 'Treasury proposals', 'Legend title on-chain'], desc: 'The pinnacle. DAO membership unlocked. Your voice shapes Coffy.' },
+];
+
+const RARITY_GLOW = { Common: 'rgba(191,161,129,0.4)', Uncommon: 'rgba(200,168,107,0.45)', Rare: 'rgba(212,160,23,0.5)', Epic: 'rgba(240,192,64,0.55)', Legendary: 'rgba(255,215,0,0.65)' };
+
+function formatCoffy(wei) {
+    try { const n = Number(ethers.formatEther(wei)); if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`; if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`; return n.toFixed(0); } catch { return '—'; }
+}
+
+// Single swipeable card
+function SwipeCard({ char, index, total, onSwipe, onBuy, isOwned, affordable, account, txStatus }) {
+    const x = useMotionValue(0);
+    const rotate = useTransform(x, [-200, 0, 200], [-18, 0, 18]);
+    const opacity = useTransform(x, [-250, -80, 0, 80, 250], [0, 1, 1, 1, 0]);
+    const likeOpacity = useTransform(x, [20, 80], [0, 1]);
+    const nopeOpacity = useTransform(x, [-80, -20], [1, 0]);
+
+    const scale = index === 0 ? 1 : index === 1 ? 0.93 : 0.86;
+    const yOffset = index === 0 ? 0 : index === 1 ? 12 : 24;
+
+    const handleDragEnd = (_, info) => {
+        if (Math.abs(info.offset.x) > 100 || Math.abs(info.velocity.x) > 500) {
+            onSwipe(info.offset.x > 0 ? 'right' : 'left');
+        }
+    };
+
+    return (
+        <motion.div
+            style={{
+                x: index === 0 ? x : 0,
+                rotate: index === 0 ? rotate : 0,
+                opacity: index === 0 ? opacity : 1,
+                scale,
+                y: yOffset,
+                position: 'absolute',
+                width: '100%',
+                zIndex: total - index,
+                transformOrigin: 'bottom center',
+                touchAction: index === 0 ? 'pan-y' : 'auto',
+            }}
+            drag={index === 0 ? 'x' : false}
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.85}
+            dragMomentum={false}
+            onDragEnd={index === 0 ? handleDragEnd : undefined}
+            className={`rounded-3xl overflow-hidden select-none ${index === 0 ? 'cursor-grab active:cursor-grabbing' : ''}`}
+        >
+            {/* LIKE / NOPE overlays */}
+            {index === 0 && (
+                <>
+                    <motion.div style={{ opacity: likeOpacity }}
+                        className="absolute top-6 left-6 z-20 border-4 border-green-400 text-green-400 font-extrabold text-2xl rounded-xl px-3 py-1 rotate-[-20deg] font-outfit">
+                        BUY ✓
+                    </motion.div>
+                    <motion.div style={{ opacity: nopeOpacity }}
+                        className="absolute top-6 left-6 z-20 border-4 border-red-400 text-red-400 font-extrabold text-2xl rounded-xl px-3 py-1 rotate-[-20deg] font-outfit">
+                        ← Skip
+                    </motion.div>
+                </>
+            )}
+            <div
+                className="relative rounded-3xl overflow-hidden"
+                style={{
+                    background: 'linear-gradient(160deg, #3A2A1E 0%, #1A0F0A 100%)',
+                    border: `1px solid ${char.accentColor}44`,
+                    boxShadow: index === 0
+                        ? `0 20px 60px rgba(0,0,0,0.6), 0 0 40px ${RARITY_GLOW[char.rarity]}`
+                        : '0 8px 30px rgba(0,0,0,0.4)',
+                }}
+            >
+                {/* Owned badge */}
+                {isOwned && index === 0 && (
+                    <div className="absolute top-4 right-4 z-10 bg-[#D4A017] text-[#1A0F0A] text-xs font-extrabold rounded-full px-3 py-1 font-outfit">✓ OWNED</div>
+                )}
+
+                {/* Tier */}
+                <div className="absolute top-4 left-4 z-10 text-[11px] font-bold tracking-widest font-outfit" style={{ color: char.accentColor }}>
+                    {char.tierLabel}
+                </div>
+
+                {/* Character image */}
+                <div className="relative h-72 w-full overflow-hidden">
+                    <div className="absolute inset-0 z-10 pointer-events-none"
+                        style={{ background: 'linear-gradient(to bottom, transparent 50%, #1A0F0A 100%)' }} />
+                    <div className="absolute inset-0 z-10 pointer-events-none"
+                        style={{ background: `radial-gradient(ellipse at 50% 30%, ${RARITY_GLOW[char.rarity]} 0%, transparent 60%)` }} />
+                    <Image src={char.image} alt={char.name} fill className="object-cover object-top" sizes="380px" />
+                    <div className="absolute bottom-3 left-5 z-20">
+                        <div className="flex items-center gap-2 mb-0.5">
+                            <span className="text-2xl font-extrabold text-white font-outfit">{char.name}</span>
+                            <span className="text-xs font-bold px-2 py-0.5 rounded-full font-outfit"
+                                style={{ color: char.accentColor, background: `${char.accentColor}22`, border: `1px solid ${char.accentColor}55` }}>
+                                {char.rarity}
+                            </span>
+                        </div>
+                        <div className="text-[#E8D5B5]/60 text-sm font-outfit">{char.desc}</div>
+                    </div>
+                </div>
+
+                {/* Info row */}
+                <div className="p-4 pt-3">
+                    <div className="flex items-center justify-between mb-3">
+                        <div>
+                            <div className="text-[10px] text-[#E8D5B5]/40 font-outfit mb-0.5">REWARD BOOST</div>
+                            <div className="text-xl font-extrabold font-outfit" style={{ color: char.accentColor }}>{char.multiplier}</div>
+                        </div>
+                        <div className="text-right">
+                            <div className="text-[10px] text-[#E8D5B5]/40 font-outfit mb-0.5">BURN TO UNLOCK</div>
+                            <div className="text-xl font-extrabold text-[#D4A017] font-outfit">{char.price}</div>
+                            <div className="text-[10px] text-[#E8D5B5]/30 font-outfit">COFFY</div>
+                        </div>
+                    </div>
+
+                    {char.isDAO && (
+                        <div className="flex items-center gap-1 mb-3 bg-[#FFD700]/10 border border-[#FFD700]/20 rounded-xl px-3 py-1.5">
+                            <span>👑</span>
+                            <span className="text-[#FFD700] text-xs font-bold font-outfit">Unlocks DAO Membership</span>
+                        </div>
+                    )}
+
+                    <div className="flex gap-2">
+                        {index === 0 && (
+                            <>
+                                <button onClick={() => onSwipe('left')}
+                                    className="flex-1 py-2.5 rounded-xl border border-[#E8D5B5]/20 text-[#E8D5B5]/50 font-outfit text-sm hover:border-red-400/40 hover:text-red-400 transition-all flex items-center justify-center gap-1">
+                                    <span>←</span><span>Skip</span>
+                                </button>
+                                <button
+                                    onClick={() => onBuy(char)}
+                                    disabled={txStatus !== null}
+                                    className="flex-[2] py-2.5 rounded-xl font-extrabold text-sm font-outfit transition-all text-[#1A0F0A] shadow-md"
+                                    style={{ background: isOwned ? `${char.accentColor}40` : `linear-gradient(135deg, ${char.accentColor}, #A77B06)` }}
+                                >
+                                    {isOwned ? '✓ Owned' : !account ? '🔗 Connect' : affordable ? `Buy ${char.name}` : 'Insufficient COFFY'}
+                                </button>
+                            </>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </motion.div>
+    );
+}
+
+export default function Characters() {
+    const [deck, setDeck] = useState([...CHARACTERS].reverse()); // top = last element
+    const [gone, setGone] = useState([]);
+    const [account, setAccount] = useState(null);
+    const [coffyBalance, setCoffyBalance] = useState(null);
+    const [ownedChars, setOwnedChars] = useState({});
+    const [isDAO, setIsDAO] = useState(false);
+    const [multiplier, setMultiplier] = useState(100);
+    const [txStatus, setTxStatus] = useState(null);
+    const [txError, setTxError] = useState('');
+    const [selected, setSelected] = useState(null);
+
+    // deck shown in reverse so CHARACTERS[0] is on top
+    const visibleDeck = [...deck].reverse().slice(0, 3); // max 3 visible at once
+
+    const getProvider = useCallback(() => {
+        if (typeof window === 'undefined' || !window.ethereum) return null;
+        return new ethers.BrowserProvider(window.ethereum);
+    }, []);
+
+    const loadUserData = useCallback(async (addr) => {
+        const provider = getProvider();
+        if (!provider || !addr) return;
+        try {
+            const core = new ethers.Contract(COFFY_CORE_ADDRESS, COFFY_CORE_ABI, provider);
+            const game = new ethers.Contract(GAME_MODULE_ADDRESS, GAME_MODULE_ABI, provider);
+            const [bal, mult, dao] = await Promise.all([core.balanceOf(addr), core.getCharacterMultiplier(addr), core.isDAOMember(addr)]);
+            setCoffyBalance(bal); setMultiplier(Number(mult)); setIsDAO(dao);
+            const owned = {};
+            await Promise.all(CHARACTERS.map(async c => { const b = await game.getUserCharacterBalance(addr, c.cid); if (b > 0n) owned[c.cid] = Number(b); }));
+            setOwnedChars(owned);
+        } catch (e) { console.error('loadUserData:', e); }
+    }, [getProvider]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined' || !window.ethereum) return;
+        window.ethereum.request({ method: 'eth_accounts' }).then(accounts => {
+            if (accounts[0]) { setAccount(accounts[0]); loadUserData(accounts[0]); }
+        });
+        const handler = (accounts) => { setAccount(accounts[0] || null); if (accounts[0]) loadUserData(accounts[0]); };
+        window.ethereum.on('accountsChanged', handler);
+        return () => window.ethereum.removeListener('accountsChanged', handler);
+    }, [loadUserData]);
+
+    const connectWallet = async () => {
+        const provider = getProvider();
+        if (!provider) return;
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        setAccount(accounts[0]); loadUserData(accounts[0]);
+    };
+
+    const purchaseCharacter = async (char) => {
+        if (!account) { connectWallet(); return; }
+        const provider = getProvider();
+        if (!provider) return;
+        try {
+            setTxStatus('buying'); setTxError('');
+            const signer = await provider.getSigner();
+            const game = new ethers.Contract(GAME_MODULE_ADDRESS, GAME_MODULE_ABI, signer);
+            const tx = await game.purchaseCharacter(char.cid, 1);
+            await tx.wait();
+            setTxStatus('success');
+            await loadUserData(account);
+            setTimeout(() => setTxStatus(null), 4000);
+        } catch (e) {
+            const msg = e?.reason || e?.data?.message || e?.message?.slice(0, 100) || 'Transaction failed';
+            setTxError(msg); setTxStatus('error');
+            setTimeout(() => setTxStatus(null), 5000);
+        }
+    };
+
+    const canAfford = (char) => { if (!coffyBalance) return false; try { return coffyBalance >= BigInt(char.priceWei); } catch { return false; } };
+
+    const handleSwipe = (direction) => {
+        setDeck(prev => {
+            if (prev.length === 0) return prev;
+            const newDeck = [...prev];
+            const removed = newDeck.pop();
+            // auto-loop: if deck runs out, silently refill from the bottom
+            if (newDeck.length === 0) {
+                return [...CHARACTERS].reverse();
+            }
+            return newDeck;
+        });
+    };
+
+    const resetDeck = () => { setDeck([...CHARACTERS].reverse()); setGone([]); };
+
+    const currentTop = visibleDeck[0]; // the card being shown on top
+
+    return (
+        <section id="characters" className="py-24 bg-gradient-to-b from-[#1A0F0A] via-[#2A1810] to-[#1A0F0A] overflow-hidden">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+                {/* Header */}
+                <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-10">
+                    <span className="inline-block px-4 py-1.5 rounded-full bg-[#D4A017]/10 border border-[#D4A017]/30 text-[#D4A017] text-xs font-bold tracking-widest uppercase mb-4 font-outfit">🎭 Characters</span>
+                    <h2 className="text-4xl md:text-5xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-[#D4A017] via-[#F4C430] to-[#D4A017] mb-3 font-outfit tracking-tight">Choose Your Character</h2>
+                    <p className="text-[#E8D5B5]/70 text-base max-w-lg mx-auto font-outfit">Swipe right to buy, left to skip. Burn COFFY to unlock — stored permanently on-chain.</p>
+
+                    {/* Wallet stats */}
+                    {account ? (
+                        <div className="flex flex-wrap items-center justify-center gap-3 mt-4">
+                            <div className="bg-[#2A1810]/80 border border-[#D4A017]/20 rounded-xl px-4 py-1.5 text-sm font-outfit">
+                                <span className="text-[#E8D5B5]/50">Balance: </span>
+                                <span className="text-[#D4A017] font-bold">{coffyBalance !== null ? `${formatCoffy(coffyBalance)} COFFY` : '…'}</span>
+                            </div>
+                            <div className="bg-[#2A1810]/80 border border-[#D4A017]/20 rounded-xl px-4 py-1.5 text-sm font-outfit">
+                                <span className="text-[#E8D5B5]/50">Multiplier: </span>
+                                <span className="text-[#F4C430] font-bold">{multiplier}%</span>
+                            </div>
+                            {isDAO && <div className="bg-[#D4A017]/10 border border-[#D4A017]/40 rounded-xl px-4 py-1.5 text-sm flex items-center gap-1 font-outfit"><span>👑</span><span className="text-[#D4A017] font-bold">DAO Member</span></div>}
+                        </div>
+                    ) : (
+                        <motion.button onClick={connectWallet} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
+                            className="mt-4 bg-gradient-to-r from-[#D4A017] to-[#A77B06] text-white font-bold py-2.5 px-7 rounded-2xl shadow-lg shadow-[#D4A017]/20 font-outfit text-sm">
+                            🔗 Connect Wallet to Buy
+                        </motion.button>
+                    )}
+                </motion.div>
+
+                <div className="flex flex-col lg:flex-row items-start justify-center gap-8 lg:gap-16">
+
+                    {/* Swipe stack */}
+                    <div className="flex flex-col items-center gap-6">
+                        {/* Progress dots */}
+                        <div className="flex gap-2 justify-center">
+                            {CHARACTERS.map((c, i) => {
+                                const isGone = gone.some(g => g.cid === c.cid);
+                                const isCurrent = currentTop?.cid === c.cid;
+                                return (
+                                    <div key={c.cid} className="w-2 h-2 rounded-full transition-all duration-300"
+                                        style={{ background: isGone ? '#3A2A1E' : isCurrent ? c.accentColor : `${c.accentColor}44`, width: isCurrent ? 20 : 8 }} />
+                                );
+                            })}
+                        </div>
+
+                        {/* Card stack */}
+                        <div className="relative" style={{ width: 340, height: 520, touchAction: 'pan-y' }}>
+                            <AnimatePresence>
+                                {visibleDeck.length > 0 ? visibleDeck.map((char, i) => (
+                                    <SwipeCard
+                                        key={char.cid}
+                                        char={char}
+                                        index={i}
+                                        total={visibleDeck.length}
+                                        onSwipe={handleSwipe}
+                                        onBuy={purchaseCharacter}
+                                        isOwned={ownedChars[char.cid] > 0}
+                                        affordable={canAfford(char)}
+                                        account={account}
+                                        txStatus={txStatus}
+                                    />
+                                )) : (
+                                    <motion.div
+                                        initial={{ opacity: 0, scale: 0.9 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        className="absolute inset-0 flex flex-col items-center justify-center gap-5 rounded-3xl border border-[#D4A017]/20"
+                                        style={{ background: 'linear-gradient(160deg, #3A2A1E, #1A0F0A)' }}
+                                    >
+                                        <div className="text-5xl">☕</div>
+                                        <div className="text-white font-bold font-outfit text-xl">All cards seen!</div>
+                                        <div className="text-[#E8D5B5]/50 text-sm font-outfit text-center px-8">You&apos;ve reviewed all 5 characters.</div>
+                                        <motion.button onClick={resetDeck} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                                            className="bg-gradient-to-r from-[#D4A017] to-[#A77B06] text-white font-bold py-2.5 px-6 rounded-xl font-outfit text-sm">
+                                            🔄 Browse Again
+                                        </motion.button>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
+
+                        {/* Swipe hint */}
+                        {visibleDeck.length > 0 && (
+                            <div className="text-[#E8D5B5]/30 text-xs font-outfit flex items-center gap-2">
+                                <span>← Swipe left to skip</span>
+                                <span className="text-[#D4A017]/40">|</span>
+                                <span>Swipe right to buy →</span>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Side list — all 5 characters */}
+                    <div className="flex flex-col gap-3 w-full max-w-xs">
+                        <div className="text-[#E8D5B5]/40 text-xs font-bold tracking-widest uppercase font-outfit mb-1">All Characters</div>
+                        {CHARACTERS.map(c => {
+                            const owned = ownedChars[c.cid] > 0;
+                            const isCurrent = currentTop?.cid === c.cid;
+                            const isGone = gone.some(g => g.cid === c.cid);
+                            return (
+                                <motion.div key={c.cid}
+                                    whileHover={{ x: 4 }}
+                                    onClick={() => {
+                                        // bring this card to top of deck
+                                        setDeck(prev => {
+                                            const without = prev.filter(p => p.cid !== c.cid);
+                                            return [...without, c];
+                                        });
+                                        setGone(prev => prev.filter(g => g.cid !== c.cid));
+                                    }}
+                                    className="flex items-center gap-3 p-3 rounded-2xl cursor-pointer transition-all duration-200"
+                                    style={{
+                                        background: isCurrent ? `${c.accentColor}18` : 'rgba(42,24,16,0.5)',
+                                        border: `1px solid ${isCurrent ? c.accentColor + '55' : 'rgba(212,160,23,0.1)'}`,
+                                        opacity: isGone && !isCurrent ? 0.45 : 1,
+                                    }}
+                                >
+                                    <div className="relative w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 border"
+                                        style={{ borderColor: `${c.accentColor}44` }}>
+                                        <Image src={c.image} alt={c.name} fill className="object-cover object-top" sizes="48px" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-1.5 mb-0.5">
+                                            <span className="text-white font-bold text-sm font-outfit">{c.name}</span>
+                                            {owned && <span className="text-[9px] bg-[#D4A017]/20 text-[#D4A017] rounded-full px-1.5 py-0.5 font-outfit font-bold">OWNED</span>}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-outfit" style={{ color: c.accentColor }}>{c.multiplier} boost</span>
+                                            <span className="text-[10px] text-[#E8D5B5]/40 font-outfit">{c.price} COFFY</span>
+                                        </div>
+                                    </div>
+                                    {isCurrent && <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: c.accentColor }} />}
+                                </motion.div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* TX Toast */}
+                <AnimatePresence>
+                    {txStatus && (
+                        <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 40 }}
+                            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+                            <div className={`flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl border font-outfit ${txStatus === 'error' ? 'bg-[#2A1810]/95 border-red-500/40 text-red-300' : txStatus === 'success' ? 'bg-[#2A1810]/95 border-[#D4A017]/40 text-[#D4A017]' : 'bg-[#2A1810]/95 border-[#D4A017]/30 text-[#E8D5B5]'}`}>
+                                {txStatus === 'buying' && <><div className="w-4 h-4 border-2 border-[#D4A017]/40 border-t-[#D4A017] rounded-full animate-spin" /><span>Purchasing on-chain…</span></>}
+                                {txStatus === 'success' && <><span className="text-xl">✅</span><span className="font-bold">Character purchased!</span></>}
+                                {txStatus === 'error' && <><span className="text-xl">❌</span><span>{txError || 'Transaction failed'}</span></>}
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </div>
+        </section>
+    );
+}

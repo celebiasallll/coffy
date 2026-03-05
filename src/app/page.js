@@ -15,6 +15,8 @@ const Tokenomics = dynamic(() => import('./components/Tokenomics'));
 const ContractInfo = dynamic(() => import('./components/ContractInfo'));
 const Partners = dynamic(() => import('./components/Partners'));
 const About = dynamic(() => import('./components/About'));
+const Characters = dynamic(() => import('./components/Characters'), { ssr: false });
+const Team = dynamic(() => import('./components/Team'));
 
 export default function Home() {
   return (
@@ -53,11 +55,13 @@ export default function Home() {
         <main>
           <Hero id="hero" />
           <About id="about" />
+          <Characters />
           <GamesSection id="games" />
           <Staking id="staking" />
           <Tokenomics />
           <ContractInfo />
           <Roadmap />
+          <Team />
           <Partners />
           <Whitepaper />
           <Community />

@@ -66,6 +66,7 @@
     "autoprefixer": "^10.4.16",
     "concurrently": "^8.2.2",
     "hardhat": "^3.1.10",
+    "pdfkit": "^0.17.2",
     "postcss": "^8.4.32",
     "tailwindcss": "^3.4.0",
     "typescript": "5.3.3"

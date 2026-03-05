@@ -45,7 +45,17 @@ function SwipeCard({ char, index, total, onSwipe, onBuy, isOwned, affordable, ac
 
     const handleDragEnd = (_, info) => {
         if (Math.abs(info.offset.x) > 100 || Math.abs(info.velocity.x) > 500) {
-            onSwipe(info.offset.x > 0 ? 'right' : 'left');
+            const direction = info.offset.x > 0 ? 'right' : 'left';
+            if (direction === 'right') {
+                // If they swipe right, we act as if they clicked Buy
+                onBuy(char);
+                // We keep the card so it can say 'Owned' or if tx fails they can swipe it again.
+                // We reset its position so they see what happened.
+                x.set(0);
+            } else {
+                // Left swipe dismisses
+                onSwipe('left');
+            }
         }
     };
 
@@ -109,6 +119,32 @@ function SwipeCard({ char, index, total, onSwipe, onBuy, isOwned, affordable, ac
                         style={{ background: 'linear-gradient(to bottom, transparent 50%, #1A0F0A 100%)' }} />
                     <div className="absolute inset-0 z-10 pointer-events-none"
                         style={{ background: `radial-gradient(ellipse at 50% 30%, ${RARITY_GLOW[char.rarity]} 0%, transparent 60%)` }} />
+
+                    {/* Subtle blinking swipe cues */}
+                    <motion.div
+                        animate={{
+                            opacity: [0.4, 0.9, 0.4],
+                            x: [0, -6, 0]
+                        }}
+                        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                        className="absolute left-4 top-1/3 -translate-y-1/2 z-20 pointer-events-none flex items-center gap-2 bg-red-500/20 backdrop-blur-md border border-red-500/40 px-3 py-1.5 rounded-full shadow-lg"
+                    >
+                        <span className="text-red-400 text-lg font-bold">←</span>
+                        <span className="text-red-400 text-[11px] font-black uppercase tracking-wider font-outfit">Skip</span>
+                    </motion.div>
+
+                    <motion.div
+                        animate={{
+                            opacity: [0.4, 0.9, 0.4],
+                            x: [0, 6, 0]
+                        }}
+                        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+                        className="absolute right-4 top-1/3 -translate-y-1/2 z-20 pointer-events-none flex items-center gap-2 bg-emerald-400/20 backdrop-blur-md border border-emerald-400/40 px-3 py-1.5 rounded-full shadow-lg"
+                    >
+                        <span className="text-emerald-400 text-[11px] font-black uppercase tracking-wider font-outfit">Buy</span>
+                        <span className="text-emerald-400 text-lg font-bold">→</span>
+                    </motion.div>
+
                     <Image src={char.image} alt={char.name} fill className="object-cover object-top" sizes="380px" />
                     <div className="absolute bottom-3 left-5 z-20">
                         <div className="flex items-center gap-2 mb-0.5">
@@ -288,22 +324,10 @@ export default function Characters() {
                     )}
                 </motion.div>
 
-                <div className="flex flex-col lg:flex-row items-start justify-center gap-8 lg:gap-16">
+                <div className="flex flex-col items-center justify-center gap-6 mt-12 pb-12">
 
                     {/* Swipe stack */}
-                    <div className="flex flex-col items-center gap-6">
-                        {/* Progress dots */}
-                        <div className="flex gap-2 justify-center">
-                            {CHARACTERS.map((c, i) => {
-                                const isGone = gone.some(g => g.cid === c.cid);
-                                const isCurrent = currentTop?.cid === c.cid;
-                                return (
-                                    <div key={c.cid} className="w-2 h-2 rounded-full transition-all duration-300"
-                                        style={{ background: isGone ? '#3A2A1E' : isCurrent ? c.accentColor : `${c.accentColor}44`, width: isCurrent ? 20 : 8 }} />
-                                );
-                            })}
-                        </div>
-
+                    <div className="flex flex-col items-center gap-6 md:scale-110 lg:scale-125 transition-transform duration-300">
                         {/* Card stack */}
                         <div className="relative" style={{ width: 340, height: 520, touchAction: 'pan-y' }}>
                             <AnimatePresence>
@@ -339,59 +363,17 @@ export default function Characters() {
                             </AnimatePresence>
                         </div>
 
-                        {/* Swipe hint */}
-                        {visibleDeck.length > 0 && (
-                            <div className="text-[#E8D5B5]/30 text-xs font-outfit flex items-center gap-2">
-                                <span>← Swipe left to skip</span>
-                                <span className="text-[#D4A017]/40">|</span>
-                                <span>Swipe right to buy →</span>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Side list — all 5 characters */}
-                    <div className="flex flex-col gap-3 w-full max-w-xs">
-                        <div className="text-[#E8D5B5]/40 text-xs font-bold tracking-widest uppercase font-outfit mb-1">All Characters</div>
-                        {CHARACTERS.map(c => {
-                            const owned = ownedChars[c.cid] > 0;
-                            const isCurrent = currentTop?.cid === c.cid;
-                            const isGone = gone.some(g => g.cid === c.cid);
-                            return (
-                                <motion.div key={c.cid}
-                                    whileHover={{ x: 4 }}
-                                    onClick={() => {
-                                        // bring this card to top of deck
-                                        setDeck(prev => {
-                                            const without = prev.filter(p => p.cid !== c.cid);
-                                            return [...without, c];
-                                        });
-                                        setGone(prev => prev.filter(g => g.cid !== c.cid));
-                                    }}
-                                    className="flex items-center gap-3 p-3 rounded-2xl cursor-pointer transition-all duration-200"
-                                    style={{
-                                        background: isCurrent ? `${c.accentColor}18` : 'rgba(42,24,16,0.5)',
-                                        border: `1px solid ${isCurrent ? c.accentColor + '55' : 'rgba(212,160,23,0.1)'}`,
-                                        opacity: isGone && !isCurrent ? 0.45 : 1,
-                                    }}
-                                >
-                                    <div className="relative w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 border"
-                                        style={{ borderColor: `${c.accentColor}44` }}>
-                                        <Image src={c.image} alt={c.name} fill className="object-cover object-top" sizes="48px" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-1.5 mb-0.5">
-                                            <span className="text-white font-bold text-sm font-outfit">{c.name}</span>
-                                            {owned && <span className="text-[9px] bg-[#D4A017]/20 text-[#D4A017] rounded-full px-1.5 py-0.5 font-outfit font-bold">OWNED</span>}
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[10px] font-outfit" style={{ color: c.accentColor }}>{c.multiplier} boost</span>
-                                            <span className="text-[10px] text-[#E8D5B5]/40 font-outfit">{c.price} COFFY</span>
-                                        </div>
-                                    </div>
-                                    {isCurrent && <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: c.accentColor }} />}
-                                </motion.div>
-                            );
-                        })}
+                        {/* Progress dots (Bottom) */}
+                        <div className="flex gap-2 justify-center mt-4">
+                            {CHARACTERS.map((c, i) => {
+                                const isGone = gone.some(g => g.cid === c.cid);
+                                const isCurrent = currentTop?.cid === c.cid;
+                                return (
+                                    <div key={c.cid} className="w-2.5 h-2.5 rounded-full transition-all duration-300 shadow-sm"
+                                        style={{ background: isGone ? '#3A2A1E' : isCurrent ? c.accentColor : `${c.accentColor}44`, width: isCurrent ? 24 : 10 }} />
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
 

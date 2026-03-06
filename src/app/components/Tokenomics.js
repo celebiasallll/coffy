@@ -69,7 +69,7 @@ const Tokenomics = () => {
     {
       title: "Sustainable Growth Features",
       items: [
-        "Semi-Annual Inflation: 1.0% every 6 months - Sustainable growth",
+        "Semi-Annual Inflation: 5.0% every 6 months - Sustainable growth",
         "Staking Rewards: 5% APY - Sustainable annual percentage yield",
         "Game Rewards: 35K weekly limit - Advanced sybil protection",
         "Modular System: DAO, NFT, Social, Cross-chain planned for 2026"
@@ -289,7 +289,7 @@ const Tokenomics = () => {
                     {[
                       { title: "35% Community", desc: "Long-term ecosystem rewards and growth" },
                       { title: "25% Treasury", desc: "Game rewards, staking, and development" },
-                      { title: "1.0% Inflation", desc: "Semi-annual sustainable growth rate" },
+                      { title: "5.0% Inflation", desc: "Semi-annual sustainable growth rate" },
                       { title: "Future Modules", desc: "DAO, NFT, Social, and Cross-chain planned for 2026" }
                     ].map((feature, idx) => (
                       <li key={idx} className="flex items-start gap-2">

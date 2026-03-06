@@ -61,62 +61,6 @@ export default function Partners() {
           </div>
         </motion.div>
 
-        {/* Web3 Ecosystem Logos scrolling marquee */}
-        <div className="relative w-full overflow-x-hidden">
-          <div className="text-center mb-4">
-            <span className="text-sm md:text-base font-semibold text-[#E8D5B5]/80 tracking-wide uppercase">
-              Web3 Ecosystem
-            </span>
-          </div>
-          <div className="marquee-track flex items-center gap-16 py-4 bg-[#1A0F0A]/60 rounded-xl shadow-inner px-10">
-            {(() => {
-              const logos = [
-                { name: 'Base', logo: '/images/partners/base.png' },
-                { name: 'Unity', logo: '/images/partners/unity.png' },
-                { name: 'BNB Chain', logo: '/images/partners/bnbchain.png' },
-                { name: 'Polygon', logo: '/images/partners/polygon.png' },
-                { name: 'OpenSea', logo: '/images/partners/opensea.png' },
-                { name: 'Animoca', logo: '/images/partners/animoca.png' },
-              ];
-              // Triple the list so the marquee is always full — no empty space visible
-              return [...logos, ...logos, ...logos].map((partner, i) => (
-                <div
-                  key={i}
-                  title={partner.name}
-                  className="flex-shrink-0 flex flex-col items-center gap-1 group"
-                >
-                  <div className="flex items-center justify-center bg-[#23180F]/80 rounded-xl border border-[#D4A017]/20 shadow-md h-16 w-16 transition-all duration-300 group-hover:border-[#D4A017]/50">
-                    <img
-                      src={partner.logo}
-                      alt={partner.name}
-                      style={{
-                        maxWidth: '75%',
-                        maxHeight: '75%',
-                        objectFit: 'contain',
-                        filter: 'grayscale(0.2) brightness(0.9)',
-                      }}
-                    />
-                  </div>
-                  <span className="text-[10px] text-[#E8D5B5]/50 group-hover:text-[#E8D5B5]/80 transition-colors">
-                    {partner.name}
-                  </span>
-                </div>
-              ));
-            })()}
-          </div>
-          <style jsx>{`
-            .marquee-track {
-              animation: marquee-scroll 12s linear infinite;
-            }
-            .marquee-track:hover {
-              animation-play-state: paused;
-            }
-            @keyframes marquee-scroll {
-              0%   { transform: translateX(0); }
-              100% { transform: translateX(-33.333%); }
-            }
-          `}</style>
-        </div>
       </motion.div>
     </section>
   );

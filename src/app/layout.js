@@ -65,6 +65,7 @@ export default function RootLayout({ children }) {
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         {/* Mobil cihazlar için ekran iyileştirmesi */}
         <meta name="format-detection" content="telephone=no" />
+        <meta name="base:app_id" content="69aafb223c6755b23e8e41bb" />
       </head>
       <body>
         <Web3Provider>

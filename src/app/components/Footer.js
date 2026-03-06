@@ -90,7 +90,7 @@ export default function Footer() {
             <h3 className="text-xl font-bold text-[#D4A017] mb-4">Resources</h3>
             <ul className="space-y-2">
               <li><a href="/whitepaper/coffy-whitepaper.pdf" className="text-[#E8D5B5]/70 hover:text-[#D4A017] transition duration-200">Whitepaper</a></li>
-              <li><a href="https://basescan.org/address/${BASE_CONFIG.CONTRACTS.CoffyCore}" target="_blank" rel="noopener noreferrer" className="text-[#E8D5B5]/70 hover:text-[#D4A017] transition duration-200">BaseScan</a></li>
+              <li><a href={`https://basescan.org/address/${BASE_CONFIG.CONTRACTS.CoffyCore}`} target="_blank" rel="noopener noreferrer" className="text-[#E8D5B5]/70 hover:text-[#D4A017] transition duration-200">BaseScan</a></li>
             </ul>
           </motion.div>
 
@@ -103,8 +103,8 @@ export default function Footer() {
           >
             <h3 className="text-xl font-bold text-[#D4A017] mb-4">Legal</h3>
             <ul className="space-y-2">
-              <li><a href="#" className="text-[#E8D5B5]/70 hover:text-[#D4A017] transition duration-200">Terms of Use</a></li>
-              <li><a href="#" className="text-[#E8D5B5]/70 hover:text-[#D4A017] transition duration-200">Privacy Policy</a></li>
+              <li><a href="/terms" className="text-[#E8D5B5]/70 hover:text-[#D4A017] transition duration-200">Terms of Use</a></li>
+              <li><a href="/privacy" className="text-[#E8D5B5]/70 hover:text-[#D4A017] transition duration-200">Privacy Policy</a></li>
             </ul>
           </motion.div>
         </div>

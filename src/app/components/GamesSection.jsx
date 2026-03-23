@@ -55,6 +55,17 @@ const GamesSection = ({ id }) => {
   // Game data - could be moved to external config or API
   const games = useMemo(() => [
     {
+      id: 'sleepness',
+      title: 'Sleepness (Open World AAA)',
+      image: '/images/game-previews/sleepness-preview.png',
+      purpose: 'Experience a high-fidelity open-world AAA prototype with advanced graphics, immersive environments, and dynamic gameplay mechanics.',
+      path: '/sleepness/aaa/index.html',
+      gradient: 'from-[#0F172A] to-[#1E293B]',
+      rewards: 'Max 50,000 COFFY/week (base)',
+      category: 'Open World',
+      isNew: true
+    },
+    {
       id: 'coffee-chess',
       title: 'Coffee Chess (Multiplayer PvP)',
       image: '/images/game-previews/coffeechess-preview.jpg',

@@ -1,0 +1,16 @@
+{
+  "rewrites": [
+    {
+      "source": "/assets/:path*",
+      "destination": "/sleepness/aaa/dist/assets/:path*"
+    },
+    {
+      "source": "/models/:path*",
+      "destination": "/sleepness/aaa/dist/models/:path*"
+    },
+    {
+      "source": "/textures/:path*",
+      "destination": "/sleepness/aaa/dist/textures/:path*"
+    }
+  ]
+}

@@ -59,7 +59,7 @@ const GamesSection = ({ id }) => {
       title: 'Sleepness (Open World AAA)',
       image: '/images/game-previews/sleepness-preview.png',
       purpose: 'Experience a high-fidelity open-world AAA prototype with advanced graphics, immersive environments, and dynamic gameplay mechanics.',
-      path: '/sleepness/aaa/index.html',
+      path: '/sleepness/aaa/dist/index.html',
       gradient: 'from-[#0F172A] to-[#1E293B]',
       rewards: 'Max 50,000 COFFY/week (base)',
       category: 'Open World',

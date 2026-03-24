@@ -2,15 +2,15 @@
   "rewrites": [
     {
       "source": "/assets/:path*",
-      "destination": "/sleepness/aaa/dist/assets/:path*"
+      "destination": "/sleepness/aaa/public/assets/:path*"
     },
     {
       "source": "/models/:path*",
-      "destination": "/sleepness/aaa/dist/models/:path*"
+      "destination": "/sleepness/aaa/public/models/:path*"
     },
     {
       "source": "/textures/:path*",
-      "destination": "/sleepness/aaa/dist/textures/:path*"
+      "destination": "/sleepness/aaa/public/textures/:path*"
     }
   ]
 }

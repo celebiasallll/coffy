@@ -251,9 +251,9 @@ export function initBuildingSystem(
 
   // Boundary Instance
   boundaryInstance = new THREE.InstancedMesh(
-    new THREE.BoxGeometry(52, 25, 6), 
+    new THREE.BoxGeometry(60, 25, 8), 
     new THREE.MeshStandardMaterial({ map: boundaryTex, color: 0x888888, roughness: 0.9, metalness: 0.1 }),
-    300 // 4 sides * 60 segments = 240
+    400 
   );
   boundaryInstance.castShadow = true;
   boundaryInstance.receiveShadow = true;
@@ -376,24 +376,21 @@ function spawnWorldBoundaries(scene: THREE.Scene, physics: RAPIER.World): void {
       const z = start.y + dir.y * t;
       const h = getHeight(x, z);
 
-      // Visual
-      dummy.position.set(x, h + 8, z); 
+      // Visual - Moved 1m down
+      dummy.position.set(x, h + 7, z); 
       dummy.rotation.set(0, rotationY, 0);
       dummy.scale.set(1, 1, 1);
       dummy.updateMatrix();
       boundaryInstance!.setMatrixAt(idx++, dummy.matrix);
 
-      // Physics (like house approach: create collider directly)
-      // Cuboid half-extents: x, y, z
-      // If rot=0 (North/South), width is along X.
-      // If rot=PI/2 (East/West), width is along Z (because of rotation).
-      const hx = rotationY === 0 ? 26 : 3.5;
-      const hz = rotationY === 0 ? 3.5 : 26;
+      // Physics - Moved 1m down and made slightly wider (hx/hz)
+      const hx = rotationY === 0 ? 31 : 5;
+      const hz = rotationY === 0 ? 5 : 31;
       const hy = 40; // Total height 80m
 
       physics.createCollider(
         RAPIER.ColliderDesc.cuboid(hx, hy, hz)
-          .setTranslation(x, h + hy - 5, z)
+          .setTranslation(x, h + hy - 6, z)
           .setRotation({ x: 0, y: Math.sin(rotationY/2), z: 0, w: Math.cos(rotationY/2) })
       );
     }

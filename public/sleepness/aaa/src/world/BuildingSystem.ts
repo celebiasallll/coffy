@@ -73,6 +73,7 @@ let roofInstance: THREE.InstancedMesh | null = null;
 let doorInstance: THREE.InstancedMesh | null = null;
 let windowInstance: THREE.InstancedMesh | null = null;
 let marketWallInstance: THREE.InstancedMesh | null = null;
+let boundaryInstance: THREE.InstancedMesh | null = null;
 
 const dummy = new THREE.Object3D();
 
@@ -248,6 +249,16 @@ export function initBuildingSystem(
   windowInstance.frustumCulled = true;
   scene.add(windowInstance);
 
+  // Boundary Instance
+  boundaryInstance = new THREE.InstancedMesh(
+    new THREE.BoxGeometry(52, 25, 6), 
+    new THREE.MeshStandardMaterial({ map: boundaryTex, color: 0x888888, roughness: 0.9, metalness: 0.1 }),
+    300 // 4 sides * 60 segments = 240
+  );
+  boundaryInstance.castShadow = true;
+  boundaryInstance.receiveShadow = true;
+  scene.add(boundaryInstance);
+
   // ── Ev yerleşimleri (referanstaki gibi şehir + wild) ──────────────────
   const placeHouse = (
     x: number,
@@ -345,38 +356,59 @@ export function initBuildingSystem(
 
 const boundaryTex = textureLoader.load('https://threejs.org/examples/textures/brick_diffuse.jpg');
 boundaryTex.wrapS = boundaryTex.wrapT = THREE.RepeatWrapping;
-boundaryTex.repeat.set(200, 1.5); 
+boundaryTex.repeat.set(2, 1.5); 
 
 function spawnWorldBoundaries(scene: THREE.Scene, physics: RAPIER.World): void {
-  const wallGeoBound = new THREE.BoxGeometry(3020, 20, 6); 
-  const wallMatBound = new THREE.MeshStandardMaterial({ 
-      map: boundaryTex,
-      roughness: 0.9,
-      metalness: 0.1,
-      color: 0x888888 
-  });
+  if (!boundaryInstance) return;
 
-  const createWall = (x: number, z: number, rotationY: number) => {
-      const wall = new THREE.Mesh(wallGeoBound, wallMatBound);
+  const SEGMENT_SIZE = 50;
+  const HALF_WORLD = 1505;
+  let idx = 0;
+
+  const spawnSide = (start: THREE.Vector2, end: THREE.Vector2, rotationY: number) => {
+    const dir = end.clone().sub(start);
+    const len = dir.length();
+    const steps = Math.ceil(len / SEGMENT_SIZE);
+    
+    for (let i = 0; i < steps; i++) {
+      const t = (i + 0.5) / steps;
+      const x = start.x + dir.x * t;
+      const z = start.y + dir.y * t;
       const h = getHeight(x, z);
-      wall.position.set(x, h + 5, z); 
-      wall.rotation.y = rotationY;
-      scene.add(wall);
 
-      // Physics (tall collider to block everything)
-      const rbDesc = RAPIER.RigidBodyDesc.fixed()
-          .setTranslation(x, h + 50, z)
-          .setRotation({ x: 0, y: Math.sin(rotationY/2), z: 0, w: Math.cos(rotationY/2) });
-      const rb = physics.createRigidBody(rbDesc);
-      const halfW = 1505;
-      const colDesc = RAPIER.ColliderDesc.cuboid(x === 0 ? halfW : 2, 100, x === 0 ? 2 : halfW);
-      physics.createCollider(colDesc, rb);
+      // Visual
+      dummy.position.set(x, h + 8, z); 
+      dummy.rotation.set(0, rotationY, 0);
+      dummy.scale.set(1, 1, 1);
+      dummy.updateMatrix();
+      boundaryInstance!.setMatrixAt(idx++, dummy.matrix);
+
+      // Physics (like house approach: create collider directly)
+      // Cuboid half-extents: x, y, z
+      // If rot=0 (North/South), width is along X.
+      // If rot=PI/2 (East/West), width is along Z (because of rotation).
+      const hx = rotationY === 0 ? 26 : 3.5;
+      const hz = rotationY === 0 ? 3.5 : 26;
+      const hy = 40; // Total height 80m
+
+      physics.createCollider(
+        RAPIER.ColliderDesc.cuboid(hx, hy, hz)
+          .setTranslation(x, h + hy - 5, z)
+          .setRotation({ x: 0, y: Math.sin(rotationY/2), z: 0, w: Math.cos(rotationY/2) })
+      );
+    }
   };
 
-  const half = 1505;
-  createWall(0, -half, 0);       // South
-  createWall(0, half, 0);        // North
-  createWall(-half, 0, Math.PI / 2);     // West
-  createWall(half, 0, Math.PI / 2);      // East
+  // South: (-1505, -1505) to (1505, -1505)
+  spawnSide(new THREE.Vector2(-HALF_WORLD, -HALF_WORLD), new THREE.Vector2(HALF_WORLD, -HALF_WORLD), 0);
+  // North: (1505, 1505) to (-1505, 1505)
+  spawnSide(new THREE.Vector2(HALF_WORLD, HALF_WORLD), new THREE.Vector2(-HALF_WORLD, HALF_WORLD), 0);
+  // West: (-1505, 1505) to (-1505, -1505)
+  spawnSide(new THREE.Vector2(-HALF_WORLD, HALF_WORLD), new THREE.Vector2(-HALF_WORLD, -HALF_WORLD), Math.PI / 2);
+  // East: (1505, -1505) to (1505, 1505)
+  spawnSide(new THREE.Vector2(HALF_WORLD, -HALF_WORLD), new THREE.Vector2(HALF_WORLD, HALF_WORLD), Math.PI / 2);
+
+  boundaryInstance.count = idx;
+  boundaryInstance.instanceMatrix.needsUpdate = true;
 }
 

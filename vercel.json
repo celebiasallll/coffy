@@ -2,15 +2,27 @@
   "rewrites": [
     {
       "source": "/assets/:path*",
-      "destination": "/sleepness/aaa/public/assets/:path*"
+      "destination": "/sleepness/aaa/dist/assets/:path*"
     },
     {
       "source": "/models/:path*",
-      "destination": "/sleepness/aaa/public/models/:path*"
+      "destination": "/sleepness/aaa/dist/models/:path*"
     },
     {
       "source": "/textures/:path*",
-      "destination": "/sleepness/aaa/public/textures/:path*"
+      "destination": "/sleepness/aaa/dist/textures/:path*"
+    },
+    {
+      "source": "/npc/:path*",
+      "destination": "/sleepness/aaa/dist/npc/:path*"
+    },
+    {
+      "source": "/npc_female/:path*",
+      "destination": "/sleepness/aaa/dist/npc_female/:path*"
+    },
+    {
+      "source": "/sky.png",
+      "destination": "/sleepness/aaa/dist/sky.png"
     }
   ]
 }

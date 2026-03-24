@@ -5,7 +5,7 @@ export let skyMesh: THREE.Mesh;
 export let skyMaterial: THREE.MeshBasicMaterial;
 
 export function initSky(scene: THREE.Scene): { sky: THREE.Mesh; sun: THREE.Vector3 } {
-  const geometry = new THREE.SphereGeometry(1000, 32, 32);
+  const geometry = new THREE.SphereGeometry(2200, 32, 32);
 
   const loader = new THREE.TextureLoader();
   const texture = loader.load('sky.png');

@@ -31,7 +31,7 @@ const _physMove = { x: 0, y: 0, z: 0 };
 
 function insideTerrain(x: number, z: number): boolean {
     // Limits increased to match new 3000m map size (half = 1500)
-    return x > -1498 && x < 1498 && z > -1498 && z < 1498;
+    return x > -1502 && x < 1502 && z > -1502 && z < 1502;
 }
 
 function safeHeight(x: number, z: number): number | null {

@@ -4,8 +4,8 @@ import { createNoise2D } from 'simplex-noise';
 
 const noise2D = createNoise2D();
 
-export const TERRAIN_SIZE = 1800;
-export const TERRAIN_SEGS = 240;
+export const TERRAIN_SIZE = 3000;
+export const TERRAIN_SEGS = 300;
 export const WATER_LEVEL  = 0.5;
 
 export const LAKE_CENTER_X = 150;
@@ -323,7 +323,7 @@ export function createTerrain(scene: THREE.Scene): { terrain: THREE.Mesh; size: 
     );
   };
 
-  mat.customProgramCacheKey = () => 'terrain-multitex-v7-soft-wet';
+  mat.customProgramCacheKey = () => 'terrain-multitex-v8-wide';
 
   const terrain = new THREE.Mesh(geo, mat);
   terrain.receiveShadow  = true;

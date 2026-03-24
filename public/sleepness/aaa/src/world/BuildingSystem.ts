@@ -348,7 +348,7 @@ boundaryTex.wrapS = boundaryTex.wrapT = THREE.RepeatWrapping;
 boundaryTex.repeat.set(200, 1.5); 
 
 function spawnWorldBoundaries(scene: THREE.Scene, physics: RAPIER.World): void {
-  const wallGeoBound = new THREE.BoxGeometry(3005, 20, 6); 
+  const wallGeoBound = new THREE.BoxGeometry(3020, 20, 6); 
   const wallMatBound = new THREE.MeshStandardMaterial({ 
       map: boundaryTex,
       roughness: 0.9,
@@ -373,10 +373,10 @@ function spawnWorldBoundaries(scene: THREE.Scene, physics: RAPIER.World): void {
       physics.createCollider(colDesc, rb);
   };
 
-  const half = 1500;
-  createWall(0, -half + 1, 0);       // South
-  createWall(0, half - 1, 0);        // North
-  createWall(-half + 1, 0, Math.PI / 2);     // West
-  createWall(half - 1, 0, Math.PI / 2);      // East
+  const half = 1505;
+  createWall(0, -half, 0);       // South
+  createWall(0, half, 0);        // North
+  createWall(-half, 0, Math.PI / 2);     // West
+  createWall(half, 0, Math.PI / 2);      // East
 }
 

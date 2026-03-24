@@ -31,7 +31,7 @@ export function createSceneAndCamera(): {
     65,
     window.innerWidth / window.innerHeight,
     0.3,
-    2000
+    10000
   );
 
   return { scene, camera };

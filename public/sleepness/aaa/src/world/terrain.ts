@@ -4,19 +4,13 @@ import { createNoise2D } from 'simplex-noise';
 
 const noise2D = createNoise2D();
 
-export const TERRAIN_SIZE = 3000; // Increased from 1800 to 3000 for more exploration space
+export const TERRAIN_SIZE = 1800;
 export const TERRAIN_SEGS = 240;
 export const WATER_LEVEL  = 0.5;
 
 export const LAKE_CENTER_X = 150;
 export const LAKE_CENTER_Z = 120;
 export const LAKE_RADIUS   = 420;
-export const ADDITIONAL_LAKES = [
-  { x: -700, z: -800, r: 180 },
-  { x: 900,  z: -600, r: 220 },
-  { x: -1000, z: 800, r: 200 },
-  { x: 1200, z: 1200, r: 150 }
-];
 
 let _heightData: Float32Array | null = null;
 let _segs = TERRAIN_SEGS;
@@ -43,18 +37,6 @@ function rawHeight(wx: number, wz: number): number {
     h = floor + (h - floor) * edge;
     if (t > 0.72 && t < 1.0) h += smoothstep((t - 0.72) / 0.28) * 1.8;
   }
-
-  // Additional Lakes
-  for (const lake of ADDITIONAL_LAKES) {
-    const d = Math.sqrt((wx - lake.x)**2 + (wz - lake.z)**2);
-    if (d < lake.r) {
-      const lt = d / lake.r;
-      const ledge = smoothstep(lt / 0.85);
-      const lfloor = WATER_LEVEL - 4.0;
-      h = Math.min(h, lfloor + (h - lfloor) * ledge);
-    }
-  }
-
   return h;
 }
 
@@ -95,12 +77,14 @@ export function getHeight(worldX: number, worldZ: number): number {
   return h00*(1-fx)*(1-fz) + h10*fx*(1-fz) + h01*(1-fx)*fz + h11*fx*fz;
 }
 
+const _terrainNormal = new THREE.Vector3();
 export function getTerrainNormal(wx: number, wz: number): THREE.Vector3 {
   const e = 0.8;
-  return new THREE.Vector3(
+  _terrainNormal.set(
     getHeight(wx,wz) - getHeight(wx+e,wz), e,
     getHeight(wx,wz) - getHeight(wx,wz+e)
   ).normalize();
+  return _terrainNormal;
 }
 
 export function createTerrain(scene: THREE.Scene): { terrain: THREE.Mesh; size: number } {
@@ -145,7 +129,17 @@ export function createTerrain(scene: THREE.Scene): { terrain: THREE.Mesh; size: 
     t.colorSpace = THREE.SRGBColorSpace;
     t.minFilter  = THREE.LinearMipmapLinearFilter;
     t.magFilter  = THREE.LinearFilter;
-    t.anisotropy = 16;
+    
+    // ── ANISOTROPIC FILTERING: Expert recommendation ───────────────────
+    // Uzaktaki zeminlerin bulanıklaşmasını engeller.
+    const currentQuality = (window as any)._currentQualityLevel || 'HIGH';
+    let targetAnisotropy = 1;
+    if (currentQuality === 'ULTRA' || currentQuality === 'HIGH') {
+      targetAnisotropy = (window as any).renderer?.capabilities?.getMaxAnisotropy() || 16;
+    } else if (currentQuality === 'MEDIUM') {
+      targetAnisotropy = 4;
+    }
+    t.anisotropy = targetAnisotropy;
     return t;
   }
 
@@ -155,6 +149,9 @@ export function createTerrain(scene: THREE.Scene): { terrain: THREE.Mesh; size: 
 
   // Rock — local
   const rockTex = loadTex('/textures/gray_rocks_diff.jpg');
+  const rockNormal = loadTex('/textures/gray_rocks_norm.jpg'); // Assuming this exists or using a generic one
+  const detailNormal = loadTex('https://threejs.org/examples/textures/waternormals.jpg'); // Reusing water normal as a detailed noise/grain
+  detailNormal.repeat.set(128, 128);
 
   // Sand — canvas ile üretilir (dosya bağımlılığı yok, her zaman çalışır)
   function makeSandCanvasTex(): THREE.CanvasTexture {
@@ -193,15 +190,17 @@ export function createTerrain(scene: THREE.Scene): { terrain: THREE.Mesh; size: 
   const terrainUniforms = {
     uTexRock:    { value: rockTex  },
     uTexSand:    { value: sandTex  },
+    uTexDetailNormal: { value: detailNormal },
     uLakeCenter: { value: new THREE.Vector2(LAKE_CENTER_X, LAKE_CENTER_Z) },
     uLakeRadius: { value: LAKE_RADIUS },
+    uRainIntensity: { value: 0 },
   };
 
   const mat = new THREE.MeshStandardMaterial({
     map:       grassTex,
-    color:     0x6a8a45,   // Slightly more vibrant green tone
-    roughness: 1.0,        // Maximum roughness to eliminate reflections (matte)
-    metalness: 0.0,        // No metalness for a natural matte look
+    color:     0x5a7a35,   // referans koda uygun — grassTex ile çarpılır
+    roughness: 0.95,
+    metalness: 0.0,
   });
 
   mat.onBeforeCompile = (shader) => {
@@ -239,8 +238,10 @@ export function createTerrain(scene: THREE.Scene): { terrain: THREE.Mesh; size: 
       `#include <common>
       uniform sampler2D uTexRock;
       uniform sampler2D uTexSand;
+      uniform sampler2D uTexDetailNormal;
       uniform vec2      uLakeCenter;
       uniform float     uLakeRadius;
+      uniform float     uRainIntensity;
       varying float     vWorldY;
       varying float     vSlope;
       varying vec2      vTerrainUV;
@@ -272,10 +273,10 @@ export function createTerrain(scene: THREE.Scene): { terrain: THREE.Mesh; size: 
       diffuseColor.rgb *= grassVar;
 
       // ── ROCK: yüksek tepeler + dik yamaçlar ──────────────────────────────
-      // Yükseklik: 9m'den itibaren karışmaya başlar, 13m'de tam kaya
-      float wRockAlt   = smoothstep(9.0, 13.0, vWorldY);
-      // Eğim: 0.40'tan itibaren kaya, 0.65'te tam
-      float wRockSlope = smoothstep(0.40, 0.65, vSlope);
+      // Yükseklik: 7m'den itibaren karışmaya başlar, 11m'de tam kaya
+      float wRockAlt   = smoothstep(7.0, 11.0, vWorldY);
+      // Eğim: 0.12'den itibaren kaya, 0.32'de tam (Daha hassas hale getirildi)
+      float wRockSlope = smoothstep(0.12, 0.32, vSlope);
       float wRock = clamp(max(wRockAlt, wRockSlope), 0.0, 1.0);
 
       // ── SAND: SADECE su kenarı çok dar bant ──────────────────────────────
@@ -293,11 +294,39 @@ export function createTerrain(scene: THREE.Scene): { terrain: THREE.Mesh; size: 
 
       // Blend
       diffuseColor.rgb = mix(diffuseColor.rgb, rockColor, wRock);
-      diffuseColor.rgb = mix(diffuseColor.rgb, sandColor, wSand);`
+      diffuseColor.rgb = mix(diffuseColor.rgb, sandColor, wSand);
+
+      if (wRock > 0.1) {
+        vec3 detNorm = texture2D(uTexDetailNormal, vTerrainUV * 250.0).rgb * 2.0 - 1.0;
+        float detVal = dot(detNorm, vec3(0.5, 0.5, 1.0));
+        diffuseColor.rgb *= (0.9 + detVal * 0.15);
+      }
+
+      // ── VIVIDNESS & SATURATION: Dünyayı daha canlı göstermek için ──────────
+      // Renk doygunluğunu artır
+      float luma = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
+      diffuseColor.rgb = mix(vec3(luma), diffuseColor.rgb, 1.22); // Saturation jump
+      // Kontrastı hafifçe artır
+      diffuseColor.rgb = pow(diffuseColor.rgb, vec3(1.08)); 
+      `
+    );
+
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <roughnessmap_fragment>',
+      `#include <roughnessmap_fragment>
+      // Yağmurda roughness düşer (ıslak zemin parlaması) — Soft version
+      roughnessFactor = clamp(roughnessFactor - uRainIntensity * 0.45, 0.4, 1.0);`
+    );
+
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <color_fragment>',
+      `#include <color_fragment>
+      // Yağmurda zemin hafif kararır (ıslanma etkisi)
+      diffuseColor.rgb *= (1.0 - uRainIntensity * 0.12);`
     );
   };
 
-  mat.customProgramCacheKey = () => 'terrain-multitex-v5';
+  mat.customProgramCacheKey = () => 'terrain-multitex-v7-soft-wet';
 
   const terrain = new THREE.Mesh(geo, mat);
   terrain.receiveShadow  = true;
@@ -311,5 +340,6 @@ export function createTerrain(scene: THREE.Scene): { terrain: THREE.Mesh; size: 
       heightsPhysics[ix*_segs+iz] = _heightData[iz*_segs+ix];
 
   createTerrainCollider(heightsPhysics, _segs, _segs, _size, _size);
+  // console.log('✅ Terrain: grass/rock/sand multi-texture aktif');
   return { terrain, size: _size };
 }

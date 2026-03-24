@@ -11,7 +11,7 @@ export function createRenderer(): THREE.WebGLRenderer {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 0.95; // Adjusted from 1.1 to reduce bloom/glare
+  renderer.toneMappingExposure = 0.85; // Beyazlaşmayı (glare) azaltmak için düşürüldü
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   const hud = document.getElementById('hud');
@@ -44,7 +44,7 @@ export function setupLights(scene: THREE.Scene): {
   ambient: THREE.AmbientLight;
 } {
   // Ambient — base fill
-  const ambient = new THREE.AmbientLight(0xffffff, 1.2);
+  const ambient = new THREE.AmbientLight(0xffffff, 0.7); // 1.2 -> 0.7 düşürüldü
   scene.add(ambient);
 
   // Hemisphere — sky/ground
@@ -52,7 +52,7 @@ export function setupLights(scene: THREE.Scene): {
   scene.add(hemi);
 
   // Sun — main directional
-  const sun = new THREE.DirectionalLight(0xfff4e0, 4.5);
+  const sun = new THREE.DirectionalLight(0xfff4e0, 3.2); // 4.5 -> 3.2 düşürüldü
   sun.position.set(50, 80, 30);
   sun.castShadow = true;
   sun.shadow.mapSize.set(1024, 1024);

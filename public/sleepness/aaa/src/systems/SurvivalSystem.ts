@@ -14,6 +14,9 @@ export interface SurvivalState {
   maxThirst: number;
   social: number;
   maxSocial: number;
+  sleep: number;
+  maxSleep: number;
+  coffeeCount: number;
 }
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -28,6 +31,9 @@ const state: SurvivalState = {
   maxThirst: 100,
   social: 50,
   maxSocial: 100,
+  sleep: 100,
+  maxSleep: 100,
+  coffeeCount: 0,
 };
 
 // ── Sprint lock ───────────────────────────────────────────────────────────────
@@ -81,6 +87,7 @@ export function updateSurvival(dt: number, sprinting: boolean): SurvivalState {
   state.hunger = Math.max(0, state.hunger - dt * 0.12);
   state.thirst = Math.max(0, state.thirst - dt * 0.35);
   state.social = Math.max(0, state.social - dt * 0.08);
+  state.sleep = Math.max(0, state.sleep - dt * 0.25);
 
   if (sprinting && state.energy > 0) {
     state.energy = Math.max(0, state.energy - dt * 10);

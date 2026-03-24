@@ -273,10 +273,10 @@ export function createTerrain(scene: THREE.Scene): { terrain: THREE.Mesh; size: 
       diffuseColor.rgb *= grassVar;
 
       // ── ROCK: yüksek tepeler + dik yamaçlar ──────────────────────────────
-      // Yükseklik: 7m'den itibaren karışmaya başlar, 11m'de tam kaya
-      float wRockAlt   = smoothstep(7.0, 11.0, vWorldY);
-      // Eğim: 0.12'den itibaren kaya, 0.32'de tam (Daha hassas hale getirildi)
-      float wRockSlope = smoothstep(0.12, 0.32, vSlope);
+      // Yükseklik: 5m'den itibaren karışmaya başlar, 9m'de tam kaya
+      float wRockAlt   = smoothstep(5.0, 9.0, vWorldY);
+      // Eğim: 0.07'den itibaren kaya, 0.25'te tam
+      float wRockSlope = smoothstep(0.07, 0.25, vSlope);
       float wRock = clamp(max(wRockAlt, wRockSlope), 0.0, 1.0);
 
       // ── SAND: SADECE su kenarı çok dar bant ──────────────────────────────
@@ -302,12 +302,9 @@ export function createTerrain(scene: THREE.Scene): { terrain: THREE.Mesh; size: 
         diffuseColor.rgb *= (0.9 + detVal * 0.15);
       }
 
-      // ── VIVIDNESS & SATURATION: Dünyayı daha canlı göstermek için ──────────
-      // Renk doygunluğunu artır
+      // ── VIVIDNESS & SATURATION: Dünyayı daha canlı göstermek için (Soft) ──
       float luma = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
-      diffuseColor.rgb = mix(vec3(luma), diffuseColor.rgb, 1.22); // Saturation jump
-      // Kontrastı hafifçe artır
-      diffuseColor.rgb = pow(diffuseColor.rgb, vec3(1.08)); 
+      diffuseColor.rgb = mix(vec3(luma), diffuseColor.rgb, 1.08); // Reduced saturation
       `
     );
 

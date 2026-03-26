@@ -30,10 +30,12 @@ const enemyAttackTimer = new Map<EntityId, number>();
 
 // --- BUG 5 FIX: Ölü düşman set'i ---
 const deadEnemies = new Set<EntityId>();
+let spawnGraceTimer = 12.0;
 
 export const aiSystem = defineSystem((world: IWorld) => {
     const gameWorld = world as GameWorld;
     const dt = gameWorld.dt ?? (1 / 60);
+    if (spawnGraceTimer > 0) spawnGraceTimer -= dt;
 
     const players = playerQuery(gameWorld);
     if (players.length === 0) return world;
@@ -182,7 +184,7 @@ export const aiSystem = defineSystem((world: IWorld) => {
             targetAnim = 2; // Run
         }
         else {
-            if (dist < detectionRange) state = 2; // Chase
+            if (dist < detectionRange && spawnGraceTimer <= 0) state = 2; // Chase (ONLY AFTER GRACE PERIOD)
             else if (state === 2) {
                 state = 0;
                 timer = 2.0 + Math.random() * 2;

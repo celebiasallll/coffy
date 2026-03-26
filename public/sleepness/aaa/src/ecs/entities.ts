@@ -16,7 +16,10 @@ import { AnimationController } from '../core/AnimationController.js';
 import { audioManager } from '../core/AudioManager.js';
 import { isSpaceOccupied, isNearLake } from '../world/environment.js';
 
-const loader = new FBXLoader();
+const loader = new FBXLoader(); // Default Loading Manager (Critical)
+const bgManager = new THREE.LoadingManager();
+const bgLoader = new FBXLoader(bgManager);
+const bgGltfLoader = new GLTFLoader(bgManager);
 
 // --- Asset Caches (Promise based to prevent race conditions) ---
 const zombieCacheP: {
@@ -423,7 +426,7 @@ export async function spawnWolf(scene: THREE.Scene, x: number, z: number): Promi
     const gltfLoader = new GLTFLoader();
     try {
         if (!wolfCachedP) {
-            wolfCachedP = gltfLoader.loadAsync('assets/low_poly_wolf.glb').then(gltf => {
+            wolfCachedP = bgGltfLoader.loadAsync('assets/low_poly_wolf.glb').then(gltf => {
                 return { scene: gltf.scene, animations: gltf.animations };
             });
         }
@@ -556,16 +559,16 @@ export async function spawnZombie(scene: THREE.Scene, x: number, z: number): Pro
 
     try {
         if (!zombieCacheP.idle) {
-            zombieCacheP.idle = loader.loadAsync('models/zombie/Zombie Idle.fbx').then(fbx => {
+            zombieCacheP.idle = bgLoader.loadAsync('models/zombie/Zombie Idle.fbx').then(fbx => {
                 fbx.scale.setScalar(0.026); cleanupTraverse(fbx); stripRootMotion(fbx); return fbx;
             });
-            zombieCacheP.walk = loader.loadAsync('models/zombie/Zombie Running.fbx').then(fbx => {
+            zombieCacheP.walk = bgLoader.loadAsync('models/zombie/Zombie Running.fbx').then(fbx => {
                 fbx.scale.setScalar(0.026); cleanupTraverse(fbx); stripRootMotion(fbx); return fbx;
             });
-            zombieCacheP.attack = loader.loadAsync('models/zombie/Zombie Attack.fbx').then(fbx => {
+            zombieCacheP.attack = bgLoader.loadAsync('models/zombie/Zombie Attack.fbx').then(fbx => {
                 fbx.scale.setScalar(0.026); cleanupTraverse(fbx); stripRootMotion(fbx); return fbx;
             });
-            zombieCacheP.death = loader.loadAsync('models/Dying Backwards (6).fbx').then(fbx => {
+            zombieCacheP.death = bgLoader.loadAsync('models/Dying Backwards (6).fbx').then(fbx => {
                 fbx.scale.setScalar(0.026);
                 cleanupTraverse(fbx);
                 // FULL STRIP for death to prevent "jumping" up
@@ -687,22 +690,18 @@ export async function spawnNPC(scene: THREE.Scene, x: number, z: number, dialogu
 
     try {
         const currentCache = gender === 1 ? npcFemaleCacheP : npcCacheP;
-        const basePath = gender === 1 ? '/npc_female/' : '/npc/';
 
-        if (gender === 1) {
-            if (!currentCache.idle) currentCache.idle = loader.loadAsync(basePath + 'Standing W_Briefcase Idle.fbx');
-            if (!currentCache.talk) currentCache.talk = loader.loadAsync(basePath + 'Talking (3).fbx');
-            if (!currentCache.walk) currentCache.walk = loader.loadAsync(basePath + 'Walking (2).fbx');
-        } else {
-            if (!currentCache.idle) currentCache.idle = loader.loadAsync(basePath + 'Standing Idle.fbx');
-            if (!currentCache.talk) currentCache.talk = loader.loadAsync(basePath + 'Talking.fbx');
-            if (!currentCache.walk) currentCache.walk = loader.loadAsync(basePath + 'Walking.fbx');
+        if (!currentCache.idle) {
+            const prefix = gender === 1 ? 'models/npc/female/' : 'models/npc/male/';
+            currentCache.idle = bgLoader.loadAsync(`${prefix}Breathing Idle.fbx`);
+            currentCache.talk = bgLoader.loadAsync(`${prefix}Talking.fbx`);
+            currentCache.walk = bgLoader.loadAsync(`${prefix}Walking.fbx`);
         }
 
         const [idleBase, talkBase, walkBase] = await Promise.all([
-            currentCache.idle,
-            currentCache.talk,
-            currentCache.walk
+            currentCache.idle!,
+            currentCache.talk!,
+            currentCache.walk!
         ]);
 
         const idleFbx = SkeletonUtils.clone(idleBase) as THREE.Group;

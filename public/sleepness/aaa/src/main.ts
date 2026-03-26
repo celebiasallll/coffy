@@ -266,14 +266,17 @@ async function init(playerType: number) {
 
   initItemSpawner(scene, world);
 
-  // Spawn 10 NPC Quest Givers: 6 near player (50-250m), 4 global
+  // Spawn 10 NPC Quest Givers: Parallelized & Non-blocking for Loading screen
+  const npcPromises = [];
   for (let i = 0; i < 6; i++) {
-    await spawnRandomNPC(scene, px, pz, 250, i % 2 === 0 ? 0 : 1);
+    npcPromises.push(spawnRandomNPC(scene, px, pz, 250, i % 2 === 0 ? 0 : 1));
   }
   for (let i = 0; i < 4; i++) {
-    await spawnRandomNPC(scene, px, pz, -1, i % 2 === 0 ? 1 : 0);
+    npcPromises.push(spawnRandomNPC(scene, px, pz, -1, i % 2 === 0 ? 1 : 0));
   }
-
+  // We do NOT await npcPromises here, or if we do, we do it after the loading screen is gone.
+  // Actually, spawnRandomNPC is already using bgLoader, so it's fine.
+  
   onDeath(() => {
     InputState.sprint[playerId] = 0;
     InputState.moveX[playerId] = 0;

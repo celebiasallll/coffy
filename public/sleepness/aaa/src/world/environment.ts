@@ -49,6 +49,7 @@ const leafMats = [
 // ── GLB Loader (ortak) ───────────────────────────────────────────────────────
 
 const gltfLoader = new GLTFLoader();
+const birdGltfLoader = new GLTFLoader(new THREE.LoadingManager());
 
 // ── Kamp ateşleri ────────────────────────────────────────────────────────────
 
@@ -296,7 +297,7 @@ function addAnimals(scene: THREE.Scene): void {
       const wx = Math.cos(wa) * wr, wz = Math.sin(wa) * wr;
       bWPs.push(new THREE.Vector3(wx, getHeight(wx, wz) + rnd(15, 30), wz));
     }
-    gltfLoader.load(MODELS_CDN[bType], gltf => {
+    birdGltfLoader.load(MODELS_CDN[bType], gltf => {
       const model = gltf.scene;
       // Başlangıç: sabit yüksek (uçuş hissi)
       model.position.set(bx, 50, bz);

@@ -146,57 +146,43 @@ export async function spawnPlayer(scene: THREE.Scene, x: number, _y: number, z: 
     const shootRunPromise = loader.loadAsync(isP2 ? 'models/player2/Gunplay (2).fbx' : 'models/Gunplay (1).fbx');
 
     const gltfLoader = new GLTFLoader();
-    const scarPromise = gltfLoader.loadAsync('assets/low-poly_scar_16s.glb');
-    const knifePromise = gltfLoader.loadAsync('assets/switch_knife.glb');
-
-    const crouchIdleFbxPromise = loader.loadAsync(isP2 ? 'models/player2/Crouch To Stand.fbx' : 'models/Stand To Crouch.fbx');
-    const crouchWalkFbxPromise = loader.loadAsync(isP2 ? 'models/player2/Walk Crouching Forward.fbx' : 'models/Walk Crouching Forward Right.fbx');
-    
-    const punchFbxPromise = loader.loadAsync(isP2 ? 'models/player2/Cross Punch.fbx' : 'models/Cross Punch.fbx');
-    const kickFbxPromise = loader.loadAsync(isP2 ? 'models/player2/Hurricane Kick.fbx' : 'models/Kicking.fbx');
-    const stabFbxPromise = loader.loadAsync(isP2 ? 'models/player2/Stabbing.fbx' : 'models/Stabbing.fbx');
-    const deathFbxPromise = loader.loadAsync('models/Dying Backwards (6).fbx');
+    const criticalPromises = [
+        loader.loadAsync(isP2 ? 'models/player2/Breathing Idle.fbx' : 'models/Standing Idle.fbx'),
+        loader.loadAsync(isP2 ? 'models/player2/Walking (6).fbx' : 'models/Walking.fbx'),
+        loader.loadAsync(isP2 ? 'models/player2/Running (1).fbx' : 'models/Running.fbx'),
+        loader.loadAsync(isP2 ? 'models/player2/Jump (4).fbx' : 'models/Jumping.fbx'),
+        gltfLoader.loadAsync('assets/low-poly_scar_16s.glb'),
+        gltfLoader.loadAsync('assets/switch_knife.glb'),
+        loader.loadAsync('models/Dying Backwards (6).fbx') // Death is helpful for unexpected kills
+    ];
 
     const [
         idleFbx,
         walkFbx,
         runFbx,
         jumpFbx,
-        runJumpFbx,
-        swimFbx,
-        shootIdleFbx,
-        shootRunFbx,
         scarGltf,
         knifeGltf,
-        crouchIdleFbx,
-        crouchWalkFbx,
-        punchFbx,
-        kickFbx,
-        stabFbx,
         deathFbx
-    ] = await Promise.all([
-        idleFbxPromise,
-        walkFbxPromise,
-        runFbxPromise,
-        jumpFbxPromise,
-        runJumpFbxPromise,
-        swimFbxPromise,
-        shootIdlePromise,
-        shootRunPromise,
-        scarPromise,
-        knifePromise,
-        crouchIdleFbxPromise,
-        crouchWalkFbxPromise,
-        punchFbxPromise,
-        kickFbxPromise,
-        stabFbxPromise,
-        deathFbxPromise
-    ]);
+    ] = (await Promise.all(criticalPromises)) as [THREE.Group, THREE.Group, THREE.Group, THREE.Group, any, any, THREE.Group];
 
-    const baseScale = 0.01404; // P1 standard (0.0117 * 1.2)
-    const scaleFactor = isP2 ? 0.00294 : baseScale; // P2 (0.0042 * 0.7)
+    // --- Phase 2 Loading (Background) ---
+    const secondaryPromises = {
+        'runningjump': loader.loadAsync(isP2 ? 'models/player2/Running Jump.fbx' : 'models/runningjump.fbx'),
+        'swim': loader.loadAsync(isP2 ? 'models/player2/Swimming (1).fbx' : 'models/Swimming.fbx'),
+        'shoot_idle': loader.loadAsync(isP2 ? 'models/player2/Shoot Rifle (1).fbx' : 'models/Shoot Rifle.fbx'),
+        'shoot_run': loader.loadAsync(isP2 ? 'models/player2/Gunplay (2).fbx' : 'models/Gunplay (1).fbx'),
+        'crouch_idle': loader.loadAsync(isP2 ? 'models/player2/Crouch To Stand.fbx' : 'models/Stand To Crouch.fbx'),
+        'crouch_walk': loader.loadAsync(isP2 ? 'models/player2/Walk Crouching Forward.fbx' : 'models/Walk Crouching Forward Right.fbx'),
+        'punch': loader.loadAsync(isP2 ? 'models/player2/Cross Punch.fbx' : 'models/Cross Punch.fbx'),
+        'kick': loader.loadAsync(isP2 ? 'models/player2/Hurricane Kick.fbx' : 'models/Kicking.fbx'),
+        'stab': loader.loadAsync(isP2 ? 'models/player2/Stabbing.fbx' : 'models/Stabbing.fbx'),
+    };
 
-    // Find Idle Hips Y for mandatory melee grounding (especially for P1)
+    const baseScale = 0.01404;
+    const scaleFactor = isP2 ? 0.00294 : baseScale;
+
+    // MANDATORY Melee grounding logic uses Idle Hips
     let idleHipsY = 100; 
     const idleClip = idleFbx.animations[0];
     if (idleClip) {
@@ -207,27 +193,18 @@ export async function spawnPlayer(scene: THREE.Scene, x: number, _y: number, z: 
         if (hipTrack) idleHipsY = (hipTrack as any).values[1];
     }
 
-    [idleFbx, walkFbx, runFbx, jumpFbx, runJumpFbx, swimFbx, shootIdleFbx, shootRunFbx, crouchIdleFbx, crouchWalkFbx, deathFbx].forEach(fbx => {
+    [idleFbx, walkFbx, runFbx, jumpFbx, deathFbx].forEach(fbx => {
         if (fbx) {
             fbx.scale.setScalar(scaleFactor);
             cleanupTraverse(fbx);
-            stripRootMotion(fbx, false); // Keep Y for movement
-        }
-    });
-
-    [punchFbx, kickFbx, stabFbx].forEach(fbx => {
-        if (fbx) {
-            fbx.scale.setScalar(scaleFactor);
-            cleanupTraverse(fbx);
-            // MANDATORY Y-LOCK for melee to prevent flying (P1 fix)
-            stripRootMotion(fbx, true, idleHipsY); 
+            stripRootMotion(fbx, false);
         }
     });
 
     const pivot = new THREE.Group();
     pivot.add(idleFbx);
     idleFbx.position.set(0, 0, 0);
-    idleFbx.rotation.y = Math.PI; // Karakterin arkasını kameraya döndür (Mixamo fix)
+    idleFbx.rotation.y = Math.PI;
 
     const mixer = new THREE.AnimationMixer(idleFbx);
     entityMixers.set(id, mixer);
@@ -240,15 +217,6 @@ export async function spawnPlayer(scene: THREE.Scene, x: number, _y: number, z: 
         { name: 'walk', clip: walkFbx.animations[0] },
         { name: 'run', clip: runFbx.animations[0] },
         { name: 'jump', clip: jumpFbx.animations[0], loop: THREE.LoopOnce },
-        { name: 'runningjump', clip: runJumpFbx.animations[0], loop: THREE.LoopOnce },
-        { name: 'swim', clip: swimFbx.animations[0] },
-        { name: 'shoot_idle', clip: shootRunFbx.animations[0] },  // FIXED: Swapped back as requested
-        { name: 'shoot_run',  clip: shootIdleFbx.animations[0] }, // FIXED: Swapped back as requested
-        { name: 'crouch_idle', clip: crouchIdleFbx.animations[0] },
-        { name: 'crouch_walk', clip: crouchWalkFbx.animations[0] },
-        { name: 'punch', clip: punchFbx.animations[0], loop: THREE.LoopOnce },
-        { name: 'kick', clip: kickFbx.animations[0], loop: THREE.LoopOnce },
-        { name: 'stab', clip: stabFbx.animations[0], loop: THREE.LoopOnce },
         { name: 'death', clip: deathFbx.animations[0], loop: THREE.LoopOnce }
     ];
 
@@ -260,6 +228,30 @@ export async function spawnPlayer(scene: THREE.Scene, x: number, _y: number, z: 
             actions[cfg.name] = action;
         }
     });
+
+    // Background Loading Task
+    (async () => {
+        for (const [name, promise] of Object.entries(secondaryPromises)) {
+            try {
+                const fbx = await promise;
+                fbx.scale.setScalar(scaleFactor);
+                cleanupTraverse(fbx);
+                
+                const isMelee = (name === 'punch' || name === 'kick' || name === 'stab');
+                stripRootMotion(fbx, isMelee, isMelee ? idleHipsY : undefined);
+
+                if (fbx.animations[0]) {
+                    const action = mixer.clipAction(fbx.animations[0]);
+                    const isOnce = (isMelee || name === 'crouch_idle' || name === 'runningjump');
+                    action.setLoop(isOnce ? THREE.LoopOnce : THREE.LoopRepeat, isOnce ? 1 : Infinity);
+                    if (isOnce) action.clampWhenFinished = true;
+                    actions[name] = action;
+                }
+            } catch (err) {
+                console.warn(`[Phase2] Failed to load ${name}:`, err);
+            }
+        }
+    })();
 
     const animController = new AnimationController(mixer, actions);
     entityAnimationControllers.set(id, animController);

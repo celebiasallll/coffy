@@ -7,6 +7,11 @@ const NEW_TOKEN_ADDRESS = "0x29248bA2420757bF50595Af6d8903E5d8Dcb9b41"; // Coffy
 const MODULE_CONTRACT_ADDRESS = '0x1084Ba72eaF89E4Ed0c0320FDB4C6A51159c15eb'; // Coffy ActivityModule Base
 const GAME_MODULE_ADDRESS = "0xEb00A304DD1aB9A5bC995d4eD9cAFc190bC593Ea"; // Coffy GameModule Base
 
+// --- SETTINGS ---
+const BYPASS_3_DAY_WAIT = true;   // true: Hemen claim edilebilir (Kontratla uyumlu)
+const BYPASS_2_MIN_SESSION = false; // false: Hala 2 dakika oynama şartı devam eder
+// ----------------
+
 // YENİ TOKEN VE MODÜL ABI - Ethers Human Readable formatı
 const NEW_TOKEN_ABI = [
     "function balanceOf(address account) view returns (uint256)",
@@ -438,27 +443,31 @@ function showWalletGuidance() {
 export async function claimTotalReward(gameState, uiElements) {
     const { claimTotalRewardButton, totalRewardElement, totalRewardsHudElement, tokenCountElement } = uiElements;
 
-    // Doğrulama kontrolü (7 gün bekleme)
-    const verificationTs = localStorage.getItem('coffy_human_verification_ts');
-    const now = Date.now();
-    const oneWeekMs = 3 * 24 * 60 * 60 * 1000;
-    if (!verificationTs || now - Number(verificationTs) < oneWeekMs) {
-        showNotification('Please verify your wallet first by playing the game, then wait 3 days to claim rewards!', 'warning', 4000);
-        return;
+    // Doğrulama kontrolü (3 gün bekleme) - BYPASS_3_DAY_WAIT ile kontrol edilir
+    if (!BYPASS_3_DAY_WAIT) {
+        const verificationTs = localStorage.getItem('coffy_human_verification_ts');
+        const now = Date.now();
+        const oneWeekMs = 3 * 24 * 60 * 60 * 1000; // 3 days
+        if (!verificationTs || now - Number(verificationTs) < oneWeekMs) {
+            showNotification('Please verify your wallet first by playing the game, then wait 3 days to claim rewards!', 'warning', 4000);
+            return;
+        }
     }
 
-    // 2 dakika oynama kontrolü
-    const gameStartTime = localStorage.getItem('coffy_game_session_start');
-    if (!gameStartTime) {
-        showNotification('You need to play the game for at least 2 minutes before claiming rewards! 🎮', 'warning', 4000);
-        return;
-    }
+    // 2 dakika oynama kontrolü - BYPASS_2_MIN_SESSION ile kontrol edilir
+    if (!BYPASS_2_MIN_SESSION) {
+        const gameStartTime = localStorage.getItem('coffy_game_session_start');
+        if (!gameStartTime) {
+            showNotification('You need to play the game for at least 2 minutes before claiming rewards! 🎮', 'warning', 4000);
+            return;
+        }
 
-    const sessionDuration = (Date.now() - Number(gameStartTime)) / 1000 / 60; // dakika cinsinden
-    if (sessionDuration < 2) {
-        const remainingMinutes = (2 - sessionDuration).toFixed(1);
-        showNotification(`⏰ Play for ${remainingMinutes} more minutes to claim rewards! Keep collecting coffee! ☕`, 'info', 4000);
-        return;
+        const sessionDuration = (Date.now() - Number(gameStartTime)) / 1000 / 60; // dakika cinsinden
+        if (sessionDuration < 2) {
+            const remainingMinutes = (2 - sessionDuration).toFixed(1);
+            showNotification(`⏰ Play for ${remainingMinutes} more minutes to claim rewards! Keep collecting coffee! ☕`, 'info', 4000);
+            return;
+        }
     }
 
     if (!gameState.walletConnected) {

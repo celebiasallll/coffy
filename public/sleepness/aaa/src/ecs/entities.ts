@@ -17,9 +17,9 @@ import { audioManager } from '../core/AudioManager.js';
 import { isSpaceOccupied, isNearLake } from '../world/environment.js';
 
 const loader = new FBXLoader(); // Default Loading Manager (Critical)
-const bgManager = new THREE.LoadingManager();
+export const bgManager = new THREE.LoadingManager();
 const bgLoader = new FBXLoader(bgManager);
-const bgGltfLoader = new GLTFLoader(bgManager);
+export const bgGltfLoader = new GLTFLoader(bgManager);
 
 // --- Asset Caches (Promise based to prevent race conditions) ---
 const zombieCacheP: {
@@ -692,10 +692,15 @@ export async function spawnNPC(scene: THREE.Scene, x: number, z: number, dialogu
         const currentCache = gender === 1 ? npcFemaleCacheP : npcCacheP;
 
         if (!currentCache.idle) {
-            const prefix = gender === 1 ? 'models/npc/female/' : 'models/npc/male/';
-            currentCache.idle = bgLoader.loadAsync(`${prefix}Breathing Idle.fbx`);
-            currentCache.talk = bgLoader.loadAsync(`${prefix}Talking.fbx`);
-            currentCache.walk = bgLoader.loadAsync(`${prefix}Walking.fbx`);
+            if (gender === 1) { // Female
+                currentCache.idle = bgLoader.loadAsync('npc_female/Standing W_Briefcase Idle.fbx');
+                currentCache.talk = bgLoader.loadAsync('npc_female/Talking (3).fbx');
+                currentCache.walk = bgLoader.loadAsync('npc_female/Walking (2).fbx');
+            } else { // Male
+                currentCache.idle = bgLoader.loadAsync('npc/Standing Idle.fbx');
+                currentCache.talk = bgLoader.loadAsync('npc/Talking.fbx');
+                currentCache.walk = bgLoader.loadAsync('npc/Walking.fbx');
+            }
         }
 
         const [idleBase, talkBase, walkBase] = await Promise.all([

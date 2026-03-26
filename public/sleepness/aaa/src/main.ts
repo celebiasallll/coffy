@@ -29,7 +29,7 @@ import { initBuildingSystem } from './world/BuildingSystem.js';
 import { initPhysics, getPhysicsWorld } from './core/physics.js';
 import { world, initCharacterController } from './ecs/world.js';
 import RAPIER from '@dimforge/rapier3d-compat';
-import { spawnPlayer, spawnWolf, spawnZombie, spawnNPC, spawnRandomNPC, coinInstancedMesh } from './ecs/entities.js';
+import { spawnPlayer, spawnWolf, spawnZombie, spawnNPC, spawnRandomNPC, coinInstancedMesh, bgManager } from './ecs/entities.js';
 import { inputSystem } from './ecs/systems/InputSystem.js';
 import { physicsSystem } from './ecs/systems/PhysicsSystem.js';
 import { renderSystem } from './ecs/systems/RenderSystem.js';
@@ -326,11 +326,28 @@ async function init(playerType: number) {
   const loadBarEl = document.getElementById('load-bar');
   const loadMsgs = ['Initializing...', 'Loading terrain...', 'Spawning assets...', 'Preparing enemies...', 'Almost ready...'];
 
+  let defaultPct = 0;
+  let bgPct = 0;
+
+  function updateTotalProgress() {
+    // Weighted Average: 40% Critical (Defaults like Terrain), 60% Background (NPCs, Zombies)
+    const totalPct = (defaultPct * 0.4) + (bgPct * 0.6);
+    
+    if (pctEl) pctEl.textContent = `${Math.round(totalPct)}%`;
+    if (loadBarEl) loadBarEl.style.width = `${totalPct}%`;
+    
+    const msgIdx = Math.min(Math.floor(totalPct / 20), loadMsgs.length - 1);
+    if (msgEl) msgEl.textContent = loadMsgs[msgIdx];
+  }
+
   THREE.DefaultLoadingManager.onProgress = (url, loaded, total) => {
-    const pct = (loaded / total) * 100;
-    if (pctEl) pctEl.textContent = `${Math.round(pct)}%`;
-    if (loadBarEl) loadBarEl.style.width = `${pct}%`;
-    if (msgEl) msgEl.textContent = loadMsgs[Math.min(Math.floor(pct / 22), loadMsgs.length - 1)];
+    defaultPct = (loaded / total) * 100;
+    updateTotalProgress();
+  };
+
+  bgManager.onProgress = (url, loaded, total) => {
+    bgPct = (loaded / total) * 100;
+    updateTotalProgress();
   };
 
   const wolfQ = defineQuery([WolfTag]);
@@ -356,16 +373,19 @@ async function init(playerType: number) {
 
   // ── Real Loading Sync ──────────────────────────────────────────────────
   let assetsLoaded = false;
-  let loadingHidden = false; // Move this here too
-  THREE.DefaultLoadingManager.onLoad = () => { assetsLoaded = true; };
+  let bgAssetsLoaded = false;
+  let loadingHidden = false; 
+
+  THREE.DefaultLoadingManager.onLoad = () => { assetsLoaded = true; checkLoading(); };
+  bgManager.onLoad = () => { bgAssetsLoaded = true; checkLoading(); };
 
   function checkLoading() {
-    if (!loadingHidden && assetsLoaded && loadingEl) {
+    if (!loadingHidden && assetsLoaded && bgAssetsLoaded && loadingEl) {
       loadingHidden = true;
       if (pctEl) pctEl.textContent = '100%';
       if (loadBarEl) loadBarEl.style.width = '100%';
       if (msgEl) msgEl.textContent = 'Ready.';
-      audioManager.setMuted(false); // ENABLE SOUNDS NOW
+      audioManager.setMuted(false); 
 
       const last = document.getElementById('ld-log-5');
       if (last) { last.classList.add('done'); last.textContent = 'World ready'; }
@@ -381,6 +401,7 @@ async function init(playerType: number) {
     requestAnimationFrame(animate);
     const dt = Math.min(clock.getDelta(), 0.05);
     world.dt = dt;
+    checkLoading();
 
     inputSystem(world);
     if (isInputBlocked() || inJet) {

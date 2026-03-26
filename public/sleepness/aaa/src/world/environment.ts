@@ -146,11 +146,11 @@ function addTreesInstanced(scene: THREE.Scene): void {
 
   const trunkMesh = optimizer.registerInstancedType('pine_trunk', trunkGeo, trunkMat, treeData.length);
   const leafMeshes = leafGeometries.map((geo, i) =>
-    optimizer!.registerInstancedType(`pine_leaf_${i}`, geo, leafMats[i], treeData.filter(d => !d.isRound).length)
+    optimizer!.registerInstancedType(`pine_leaf_${i}`, geo, leafMats[i], treeData.filter(d => !d.isRound).length, true, false)
   );
   const roundGeo  = new THREE.SphereGeometry(1.8, 8, 6);
   roundGeo.scale(1.15, 1.3, 1.15);
-  const roundMesh = optimizer.registerInstancedType('round_leaf', roundGeo, leafMats[1], treeData.filter(d => d.isRound).length);
+  const roundMesh = optimizer.registerInstancedType('round_leaf', roundGeo, leafMats[1], treeData.filter(d => d.isRound).length, true, false);
 
   let pineIdx = 0, roundIdx = 0;
   const mat4 = new THREE.Matrix4(), quat = new THREE.Quaternion();
@@ -245,8 +245,8 @@ function addMushrooms(scene: THREE.Scene): void {
     occupiedSpaces.push({ x, z, radius: 0.5 });
   }
 
-  const stemMesh = optimizer.registerInstancedType('mushroom_stem', stemGeo, stemMat, mushroomData.length);
-  const capMesh  = optimizer.registerInstancedType('mushroom_cap', capGeo, capMat, mushroomData.length);
+  const stemMesh = optimizer.registerInstancedType('mushroom_stem', stemGeo, stemMat, mushroomData.length, false, false);
+  const capMesh  = optimizer.registerInstancedType('mushroom_cap', capGeo, capMat, mushroomData.length, false, false);
 
   const mat4 = new THREE.Matrix4(), quat = new THREE.Quaternion(), scale = new THREE.Vector3(), pos = new THREE.Vector3();
   const color = new THREE.Color();
@@ -309,10 +309,10 @@ function addAnimals(scene: THREE.Scene): void {
         action.setEffectiveTimeScale(2.0);
         action.play();
       }
-      // Kameradan kaçmasın
+      // Birds use default frustum culling (v9.2)
       model.traverse(o => {
         const m = o as THREE.Mesh;
-        if (m.isMesh) m.frustumCulled = false;
+        if (m.isMesh) m.frustumCulled = true;
       });
 
       birdList.push({ model, mixer, speed: rnd(24, 48), waypoints: bWPs, currentWP: 0 });

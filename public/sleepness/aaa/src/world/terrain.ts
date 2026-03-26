@@ -5,7 +5,7 @@ import { createNoise2D } from 'simplex-noise';
 const noise2D = createNoise2D();
 
 export const TERRAIN_SIZE = 3000;
-export const TERRAIN_SEGS = 300;
+export const TERRAIN_SEGS = 240;
 export const WATER_LEVEL  = 0.5;
 
 export const LAKE_CENTER_X = 150;
@@ -27,6 +27,16 @@ function rawHeight(wx: number, wz: number): number {
     noise2D(wx * 0.018, wz * 0.018) * 3 +
     noise2D(wx * 0.06,  wz * 0.06)  * 0.8;
   let h = base + 3.5;
+  
+  // --- [v11.0] AIRPORT ZONE (FLAT GROUND) ---
+  const airX = 500, airZ = 500;
+  const dAir = Math.sqrt((wx - airX)**2 + (wz - airZ)**2);
+  if (dAir < 100) {
+    const flatT = Math.max(0, 1 - dAir / 100);
+    const flatH = 5.0; // Airport altitude
+    h = h * (1 - flatT) + flatH * flatT;
+  }
+
   const dist = Math.sqrt((wx - LAKE_CENTER_X) ** 2 + (wz - LAKE_CENTER_Z) ** 2);
   if (dist >= LAKE_RADIUS) {
     h = Math.max(h, WATER_LEVEL + 1.2);
@@ -302,9 +312,9 @@ export function createTerrain(scene: THREE.Scene): { terrain: THREE.Mesh; size: 
         diffuseColor.rgb *= (0.9 + detVal * 0.15);
       }
 
-      // ── VIVIDNESS & SATURATION: Dünyayı daha canlı göstermek için (Soft) ──
+      // Saturation: Removed boost to avoid whitish overlit terrain
       float luma = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
-      diffuseColor.rgb = mix(vec3(luma), diffuseColor.rgb, 1.08); // Reduced saturation
+      diffuseColor.rgb = mix(vec3(luma), diffuseColor.rgb, 1.0); // neutral, no saturation push
       `
     );
 
@@ -327,7 +337,7 @@ export function createTerrain(scene: THREE.Scene): { terrain: THREE.Mesh; size: 
 
   const terrain = new THREE.Mesh(geo, mat);
   terrain.receiveShadow  = true;
-  terrain.frustumCulled  = false;
+  terrain.frustumCulled  = true;
   scene.add(terrain);
 
   // 5) Rapier heightfield (değişmedi)

@@ -7,12 +7,18 @@ const playerQuery = defineQuery([InputState, PlayerTag, InputIntents]);
 const keys: Record<string, boolean> = {};
 let jumpPressed = false;
 let interactPressed = false;
+let jetPressed = false;
 let reloadPressed = false;
+let punchPressed = false;
+let kickPressed = false;
 
 window.addEventListener('keydown', (e: KeyboardEvent) => {
     if (e.code === 'Space' && !keys['Space']) jumpPressed = true;
     if (e.code === 'KeyE' && !keys['KeyE']) interactPressed = true;
+    if (e.code === 'KeyT' && !keys['KeyT']) jetPressed = true;
     if (e.code === 'KeyR' && !keys['KeyR']) reloadPressed = true;
+    if (e.code === 'KeyF' && !keys['KeyF']) punchPressed = true;
+    if (e.code === 'KeyG' && !keys['KeyG']) kickPressed = true;
     keys[e.code] = true;
 });
 window.addEventListener('keyup', (e: KeyboardEvent) => { keys[e.code] = false; });
@@ -45,6 +51,7 @@ window.addEventListener('mouseup', (e: MouseEvent) => {
     if (e.button === 2) keys['Mouse2'] = false;
 });
 
+
 export const inputSystem = defineSystem((world: IWorld) => {
     const gameWorld = world as GameWorld;
     const entities = playerQuery(gameWorld);
@@ -62,6 +69,18 @@ export const inputSystem = defineSystem((world: IWorld) => {
         InputState.yaw[id] = mouseX;
         InputState.pitch[id] = mouseY;
         InputState.sprint[id] = keys['ShiftLeft'] || keys['ShiftRight'] ? 1 : 0;
+        
+        // Weapon Switches (Only Q)
+        if (keys['KeyQ'] && !keys['_Q_LOCK_']) {
+            InputIntents.switchWeaponRequest[id] = 1; // Toggle signal
+            keys['_Q_LOCK_'] = true;
+        }
+        if (!keys['KeyQ']) keys['_Q_LOCK_'] = false;
+
+        // Melee / Generic Actions
+        InputIntents.punchRequest[id] = punchPressed ? 1 : 0;
+        InputIntents.kickRequest[id] = kickPressed ? 1 : 0;
+
         // Edge-trigger jump: sadece yeni basışta 1 set edilir, sonraki frame'de 0
         InputIntents.shootRequest[id] = keys['Mouse0'] ? 1 : 0;
         InputIntents.aimRequest[id] = keys['Mouse2'] ? 1 : 0;
@@ -69,11 +88,17 @@ export const inputSystem = defineSystem((world: IWorld) => {
         InputIntents.aimYaw[id] = mouseX;
         InputIntents.aimPitch[id] = mouseY;
         InputIntents.crouch[id] = keys['KeyC'] ? 1 : 0;
+
+        // Jump: Normal zıplama
         InputState.jump[id] = jumpPressed ? 1 : 0;
         InputState.interact[id] = interactPressed ? 1 : 0;
+        InputIntents.jetRequest[id] = jetPressed ? 1 : 0;
     }
     jumpPressed = false;
     interactPressed = false;
-    reloadPressed = false; // BUG 1 FIX: her frame sıfırlanmazsa R'ye tek basışta sürekli reload tetikleniyordu
+    jetPressed = false;
+    reloadPressed = false;
+    punchPressed = false;
+    kickPressed = false;
     return world;
 });

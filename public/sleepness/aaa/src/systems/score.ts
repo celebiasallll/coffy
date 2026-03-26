@@ -1,5 +1,6 @@
 import { Health } from '../ecs/components.js';
 import { EntityId } from '../ecs/types.js';
+import { audioManager } from '../core/AudioManager';
 
 export let SCORE = 0;
 export let XP = 0;
@@ -195,6 +196,7 @@ export function triggerGameOver(): void {
   if (gameOver) return;
   gameOver = true;
   document.exitPointerLock();
+  audioManager.stopAll();
   
   const go = document.getElementById('gameover');
   if (go) go.style.display = 'flex';
@@ -214,10 +216,14 @@ export function isGameOver(): boolean {
   return gameOver;
 }
 
-export function updateHUD(dt: number, { pos, speed, fps }: { pos: { x: number, y: number, z: number }, speed: number, fps: number }): void {
+export function updateHUD(dt: number, { pos, speed, fps, quality }: { pos: { x: number, y: number, z: number }, speed: number, fps: number, quality?: string }): void {
   if (_posDom) _posDom.textContent = `pos: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}`;
   if (_spdDom) _spdDom.textContent = `speed: ${Math.round(speed)}`;
-  if (_fpsDom) _fpsDom.textContent = `FPS: ${Math.round(fps || 0)}`;
+  if (_fpsDom) _fpsDom.textContent = `${Math.round(fps || 0)} FPS`;
+  
+  const qLabel = document.getElementById('quality-label');
+  if (qLabel && quality) qLabel.textContent = `${quality} QUALITY`;
+
   tickCombo(dt);
 }
 

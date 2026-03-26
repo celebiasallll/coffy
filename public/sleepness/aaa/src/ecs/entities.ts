@@ -2,6 +2,7 @@ import { addEntity, addComponent, removeEntity, defineQuery } from 'bitecs';
 import * as THREE from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { world, entityMeshes, entityPhysicsBodies, entityColliders, colliderToEntity, entityMixers, entityActions, entityAnimationControllers } from './world.js';
 import { npcLastAnim } from './systems/AnimationSystem.js';
@@ -13,7 +14,6 @@ import { getHeight } from '../world/terrain.js';
 import { EntityId } from './types.js';
 import { AnimationController } from '../core/AnimationController.js';
 import { audioManager } from '../core/AudioManager.js';
-import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { isSpaceOccupied, isNearLake } from '../world/environment.js';
 
 const loader = new FBXLoader();
@@ -38,18 +38,21 @@ const npcFemaleCacheP: {
 
 let wolfCachedP: Promise<{ scene: THREE.Group; animations: THREE.AnimationClip[] }> | null = null;
 
-function stripRootMotion(fbx: THREE.Group) {
+function stripRootMotion(fbx: THREE.Group, stripY = false, fallbackY?: number) {
     fbx.animations.forEach(clip => {
         clip.tracks.forEach(track => {
-            if ((track.name.toLowerCase().includes('hips') || track.name.toLowerCase().includes('root')) &&
+            const lowName = track.name.toLowerCase();
+            if ((lowName.includes('hips') || lowName.includes('root') || lowName.includes('armature')) &&
                 track.name.endsWith('.position')) {
-                // Sadece dikey (Y) hareketi koru, yatay (X, Z) hareketleri sıfırla
                 const values = (track as any).values;
-                if (values) {
+                if (values && values.length >= 3) {
+                    // FORCE the height to fallback if we are stripping Y (Combat mode)
+                    let targetY = (stripY && fallbackY !== undefined) ? fallbackY : values[1];
+
                     for (let i = 0; i < values.length; i += 3) {
-                        values[i] = 0;     // X = 0
-                        // values[i+1] = values[i+1]; // Y'yi koru (çömelmek için şart)
-                        values[i + 2] = 0;   // Z = 0
+                        values[i] = 0; // X
+                        if (stripY) values[i+1] = targetY; // Locked Y
+                        values[i + 2] = 0;   // Z
                     }
                 }
             }
@@ -91,7 +94,7 @@ function applyModelSettings(root: THREE.Object3D) {
             const mesh = obj as THREE.Mesh;
             mesh.castShadow = true;
             mesh.receiveShadow = true;
-            mesh.frustumCulled = false;
+            mesh.frustumCulled = true; // [v11.6] Re-enabled for perf
 
             // Material fixes
             const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
@@ -144,8 +147,14 @@ export async function spawnPlayer(scene: THREE.Scene, x: number, _y: number, z: 
 
     const gltfLoader = new GLTFLoader();
     const scarPromise = gltfLoader.loadAsync('/assets/low-poly_scar_16s.glb');
+    const knifePromise = gltfLoader.loadAsync('/assets/switch_knife.glb');
+
     const crouchIdleFbxPromise = loader.loadAsync(isP2 ? '/models/player2/Crouch To Stand.fbx' : '/models/Stand To Crouch.fbx');
     const crouchWalkFbxPromise = loader.loadAsync(isP2 ? '/models/player2/Walk Crouching Forward.fbx' : '/models/Walk Crouching Forward Right.fbx');
+    
+    const punchFbxPromise = loader.loadAsync(isP2 ? '/models/player2/Cross Punch.fbx' : '/models/Cross Punch.fbx');
+    const kickFbxPromise = loader.loadAsync(isP2 ? '/models/player2/Hurricane Kick.fbx' : '/models/Kicking.fbx');
+    const stabFbxPromise = loader.loadAsync(isP2 ? '/models/player2/Stabbing.fbx' : '/models/Stabbing.fbx');
     const deathFbxPromise = loader.loadAsync('/models/Dying Backwards (6).fbx');
 
     const [
@@ -158,8 +167,12 @@ export async function spawnPlayer(scene: THREE.Scene, x: number, _y: number, z: 
         shootIdleFbx,
         shootRunFbx,
         scarGltf,
+        knifeGltf,
         crouchIdleFbx,
         crouchWalkFbx,
+        punchFbx,
+        kickFbx,
+        stabFbx,
         deathFbx
     ] = await Promise.all([
         idleFbxPromise,
@@ -171,18 +184,43 @@ export async function spawnPlayer(scene: THREE.Scene, x: number, _y: number, z: 
         shootIdlePromise,
         shootRunPromise,
         scarPromise,
+        knifePromise,
         crouchIdleFbxPromise,
         crouchWalkFbxPromise,
+        punchFbxPromise,
+        kickFbxPromise,
+        stabFbxPromise,
         deathFbxPromise
     ]);
 
     const baseScale = 0.01404; // P1 standard (0.0117 * 1.2)
     const scaleFactor = isP2 ? 0.00294 : baseScale; // P2 (0.0042 * 0.7)
+
+    // Find Idle Hips Y for mandatory melee grounding (especially for P1)
+    let idleHipsY = 100; 
+    const idleClip = idleFbx.animations[0];
+    if (idleClip) {
+        const hipTrack = idleClip.tracks.find(t => 
+            (t.name.toLowerCase().includes('hips') || t.name.toLowerCase().includes('root')) && 
+            t.name.endsWith('.position')
+        );
+        if (hipTrack) idleHipsY = (hipTrack as any).values[1];
+    }
+
     [idleFbx, walkFbx, runFbx, jumpFbx, runJumpFbx, swimFbx, shootIdleFbx, shootRunFbx, crouchIdleFbx, crouchWalkFbx, deathFbx].forEach(fbx => {
         if (fbx) {
             fbx.scale.setScalar(scaleFactor);
             cleanupTraverse(fbx);
-            stripRootMotion(fbx);
+            stripRootMotion(fbx, false); // Keep Y for movement
+        }
+    });
+
+    [punchFbx, kickFbx, stabFbx].forEach(fbx => {
+        if (fbx) {
+            fbx.scale.setScalar(scaleFactor);
+            cleanupTraverse(fbx);
+            // MANDATORY Y-LOCK for melee to prevent flying (P1 fix)
+            stripRootMotion(fbx, true, idleHipsY); 
         }
     });
 
@@ -204,10 +242,13 @@ export async function spawnPlayer(scene: THREE.Scene, x: number, _y: number, z: 
         { name: 'jump', clip: jumpFbx.animations[0], loop: THREE.LoopOnce },
         { name: 'runningjump', clip: runJumpFbx.animations[0], loop: THREE.LoopOnce },
         { name: 'swim', clip: swimFbx.animations[0] },
-        { name: 'shoot_idle', clip: shootRunFbx.animations[0] },
-        { name: 'shoot_run', clip: shootIdleFbx.animations[0] },
+        { name: 'shoot_idle', clip: shootRunFbx.animations[0] },  // FIXED: Swapped back as requested
+        { name: 'shoot_run',  clip: shootIdleFbx.animations[0] }, // FIXED: Swapped back as requested
         { name: 'crouch_idle', clip: crouchIdleFbx.animations[0] },
         { name: 'crouch_walk', clip: crouchWalkFbx.animations[0] },
+        { name: 'punch', clip: punchFbx.animations[0], loop: THREE.LoopOnce },
+        { name: 'kick', clip: kickFbx.animations[0], loop: THREE.LoopOnce },
+        { name: 'stab', clip: stabFbx.animations[0], loop: THREE.LoopOnce },
         { name: 'death', clip: deathFbx.animations[0], loop: THREE.LoopOnce }
     ];
 
@@ -234,28 +275,57 @@ export async function spawnPlayer(scene: THREE.Scene, x: number, _y: number, z: 
     const modelPivot = new THREE.Group();
     weaponPivot.add(modelPivot);
 
-    const scarModel = scarGltf.scene;
-    // Weapon scale: (1.0 / scaleFactor) for world meters, then * 0.3 for 70% reduction
+    const scarModel = SkeletonUtils.clone(scarGltf.scene);
     const scarScale = (1.0 / scaleFactor) * 0.3;
     scarModel.scale.set(scarScale, scarScale, scarScale);
-    scarModel.rotation.order = 'YXZ';
-    scarModel.rotation.set(0, Math.PI, Math.PI / 2);
+    scarModel.rotation.order = 'YXZ'; 
+    scarModel.rotation.set(0, Math.PI, Math.PI / 2); 
     applyModelSettings(scarModel);
     modelPivot.add(scarModel);
-    let handBone: THREE.Object3D | undefined;
+    weaponPivot.name = 'weapon_rifle';
 
-    // Önce spesifik Mixamo sağ el kemiğini ara
+    // --- Knife Attachment ---
+    const knifePivot = new THREE.Group();
+    knifePivot.name = 'weapon_knife';
+    const knifeModel = SkeletonUtils.clone(knifeGltf.scene);
+    const knifeScale = (1.0 / scaleFactor) * 0.4;
+    knifeModel.scale.set(knifeScale, knifeScale, knifeScale);
+    knifeModel.rotation.order = 'YXZ'; 
+    // Adjusted rotation for better grip in hand
+    knifeModel.rotation.set(-Math.PI / 2, Math.PI, 0); 
+    applyModelSettings(knifeModel);
+    knifePivot.add(knifeModel);
+    knifePivot.visible = false; 
+
+    let handBone: THREE.Object3D | undefined;
+    let leftHandBone: THREE.Object3D | undefined;
+
+    // Kemik arama mantığını Smith ve Elric rig'leri için esnetiyoruz
     idleFbx.traverse((node: any) => {
-        const name = node.name.toLowerCase();
+        const rawName = node.name.toLowerCase();
+        const cleanName = rawName.replace(/[:_ ]/g, ''); // mixamorig:righthand -> mixamorigrighthand, bip01 r hand -> bip01rhand
+        
         const isRightHand =
-            name === 'mixamorig:righthand' ||
-            name === 'righthand' ||
-            name === 'hand_r' ||
-            name === 'hand.r' ||
-            name === 'r_hand' ||
-            name === 'bip01_r_hand' ||
-            name === 'right_hand';
-        if (isRightHand) handBone = node;
+            cleanName === 'mixamorigrighthand' ||
+            cleanName === 'mixamorig9righthand' || 
+            cleanName === 'mixamorig10righthand' ||
+            cleanName === 'righthand' ||
+            cleanName === 'handr' ||
+            cleanName === 'bip01rhand' ||
+            cleanName === 'right_hand' ||
+            cleanName.includes('righthand');
+        if (isRightHand && !handBone) handBone = node;
+
+        const isLeftHand =
+            cleanName === 'mixamoriglefthand' ||
+            cleanName === 'mixamorig9lefthand' || 
+            cleanName === 'mixamorig10lefthand' ||
+            cleanName === 'lefthand' ||
+            cleanName === 'handl' ||
+            cleanName === 'bip01lhand' ||
+            cleanName === 'left_hand' ||
+            cleanName.includes('lefthand');
+        if (isLeftHand && !leftHandBone) leftHandBone = node;
     });
 
     // Fallback: "hand" + "r/right" içeren, parmak olmayan herhangi bir kemik
@@ -271,21 +341,42 @@ export async function spawnPlayer(scene: THREE.Scene, x: number, _y: number, z: 
             }
         });
     }
+    if (!leftHandBone) {
+        idleFbx.traverse((node: any) => {
+            const name = node.name.toLowerCase();
+            if (
+                (name.includes('hand') && (name.includes('l') || name.includes('left'))) &&
+                !name.includes('pinky') && !name.includes('index') &&
+                !name.includes('middle') && !name.includes('ring') && !name.includes('thumb')
+            ) {
+                leftHandBone = node;
+            }
+        });
+    }
 
     if (handBone) {
+        // Rifle to Right Hand
         handBone.add(weaponPivot);
-        // Position relative to hand bone (in bone units)
         weaponPivot.position.set(0, 0, 0);
         weaponPivot.rotation.set(0, 0, 0);
     } else {
-        // Fallback: pivot'a sabit pozisyonda bağla
         pivot.add(weaponPivot);
         weaponPivot.position.set(isP2 ? 0.3 : 0.35, 1.1, 0.4);
     }
 
+    if (leftHandBone) {
+        // FIXED: Bıçak lama animasyonu SOL el olduğu için bıçak sol ele alındı
+        leftHandBone.add(knifePivot); 
+        knifePivot.position.set(0, 0, 0);
+        knifePivot.rotation.set(0, 0, 0);
+    } else {
+        pivot.add(knifePivot);
+        knifePivot.position.set(isP2 ? -0.3 : -0.35, 1.1, 0.4);
+    }
+
     const muzzleMarker = new THREE.Object3D();
     muzzleMarker.name = 'muzzle';
-    // Muzzle position in weapon space (meters if scarScale is 1/baseScale)
+    // P2 ileri bakarken +0.7, P1 ters döndüğü için -0.7
     muzzleMarker.position.set(0, 0.1, 0.7);
     weaponPivot.add(muzzleMarker);
 

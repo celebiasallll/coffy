@@ -1,7 +1,8 @@
 /**
  * SurvivalSystem.ts
- * Manages player survival stats: health, energy (stamina), hunger, thirst.
+ * Manages player survival stats: health, energy (stamina), hunger, thirst, sleep.
  */
+import { getTimeOfDay } from '../world/DayNightCycle.js';
 
 export interface SurvivalState {
   health: number;
@@ -12,8 +13,6 @@ export interface SurvivalState {
   maxHunger: number;
   thirst: number;
   maxThirst: number;
-  social: number;
-  maxSocial: number;
   sleep: number;
   maxSleep: number;
   coffeeCount: number;
@@ -29,8 +28,6 @@ const state: SurvivalState = {
   maxHunger: 100,
   thirst: 90,
   maxThirst: 100,
-  social: 50,
-  maxSocial: 100,
   sleep: 100,
   maxSleep: 100,
   coffeeCount: 0,
@@ -48,12 +45,10 @@ let healthFill: HTMLElement | null = null;
 let energyFill: HTMLElement | null = null;
 let hungerFill: HTMLElement | null = null;
 let thirstFill: HTMLElement | null = null;
-let socialFill: HTMLElement | null = null;
 let healthVal: HTMLElement | null = null;
 let energyVal: HTMLElement | null = null;
 let hungerVal: HTMLElement | null = null;
 let thirstVal: HTMLElement | null = null;
-let socialVal: HTMLElement | null = null;
 
 // ── Warning timers ────────────────────────────────────────────────────────────
 let hungerWarnCooldown = 0;
@@ -72,7 +67,6 @@ export function initSurvival(): void {
   energyFill = document.getElementById('energy-fill');
   hungerFill = document.getElementById('hunger-fill');
   thirstFill = document.getElementById('thirst-fill');
-  socialFill = document.getElementById('social-fill');
   syncDOM();
 }
 
@@ -84,57 +78,27 @@ export function onDeath(cb: (cause: string) => void): void {
 let _thirstDeathTimer = 10.0;
 
 export function updateSurvival(dt: number, sprinting: boolean): SurvivalState {
-  state.hunger = Math.max(0, state.hunger - dt * 0.12);
-  state.thirst = Math.max(0, state.thirst - dt * 0.35);
-  state.social = Math.max(0, state.social - dt * 0.08);
-  state.sleep = Math.max(0, state.sleep - dt * 0.25);
+  // ── Sleep drain: gece 2x hızlanır (22:00-06:00 = t<0.26 || t>0.78)
+  const timeOfDay = getTimeOfDay();
+  const isNight = timeOfDay < 0.26 || timeOfDay > 0.78;
+  const sleepDrainRate = isNight ? 0.50 : 0.25; // gece 2x
+  // Hunger/Thirst disabled — only energy and sleep remain active
+  state.hunger = 100; // always full, no depletion
+  state.thirst = 100; // always full, no depletion
+  state.sleep  = Math.max(0, state.sleep  - dt * sleepDrainRate);
 
   if (sprinting && state.energy > 0) {
     state.energy = Math.max(0, state.energy - dt * 10);
     if (state.energy === 0) _sprintLocked = true;
   } else {
-    const regenRate = state.hunger > 20 ? 5 : 1.5;
-    state.energy = Math.min(state.maxEnergy, state.energy + dt * regenRate);
+    state.energy = Math.min(state.maxEnergy, state.energy + dt * 5);
   }
 
-  // Hunger: Immediate death
-  if (state.hunger <= 0) {
-    state.health = 0;
-  }
-
-  // Thirst: 10s countdown before death
-  if (state.thirst <= 0) {
-    _thirstDeathTimer -= dt;
-    if (_thirstDeathTimer <= 0) {
-      state.health = 0;
-    } else {
-      // Every second update warning
-      if (_syncFrameCounter % 60 === 0) {
-        showSurvivalWarning('💧 Your consciousness is fading... You need water.', '#ff2222');
-      }
-    }
-  } else {
-    _thirstDeathTimer = 10.0; // Reset if they drink
-  }
+  // No hunger/thirst death logic — only sleep-based death check remains in updateSleepEffects
 
   if (state.health <= 0 && !_isDead) {
     _isDead = true;
-    const cause =
-      state.thirst <= 0 ? 'dehydration' :
-      state.hunger <= 0 ? 'starvation' :
-      'unknown';
-    if (_deathCallback) _deathCallback(cause);
-  }
-
-  hungerWarnCooldown = Math.max(0, hungerWarnCooldown - dt);
-  thirstWarnCooldown = Math.max(0, thirstWarnCooldown - dt);
-  if (state.hunger < 20 && state.hunger > 0 && hungerWarnCooldown <= 0) {
-    showSurvivalWarning('🍖 There is a sharp pain in your stomach. The feeling of emptiness is growing.', '#ff8800');
-    hungerWarnCooldown = 15;
-  }
-  if (state.thirst < 20 && state.thirst > 0 && thirstWarnCooldown <= 0) {
-    showSurvivalWarning('💧 Your tongue is sticking to your palate. Your throat burns with every breath.', '#44aaff');
-    thirstWarnCooldown = 15;
+    if (_deathCallback) _deathCallback('combat');
   }
 
   _syncFrameCounter++;
@@ -142,6 +106,7 @@ export function updateSurvival(dt: number, sprinting: boolean): SurvivalState {
     syncDOM();
   }
   updateDangerVignette();
+  updateSleepEffects(dt, state.sleep, state.maxSleep);
   return state;
 }
 
@@ -170,10 +135,6 @@ export function drink(amount: number): void {
   syncDOM();
 }
 
-export function socialize(amount: number): void {
-  state.social = Math.min(state.maxSocial, state.social + amount);
-  syncDOM();
-}
 
 export function heal(amount: number): void {
   state.health = Math.min(state.maxHealth, state.health + amount);
@@ -211,11 +172,13 @@ function syncDOM(): void {
   const tFill = document.getElementById('thirst-fill');
   const eFill = document.getElementById('energy-fill');
   const huFill = document.getElementById('hunger-fill');
+  const sFill = document.getElementById('sleep-fill');
 
   const hpPct = Math.min(100, Math.max(0, (state.health / state.maxHealth) * 100));
   const tPct = Math.min(100, Math.max(0, (state.thirst / state.maxThirst) * 100));
   const ePct = Math.min(100, Math.max(0, (state.energy / state.maxEnergy) * 100));
   const huPct = Math.min(100, Math.max(0, (state.hunger / state.maxHunger) * 100));
+  const sPct = Math.min(100, Math.max(0, (state.sleep / state.maxSleep) * 100));
 
   if (hFill) {
     (hFill as HTMLElement).style.clipPath = `inset(${100 - hpPct}% 0 0 0)`;
@@ -233,31 +196,11 @@ function syncDOM(): void {
     (huFill as HTMLElement).style.clipPath = `inset(${100 - huPct}% 0 0 0)`;
     huFill.parentElement?.classList.toggle('critical', huPct < 25);
   }
-
-  _ensureSocialBar();
-  const sFill = document.getElementById('social-fill');
-  const sPct = Math.min(100, Math.max(0, (state.social / state.maxSocial) * 100));
   if (sFill) {
     (sFill as HTMLElement).style.clipPath = `inset(${100 - sPct}% 0 0 0)`;
-    sFill.parentElement?.classList.toggle('critical', sPct < 20);
+    // Critical pulse for sleep bar is handled inside updateSleepEffects or via class on parent
+    sFill.parentElement?.classList.toggle('critical-pulse', sPct < 15);
   }
-}
-
-let _socialBarCreated = false;
-function _ensureSocialBar(): void {
-  if (_socialBarCreated || document.getElementById('social-fill')) return;
-  _socialBarCreated = true;
-
-  const box = document.getElementById('survival-box');
-  if (!box) return;
-
-  const container = document.createElement('div');
-  container.className = 'core-container';
-  container.innerHTML = `
-    <div id="social-fill" class="core-liquid" style="background:linear-gradient(to top,#4a0080,#b060ff);"></div>
-    <div class="core-icon" style="font-size:16px">👁</div>
-  `;
-  box.appendChild(container);
 }
 
 function updateDangerVignette(): void {
@@ -295,3 +238,83 @@ function showSurvivalWarning(msg: string, color: string): void {
   }, 3000);
 }
 
+// ── Sleep Effects (Hallucination + Micro-sleep) ──────────────────────────────
+let _hallucinationCooldown = 0;
+let _microSleepTimer = 0;       // countdown when a micro-sleep is active
+let _microSleepCooldown = 0;    // prevent back-to-back blackouts
+/** Returns true if the player's input should be blocked (e.g. during micro-sleep) */
+export function isInputBlocked(): boolean {
+  return _microSleepTimer > 0;
+}
+
+function updateSleepEffects(dt: number, sleep: number, maxSleep: number): void {
+  const pct = sleep / maxSleep;
+  _hallucinationCooldown = Math.max(0, _hallucinationCooldown - dt);
+  _microSleepCooldown    = Math.max(0, _microSleepCooldown - dt);
+
+  // ── Hallucination (sleep < 30%) ────────────────────────────────────────────
+  if (pct < 0.30 && pct > 0 && _hallucinationCooldown <= 0) {
+    _hallucinationCooldown = 12 + Math.random() * 10;
+
+    // CSS shake — costs nothing
+    document.body.classList.remove('sleep-shake');
+    void (document.body as any).offsetWidth;
+    document.body.classList.add('sleep-shake');
+    setTimeout(() => document.body.classList.remove('sleep-shake'), 600);
+
+    // Warning message
+    const msgs = [
+      '👁 How much longer can you hold on?',
+      '👁 The darkness is calling you...',
+      '👁 Your eyelids are made of lead.',
+      '👁 Is that real? Or are you dreaming?',
+    ];
+    showSurvivalWarning(msgs[Math.floor(Math.random() * msgs.length)], '#cc44ff');
+  }
+
+  // ── Micro-sleep (sleep < 15%) ──────────────────────────────────────────────
+  if (_microSleepTimer > 0) {
+    _microSleepTimer -= dt;
+    if (_microSleepTimer <= 0) {
+      // Fade screen back in
+      const overlay = _getMicroSleepOverlay();
+      overlay.style.opacity = '0';
+      _microSleepCooldown = 20 + Math.random() * 15;
+    }
+    return; // block further triggers while blacked out
+  }
+
+  if (pct < 0.15 && pct > 0 && _microSleepCooldown <= 0) {
+    const duration = 1.0 + Math.random() * 1.0; // 1-2 seconds
+    _microSleepTimer = duration;
+
+    const overlay = _getMicroSleepOverlay();
+    overlay.style.transition = 'opacity 0.3s ease';
+    overlay.style.opacity = '1';
+
+    // Input blocking is now handled in main.ts via isInputBlocked()
+
+    showSurvivalWarning('💤 You blacked out for a moment...', '#cc44ff');
+  }
+
+  // ── Sleep bar pulse when critical (pct < 15%) ──────────────────────────────
+  const sleepBar = document.querySelector('#sleep-bar') as HTMLElement | null;
+  if (sleepBar) {
+    sleepBar.classList.toggle('critical-pulse', pct < 0.15);
+  }
+}
+
+function _getMicroSleepOverlay(): HTMLElement {
+  let el = document.getElementById('micro-sleep-overlay');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'micro-sleep-overlay';
+    el.style.cssText = [
+      'position:fixed', 'inset:0', 'background:#000',
+      'opacity:0', 'pointer-events:none', 'z-index:9999',
+      'transition:opacity 0.3s ease',
+    ].join(';');
+    document.body.appendChild(el);
+  }
+  return el;
+}

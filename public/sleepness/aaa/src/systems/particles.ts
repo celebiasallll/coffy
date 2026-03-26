@@ -10,6 +10,7 @@ interface ParticleData {
   life: number;
   decay: number;
   scale: number;
+  color: THREE.Color;
 }
 
 const activeParticles: ParticleData[] = [];
@@ -19,23 +20,26 @@ const _color = new THREE.Color();
 export function initParticles(scene: THREE.Scene): void {
   sceneRef = scene;
   
-  const geom = new THREE.SphereGeometry(0.08, 4, 3);
+  // v18.0: Larger geometry for billboard-like visibility
+  const geom = new THREE.SphereGeometry(0.3, 5, 4); 
   const mat = new THREE.MeshStandardMaterial({
     transparent: true,
-    opacity: 0.9,
-    roughness: 0.4,
-    metalness: 0.2,
-    vertexColors: true, // Renkleri instance bazlı yönetmek için
+    opacity: 0.95,
+    roughness: 0.5,
+    metalness: 0.1,
+    vertexColors: false, 
   });
 
   particleMesh = new THREE.InstancedMesh(geom, mat, MAX_PARTICLES);
   particleMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   particleMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_PARTICLES * 3), 3);
+  particleMesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
   particleMesh.count = 0;
+  particleMesh.frustumCulled = false; // Prevent culling when mesh center is far
   scene.add(particleMesh);
 }
 
-export function spawnBurst(position: THREE.Vector3, color: number | string | THREE.Color, count: number = 12, speed: number = 4): void {
+export function spawnBurst(position: THREE.Vector3, color: number | string | THREE.Color, count: number = 12, speed: number = 4, scale: number = 1.0): void {
   if (!sceneRef || !particleMesh) return;
   const col = new THREE.Color(color);
 
@@ -44,31 +48,27 @@ export function spawnBurst(position: THREE.Vector3, color: number | string | THR
 
     const angle = Math.random() * Math.PI * 2;
     const elev = Math.random() * Math.PI - Math.PI / 2;
-    const sp = speed * (0.4 + Math.random() * 0.8);
+    const sp = speed * (0.5 + Math.random() * 1.0);
 
     activeParticles.push({
       pos: position.clone(),
       vel: new THREE.Vector3(
         Math.cos(elev) * Math.cos(angle) * sp,
-        Math.abs(Math.sin(elev)) * sp + 1,
+        Math.abs(Math.sin(elev)) * sp + 1.5,
         Math.cos(elev) * Math.sin(angle) * sp,
       ),
       life: 1.0,
-      decay: 1.5 + Math.random() * 1.5,
-      scale: 0.2 + Math.random() * 0.8,
+      decay: 0.8 + Math.random() * 1.2, // Slightly longer life
+      scale: (0.4 + Math.random() * 1.2) * scale,
+      color: col.clone()
     });
-
-    // Set initial color for this instance
-    _color.copy(col);
-    particleMesh.setColorAt(activeParticles.length - 1, _color);
   }
-  if (particleMesh.instanceColor) particleMesh.instanceColor.needsUpdate = true;
 }
 
 export function updateParticles(dt: number): void {
   if (!particleMesh) return;
 
-  const GRAV = -26 * 0.4;
+  const GRAV = -15.0; // Reduced gravity for more "floaty" smoke/fire
   let count = 0;
 
   for (let i = activeParticles.length - 1; i >= 0; i--) {
@@ -88,12 +88,12 @@ export function updateParticles(dt: number): void {
     _dummy.updateMatrix();
     
     particleMesh.setMatrixAt(count, _dummy.matrix);
-    // Renkleri de kaydırmak gerekebilir ama şimdilik sadece count kadarını çiziyoruz
-    // InstancedMesh'te aktif olanları başa toplamak en performanslısıdır.
+    particleMesh.setColorAt(count, p.color);
     count++;
   }
 
   particleMesh.count = count;
   particleMesh.instanceMatrix.needsUpdate = true;
+  if (particleMesh.instanceColor) particleMesh.instanceColor.needsUpdate = true;
 }
 

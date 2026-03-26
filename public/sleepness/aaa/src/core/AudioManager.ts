@@ -190,6 +190,14 @@ class AudioManager {
     const ctx = this.listener.context;
     if (ctx.state === 'suspended') ctx.resume();
   }
+
+  public stopAll(): void {
+    if (this.bgm && this.bgm.isPlaying) this.bgm.stop();
+    this.namedSounds.forEach((s) => {
+      if (s.isPlaying) s.stop();
+    });
+    this.namedSounds.clear();
+  }
 }
 
 export const audioManager = new AudioManager();

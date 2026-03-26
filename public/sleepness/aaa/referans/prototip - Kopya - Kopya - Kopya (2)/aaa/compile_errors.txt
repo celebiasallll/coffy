@@ -1,0 +1,1 @@
+src/ecs/systems/WeaponVisualSystem.ts(162,59): error TS2304: Cannot find name 'id'.

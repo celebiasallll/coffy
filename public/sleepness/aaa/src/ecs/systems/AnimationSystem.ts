@@ -1,6 +1,6 @@
 import { defineQuery, defineSystem, IWorld, hasComponent } from 'bitecs';
 import * as THREE from 'three';
-import { InputState, PlayerTag, AnimState, InputIntents, AIController, EnemyTag, Position } from '../components.js';
+import { InputState, PlayerTag, AnimState, InputIntents, AIController, EnemyTag, Position, Weapon } from '../components.js';
 import { entityMixers, entityAnimationControllers, entityActions, entityMeshes } from '../world.js';
 import { GameWorld, EntityId } from '../types.js';
 import { playerGroundedState } from './PhysicsSystem.js';
@@ -17,8 +17,10 @@ const animStateMapping: Record<string, number> = {
     'punch': 6,
     'shoot_run': 7,
     'runningjump': 8,
+    'kick': 9,
     'crouch_idle': 10,
-    'crouch_walk': 11
+    'crouch_walk': 11,
+    'stab': 12
 };
 
 export const npcLastAnim = new Map<EntityId, string>();
@@ -34,6 +36,7 @@ export const animationSystem = defineSystem((world: IWorld) => {
         if (!animController) continue;
 
         const isGrounded = playerGroundedState.get(id) ?? true;
+        const isKnife = Weapon.type[id] === 3; // 3: Knife
 
         const input = {
             moveX: InputState.moveX[id],
@@ -41,8 +44,10 @@ export const animationSystem = defineSystem((world: IWorld) => {
             sprint: InputState.sprint[id] === 1,
             jump: InputState.jump[id] === 1,
             swim: InputState.swim[id] === 1,
-            punch: InputState.attack[id] === 1,
-            shoot: InputIntents.shootRequest[id] === 1,
+            punch: InputIntents.punchRequest[id] === 1,
+            kick: InputIntents.kickRequest[id] === 1,
+            stab: isKnife && InputIntents.shootRequest[id] === 1,
+            shoot: !isKnife && InputIntents.shootRequest[id] === 1,
             crouch: InputIntents.crouch[id] === 1
         };
 

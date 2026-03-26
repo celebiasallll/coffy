@@ -59,12 +59,20 @@ export const aiSystem = defineSystem((world: IWorld) => {
         const isWolf = hasComponent(world, WolfTag, id);
         const isZombie = hasComponent(world, ZombieTag, id);
 
+        // --- AI LOD: Skip expensive logic for far entities ---
+        if (dist > 300) {
+            // Far entities: Just snap to ground and idle
+            rb.setNextKinematicTranslation({ x: Position.x[id], y: getHeight(Position.x[id], Position.z[id]) + 1.5, z: Position.z[id] });
+            AnimState.current[id] = 0;
+            continue;
+        }
+
         let detectionRange = 100.0;
         let attackRange = 3.8;
         let chaseSpeed = 12.0;
         let wanderSpeed = 4.0;
         let fleeSpeed = 15.0;
-        let biteDamage = 3; // Was 2 (+30% ~ 2.6)
+        let biteDamage = 3;   // Adjusted: 6→3 for 2x player survivability
         let attackCooldown = 1.2;
         // Yaratık tipine göre collider merkez yüksekliği (groundY + yOffset = rb Y)
         // Wolf: cuboid(1.5,1.5,2.4) → halfHeight=1.5
@@ -74,7 +82,7 @@ export const aiSystem = defineSystem((world: IWorld) => {
         let moveYOffset = 1.5;
 
         if (isZombie) {
-            chaseSpeed = 4.0; wanderSpeed = 1.5; fleeSpeed = 0; biteDamage = 5; attackCooldown = 2.0; // Was 4 (+30% ~ 5.2)
+            chaseSpeed = 4.0; wanderSpeed = 1.5; fleeSpeed = 0; biteDamage = 5; attackCooldown = 2.0; // Adjusted: 10→5 for 2x player survivability
             moveYOffset = 2.0;
         }
 

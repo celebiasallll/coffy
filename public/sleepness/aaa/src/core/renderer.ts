@@ -9,9 +9,9 @@ export function createRenderer(): THREE.WebGLRenderer {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.2));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 0.85; // Beyazlaşmayı (glare) azaltmak için düşürüldü
+  renderer.toneMappingExposure = 0.72; // Lowered to fight whitish glare from sun on terrain
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   const hud = document.getElementById('hud');
@@ -52,10 +52,10 @@ export function setupLights(scene: THREE.Scene): {
   scene.add(hemi);
 
   // Sun — main directional
-  const sun = new THREE.DirectionalLight(0xfff4e0, 3.2); // 4.5 -> 3.2 düşürüldü
+  const sun = new THREE.DirectionalLight(0xfff4e0, 2.6); // Reduced from 3.2 to combat terrain glare
   sun.position.set(50, 80, 30);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.mapSize.set(512, 512);
   sun.shadow.camera.near = 1.0;
   sun.shadow.camera.far = 400;
   sun.shadow.camera.left = -40;
@@ -66,6 +66,7 @@ export function setupLights(scene: THREE.Scene): {
   sun.shadow.normalBias = 0.02;
   sun.shadow.radius = 4;
   scene.add(sun);
+  scene.add(sun.target);
 
   // Fill — soft blue from opposite
   const fill = new THREE.DirectionalLight(0x8899cc, 0.3);

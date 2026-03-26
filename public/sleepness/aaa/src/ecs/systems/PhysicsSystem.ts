@@ -1,6 +1,6 @@
 import { defineQuery, defineSystem, IWorld } from 'bitecs';
 import RAPIER from '@dimforge/rapier3d-compat';
-import { Position, Rotation, PhysicsBody, InputState, PlayerTag, InputIntents, Velocity, EnemyTag, AnimState } from '../components.js';
+import { Position, Rotation, PhysicsBody, InputState, PlayerTag, InputIntents, Velocity, EnemyTag, AnimState, Weapon } from '../components.js';
 import { entityPhysicsBodies, entityColliders, entityMeshes, characterController } from '../world.js';
 import { getPhysicsWorld } from '../../core/physics.js';
 import { getHeight, TERRAIN_SIZE } from '../../world/terrain.js';
@@ -87,17 +87,22 @@ export const physicsSystem = defineSystem((world: IWorld) => {
         const mx   = InputState.moveX[id];
         const mz   = InputState.moveZ[id];
 
-        // Yumruk atarken hareketi engelle (AnimState 6)
-        const isPunching = AnimState.current[id] === 6;
+        // Instant Combat Logic: Intent tabanlı kontrol (Animasyon frame gecikmesini önler)
+        const isKnife = Weapon.type[id] === 3;
+        const isMeleeIntent = InputIntents.punchRequest[id] === 1 || InputIntents.kickRequest[id] === 1;
+        const isStabIntent = isKnife && InputIntents.shootRequest[id] === 1;
+        const isStationaryShoot = !isKnife && InputIntents.shootRequest[id] === 1 && (mx * mx + mz * mz < 0.01);
+        const currentAnim = AnimState.current[id];
+        const isAttacking = isMeleeIntent || isStabIntent || isStationaryShoot || [6, 9, 12].includes(currentAnim);
         const isCrouching = InputIntents.crouch[id] === 1;
         
-        let spd = (InputState.sprint[id] && !isPunching) ? 14 : 7;
+        let spd = (InputState.sprint[id] && !isAttacking) ? 14 : 7;
         if (isCrouching) spd *= 0.5; // Eğilince hız azalır
 
         let dx = (mz * sinY + mx * cosY) * spd * dt;
         let dz = (mz * cosY - mx * sinY) * spd * dt;
 
-        if (isPunching) {
+        if (isAttacking) {
             dx = 0;
             dz = 0;
         }
@@ -191,9 +196,15 @@ export const physicsSystem = defineSystem((world: IWorld) => {
             Velocity.y[id] = vy;
         }
 
-        // Karakter yönelimi: Ateş ederken veya nişan alırken crosshair'e bakar, 
+        // Karakter yönelimi: Ateş ederken, nişan alırken veya combat animasyonu (Vuruş/Ateş) oynarken crosshair'e bakar, 
         // normal yürürken ise hareket yönüne döner.
-        const isCombatAction = InputIntents.shootRequest[id] === 1 || InputIntents.aimRequest[id] === 1 || InputIntents.crouch[id] === 1;
+        // Karakter yönelimi: Combat aksiyonu başladığı an crosshair'e kilitlen (Sıfır gecikme)
+        const isCombatAction = 
+            InputIntents.shootRequest[id] === 1 || 
+            InputIntents.aimRequest[id] === 1 || 
+            isMeleeIntent || 
+            [5, 6, 7, 9, 12].includes(currentAnim) || 
+            InputIntents.crouch[id] === 1;
         
         if (isCombatAction) {
             const faceYaw = InputIntents.aimYaw[id];
@@ -204,6 +215,8 @@ export const physicsSystem = defineSystem((world: IWorld) => {
             _physRot.w = Math.cos(half);
             rb.setRotation(_physRot, true);
         } else if (mx * mx + mz * mz > 0.01) {
+            // atan2(-mx, -mz): W=0 (+faceYaw=yaw) → faces forward, combined with child PI=faces -Z ✓
+            // A=PI/2, D=-PI/2, S=PI — all correct relative to camera yaw
             const faceYaw = yaw + Math.atan2(-mx, -mz);
             const half = faceYaw * 0.5;
             _physRot.x = 0;

@@ -45,6 +45,7 @@ import { weaponVisualSystem } from './ecs/systems/WeaponVisualSystem.js';
 import { collectionSystem } from './ecs/systems/CollectionSystem.js';
 import { initItemSpawner } from './systems/ItemSpawner.js';
 import { isDialogueOpen } from './systems/DialogueSystem.js';
+import { spawnJet, updateJet, tryEnterJet, exitJet, getJetPosition, getJetMesh, getJetRb, isJetOccupied, getJetNearInfo, initJetHUD, showJetHUD, getJetAltitude } from './systems/Jet/JetController.js';
 import { entityMeshes, entityPhysicsBodies, entityAnimationControllers } from './ecs/world.js';
 import { InputState, Health, InputIntents, Position, Rotation, WolfTag, ZombieTag, Weapon, WeaponState, NPCTag, CoffyCoinTag } from './ecs/components.js';
 import { EntityId } from './ecs/types.js';
@@ -73,12 +74,12 @@ import {
   isRaining,
 } from './world/WeatherSystem.js';
 
-import { initSurvival, updateSurvival, canSprint, onDeath } from './systems/SurvivalSystem.js';
+import { initSurvival, updateSurvival, canSprint, onDeath, isInputBlocked } from './systems/SurvivalSystem.js';
 
 // ── Kamera sabitleri ──────────────────────────────────────────────────────────
 
 const CAM_DIST_MIN = 5;
-const CAM_DIST_MAX = 18;
+const CAM_DIST_MAX = 60;
 let camDist = 9.5;
 
 const CAM_LERP = 1.0;
@@ -285,7 +286,11 @@ async function init(playerType: number) {
     triggerGameOver();
   });
   spawnVehicles(scene);
+  const jX = 500, jZ = 500;
+  spawnJet(scene, getPhysicsWorld(), new THREE.Vector3(jX, getHeight(jX, jZ) + 7.5, jZ));
+  initJetHUD();
   let occupiedVehicle: Vehicle | null = null;
+  let inJet = false;
 
   const loadingEl = document.getElementById('loading');
 
@@ -374,40 +379,32 @@ async function init(playerType: number) {
     const dt = Math.min(clock.getDelta(), 0.05);
     world.dt = dt;
 
-    // --- PROFILER START ---
-    const pTimes: Record<string, number> = {};
-    const start = (name: string) => { pTimes[name] = performance.now(); };
-    const end = (name: string) => { pTimes[name] = performance.now() - pTimes[name]; };
-
-    start('input');
     inputSystem(world);
-    end('input');
+    if (isInputBlocked() || inJet) {
+      InputState.moveX[playerId] = 0;
+      InputState.moveZ[playerId] = 0;
+      InputState.jump[playerId] = 0;
+      InputState.attack[playerId] = 0;
+      InputState.sprint[playerId] = 0;
+      InputIntents.shootRequest[playerId] = 0;
+    }
 
     const hpBeforeAI = Health.current[playerId];
     let wolfDmgThisFrame = 0;
 
-    start('ai');
     if (clock.elapsedTime > 3.0) {
       aiSystem(world);
       wolfDmgThisFrame = Math.max(0, hpBeforeAI - Health.current[playerId]);
     }
-    end('ai');
 
     cumulativeWolfDamage += wolfDmgThisFrame;
 
-    start('physics');
     physicsSystem(world);
-    end('physics');
 
-    start('animation');
     animationSystem(world);
-    end('animation');
 
-    start('render_sync');
     renderSystem(world);
-    end('render_sync');
 
-    start('weapon');
     weaponSystem(world);
 
     // ── Player Hurt Sound Update ──
@@ -422,42 +419,88 @@ async function init(playerType: number) {
     }
     // @ts-ignore
     world.weaponVisual(world);
-    end('weapon');
 
     // Araç binme / inme
 
     // Araç binme / inme - Sadece yakında NPC yoksa araca binilebilir
-    if (InputState.interact[playerId] === 1 && getNearestNPC() === null) {
-      if (occupiedVehicle) {
-        const exitPos = exitVehicle(occupiedVehicle);
-        const rb = entityPhysicsBodies.get(playerId);
-        if (rb) {
-          rb.setTranslation({ x: exitPos.x, y: exitPos.y, z: exitPos.z }, true);
-          rb.setLinvel({ x: 0, y: 0, z: 0 }, true);
+    const interactPressed = InputState.interact[playerId] === 1;
+    const jetPressed = InputIntents.jetRequest[playerId] === 1;
+
+    if ((interactPressed || jetPressed) && getNearestNPC() === null) {
+      if (inJet) {
+        if (jetPressed) {
+          // Exit jet (v27.0 High-Altitude Fatality check)
+          const exitAlt = getJetAltitude();
+          const exitPos = exitJet();
+          const rb = entityPhysicsBodies.get(playerId);
+          if (rb) {
+            rb.setTranslation({ x: exitPos.x, y: exitPos.y, z: exitPos.z }, true);
+            rb.setLinvel({ x: 0, y: 0, z: 0 }, true);
+          }
+          InputState.isDriving[playerId] = 0;
+          const mesh = entityMeshes.get(playerId);
+          if (mesh) mesh.visible = true;
+          inJet = false;
+          showJetHUD(false);
+          exitVehicleTimer = 0.5;
+
+          // 150 birimden yüksekte atladıysa 2 saniye sonra ölür
+          if (exitAlt > 150) {
+            console.warn(`[JET FATALITY] High altitude jump: ${exitAlt.toFixed(1)}m. Ending game in 2s.`);
+            setTimeout(() => {
+                if (!isGameOver()) triggerGameOver();
+            }, 2000);
+          }
         }
-        InputState.isDriving[playerId] = 0;
-        const mesh = entityMeshes.get(playerId);
-        if (mesh) mesh.visible = true;
-        occupiedVehicle = null;
-        exitVehicleTimer = 0.5; 
+      } else if (occupiedVehicle) {
+        if (interactPressed) {
+          const exitPos = exitVehicle(occupiedVehicle);
+          const rb = entityPhysicsBodies.get(playerId);
+          if (rb) {
+            rb.setTranslation({ x: exitPos.x, y: exitPos.y, z: exitPos.z }, true);
+            rb.setLinvel({ x: 0, y: 0, z: 0 }, true);
+          }
+          InputState.isDriving[playerId] = 0;
+          const mesh = entityMeshes.get(playerId);
+          if (mesh) mesh.visible = true;
+          occupiedVehicle = null;
+          exitVehicleTimer = 0.5;
+        }
       } else {
         const playerMesh = entityMeshes.get(playerId);
         if (playerMesh) {
-          occupiedVehicle = tryEnterVehicle(playerMesh.position);
-          if (occupiedVehicle) {
+          // Try jet first (Key T), then ground vehicles (Key E)
+          if (jetPressed && tryEnterJet(playerMesh.position)) {
+            inJet = true;
             InputState.isDriving[playerId] = 1;
             const rb = entityPhysicsBodies.get(playerId);
             if (rb) {
-              const currentPos = rb.translation();
-              rb.setTranslation({ x: currentPos.x, y: -5000, z: currentPos.z }, true);
+              const cp = rb.translation();
+              rb.setTranslation({ x: cp.x, y: -5000, z: cp.z }, true);
               rb.setLinvel({ x: 0, y: 0, z: 0 }, true);
             }
-            const mesh = entityMeshes.get(playerId);
-            if (mesh) mesh.visible = false;
+            if (playerMesh) playerMesh.visible = false;
+            showJetHUD(true);
+            // v24.2: Jet start-up sound reduced by 60% (0.15 -> 0.06)
+            audioManager.playSFX('/assets/sounds/freesound_community-f16-fighter-jet-start-upaif-14690.mp3', 0.06);
+          } else if (interactPressed) {
+            occupiedVehicle = tryEnterVehicle(playerMesh.position);
+            if (occupiedVehicle) {
+              InputState.isDriving[playerId] = 1;
+              const rb = entityPhysicsBodies.get(playerId);
+              if (rb) {
+                const currentPos = rb.translation();
+                rb.setTranslation({ x: currentPos.x, y: -5000, z: currentPos.z }, true);
+                rb.setLinvel({ x: 0, y: 0, z: 0 }, true);
+              }
+              const mesh = entityMeshes.get(playerId);
+              if (mesh) mesh.visible = false;
+            }
           }
         }
       }
       InputState.interact[playerId] = 0;
+      InputIntents.jetRequest[playerId] = 0;
     }
 
     const vInput = occupiedVehicle ? {
@@ -469,6 +512,9 @@ async function init(playerType: number) {
     } : { forward: false, back: false, left: false, right: false, brake: false };
 
     updateVehicles(dt, vInput);
+
+    // ── Jet flight update ─────────────────────────────────────────────────
+    updateJet(dt, scene, camera);
 
     // ── Survival: can sprint + health drain ─────────────────────────────
     const sprintWanted = InputState.sprint[playerId] === 1;
@@ -524,11 +570,13 @@ async function init(playerType: number) {
       } else {
         const pMesh = entityMeshes.get(playerId);
         const vNear = getNearestVehicleInfo(pMesh?.position || new THREE.Vector3());
+        const jNear = pMesh ? getJetNearInfo(pMesh.position) : null;
 
-        if (occupiedVehicle) {
-          // interactEl.innerHTML = `<span class="kbd">E</span> VEHICLE · Exit`;
-          // interactEl.style.display = 'block';
-          interactEl.style.display = 'none'; // User requested removal
+        if (inJet || occupiedVehicle) {
+          interactEl.style.display = 'none';
+        } else if (jNear && !isDialogueOpen()) {
+          interactEl.innerHTML = `<span class="kbd">T</span> <b style="color:#00e5ff">F-16 FIGHTER JET</b> · Enter`;
+          interactEl.style.display = 'block';
         } else if (vNear && !isDialogueOpen()) {
           interactEl.innerHTML = `<span class="kbd">E</span> ${vNear.type.toUpperCase()} · Enter`;
           interactEl.style.display = 'block';
@@ -540,6 +588,11 @@ async function init(playerType: number) {
     collectionSystem(world);
 
     // ── HUD Updates ───────────────────────────────────────────────────────
+    const crosshairEl = document.getElementById('crosshair');
+    if (crosshairEl) {
+      crosshairEl.style.display = (inJet || occupiedVehicle) ? 'none' : 'block';
+    }
+
     const ammoTextEl = document.getElementById('ammo-text');
     const reloadMsgEl = document.getElementById('ammo-reload-msg');
     if (ammoTextEl) {
@@ -557,7 +610,9 @@ async function init(playerType: number) {
 
     fallbackCamPos.set(Position.x[playerId], Position.y[playerId], Position.z[playerId]);
 
-    const camFollowPos = occupiedVehicle
+    const camFollowPos = inJet
+      ? (getJetPosition() ?? fallbackCamPos)
+      : occupiedVehicle
       ? occupiedVehicle.controller.mesh.position
       : fallbackCamPos;
 
@@ -565,7 +620,8 @@ async function init(playerType: number) {
     const newSunDir = updateDayNight(dt, sun, hemi, ambient, renderer, scene, camFollowPos);
 
     if (optimizer) {
-      optimizer.update(camera.position);
+      optimizer.setJetMode(inJet, inJet ? getJetAltitude() : 0);
+      optimizer.update(camera);
       optimizer.optimizeShadows(sun, camera);
     }
 
@@ -577,7 +633,7 @@ async function init(playerType: number) {
     // Environment güncellemesi (campfire/bird/horse) her frame'de gerekmez.
     if (envAcc >= ENV_STEP) {
       updateEnvironment(envAcc, clock.getElapsedTime());
-      updateWater(envAcc, newSunDir);        // su refleksiyonu güneş yönüyle güncellenir
+      updateWater(envAcc, newSunDir, camera.position);        // su refleksiyonu güneş yönüyle güncellenir
       updateClouds(envAcc);
       envAcc = 0;
     }
@@ -737,63 +793,53 @@ async function init(playerType: number) {
 
     // Persistent Shoulder Offset (GTA Style)
     // Idle iken 1.3 (+40cm daha sağ), Nişan alırken daha fazla.
-    const shoulderOffset = 1.3 + 0.6 * adsFactor;
-    const sideX = Math.cos(yaw) * shoulderOffset;
-    const sideZ = -Math.sin(yaw) * shoulderOffset;
+    if (!inJet) {
+      const shoulderOffset = 1.3 + 0.6 * adsFactor;
+      const sideX = Math.cos(yaw) * shoulderOffset;
+      const sideZ = -Math.sin(yaw) * shoulderOffset;
 
-    // Uzaklık ADS'de biraz azalır
-    const currentDist = camDist * (1 - 0.4 * adsFactor);
+      // Uzaklık ADS'de biraz azalır.
+      const effectiveCamDist = occupiedVehicle ? Math.max(15, camDist) : camDist;
+      const currentDist = effectiveCamDist * (1 - 0.4 * adsFactor);
 
-    const desiredX = camFollowPos.x + Math.sin(yaw) * cosPitch * currentDist + sideX;
-    const desiredZ = camFollowPos.z + Math.cos(yaw) * cosPitch * currentDist + sideZ;
-    const zoomFactor = (camDist - CAM_DIST_MIN) / (CAM_DIST_MAX - CAM_DIST_MIN);
+      const desiredX = camFollowPos.x + Math.sin(yaw) * cosPitch * currentDist + sideX;
+      const desiredZ = camFollowPos.z + Math.cos(yaw) * cosPitch * currentDist + sideZ;
+      const zoomFactor = (camDist - CAM_DIST_MIN) / (CAM_DIST_MAX - CAM_DIST_MIN);
 
-    // Yükseklik ADS'de biraz artar (omuz üstü)
-    const baseHeight = 3.4 + 0.4 * zoomFactor; // +1m artırıldı
-    const desiredY = camFollowPos.y + baseHeight + (0.4 * adsFactor);
-    const clampedY = Math.max(camFollowPos.y + 0.5, desiredY);
+      // Yükseklik ADS'de biraz artar
+      const baseHeight = 3.4 + 0.4 * zoomFactor; 
+      const desiredY = camFollowPos.y + baseHeight + (0.4 * adsFactor);
+      const clampedY = Math.max(camFollowPos.y + 0.5, desiredY);
 
-    camTarget.set(desiredX, clampedY, desiredZ);
-    camera.position.lerp(camTarget, CAM_LERP);
+      camTarget.set(desiredX, clampedY, desiredZ);
+      camera.position.lerp(camTarget, CAM_LERP);
 
-    // Euler rotasyonu (lookAt yerine) daha kararlı bir imleç sağlar.
-    camera.rotation.order = 'YXZ';
-    camera.rotation.set(-pitch, yaw, 0);
+      camera.rotation.order = 'YXZ';
+      camera.rotation.set(-pitch, yaw, 0);
 
-    // YENI: Screen Shake (Damage Feedback)
-    const currentHitTimer = (world as any).playerHitTimer ?? 0;
-    if (currentHitTimer > 0) {
-      const shakeIntensity = currentHitTimer * 0.15;
-      camera.position.x += (Math.random() - 0.5) * shakeIntensity;
-      camera.position.y += (Math.random() - 0.5) * shakeIntensity;
-      camera.position.z += (Math.random() - 0.5) * shakeIntensity;
-      camera.rotation.x += (Math.random() - 0.5) * shakeIntensity * 0.5;
-      camera.rotation.y += (Math.random() - 0.5) * shakeIntensity * 0.5;
-    }
+      // FOV Zoom (ADS'de 45, Idle'da 75)
+      camera.fov = THREE.MathUtils.lerp(75, 45, adsFactor);
+      camera.updateProjectionMatrix();
 
-    // Mükemmel Atış Hassasiyeti (Dynamic Convergence)
-    // 1. Kamera merkezinden dünyaya raycast atıp neye baktığımızı buluyoruz.
-    const physicsWorld = getPhysicsWorld();
-    const camDir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
-    const camRay = new RAPIER.Ray(
-      { x: camera.position.x, y: camera.position.y, z: camera.position.z },
-      { x: camDir.x, y: camDir.y, z: camDir.z }
-    );
-    const camHit = physicsWorld.castRay(camRay, 200, true);
-    let aimPoint = new THREE.Vector3().copy(camera.position).add(camDir.clone().multiplyScalar(100));
+      // Atış Hassasiyeti (Raycast)
+      const physicsWorld = getPhysicsWorld();
+      const camDir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+      const camRay = new RAPIER.Ray(
+        { x: camera.position.x, y: camera.position.y, z: camera.position.z },
+        { x: camDir.x, y: camDir.y, z: camDir.z }
+      );
+      const camHit = physicsWorld.castRay(camRay, 200, true);
+      let aimPoint = new THREE.Vector3().copy(camera.position).add(camDir.clone().multiplyScalar(100));
 
-    if (camHit) {
+      if (camHit) {
+        // @ts-ignore
+        const timpact = camHit.timeOfImpact !== undefined ? camHit.timeOfImpact : (camHit as any).toi;
+        const hp = camRay.pointAt(timpact);
+        aimPoint.set(hp.x, hp.y, hp.z);
+      }
       // @ts-ignore
-      const timpact = camHit.timeOfImpact !== undefined ? camHit.timeOfImpact : (camHit as any).toi;
-      const hp = camRay.pointAt(timpact);
-      aimPoint.set(hp.x, hp.y, hp.z);
+      world.aimTarget = aimPoint;
     }
-    // @ts-ignore
-    world.aimTarget = aimPoint;
-
-    // FOV Zoom (ADS'de 45, Idle'da 75)
-    camera.fov = THREE.MathUtils.lerp(75, 45, adsFactor);
-    camera.updateProjectionMatrix();
 
     if (skyMesh) skyMesh.position.copy(camera.position);
 
@@ -878,7 +924,15 @@ async function init(playerType: number) {
       speed = Math.hypot(vel.x, vel.z);
     }
     const currentFps = dt > 0 ? 1 / dt : 60;
-    updateHUD(dt, { pos: camFollowPos, speed, fps: Math.round(currentFps) });
+    const currentQuality = smaaDegraded ? "HIGH" : "ULTRA";
+    updateHUD(dt, { pos: camFollowPos, speed, fps: Math.round(currentFps), quality: currentQuality });
+
+    // Performance Optimizer (v9.2): LODs & Dynamic Shadows
+    if (optimizer) {
+      optimizer.setJetMode(inJet, inJet ? getJetAltitude() : 0);
+      optimizer.update(camera);
+      optimizer.optimizeShadows(sun, camera);
+    }
 
     // Adaptive Quality: SMAA Ultra -> High if < 50 FPS for 4s
     if (currentFps < 50 && !smaaDegraded) {
@@ -901,9 +955,9 @@ async function init(playerType: number) {
     if (hpFill) hpFill.style.width = `${hpPct.toFixed(1)}%`;
     // Bar rengi: yeşil → sarı → kırmızı
     if (hpFill) {
-      if (hpPct > 60) (hpFill as HTMLElement).style.background = 'linear-gradient(90deg,#1a9e2e,#2ecc71)';
-      else if (hpPct > 30) (hpFill as HTMLElement).style.background = 'linear-gradient(90deg,#b8860b,#f1c40f)';
-      else (hpFill as HTMLElement).style.background = 'linear-gradient(90deg,#8b0000,#e74c3c)';
+      // v22.1: Full Red Health Bar (User request)
+      if (hpPct > 30) (hpFill as HTMLElement).style.background = 'linear-gradient(90deg, #c0392b, #e74c3c)';
+      else (hpFill as HTMLElement).style.background = 'linear-gradient(90deg, #8b0000, #c0392b)'; 
     }
     if (hpText) hpText.textContent = `${Math.round(hp)}`;
     // Hit flash + HUD damaged state
@@ -925,6 +979,7 @@ async function init(playerType: number) {
     // (Removed broken checkLoading)
     checkLoading();
     renderComposer();
+    
     // debugPanel.update(renderer, getPhysicsWorld());
   }
 

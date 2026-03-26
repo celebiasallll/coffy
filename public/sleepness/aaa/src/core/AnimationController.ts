@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-export type AnimState = 'idle' | 'walk' | 'run' | 'jump' | 'runningjump' | 'swim' | 'punch' | 'shoot_idle' | 'shoot_run' | 'crouch_idle' | 'crouch_walk';
+export type AnimState = 'idle' | 'walk' | 'run' | 'jump' | 'runningjump' | 'swim' | 'punch' | 'shoot_idle' | 'shoot_run' | 'crouch_idle' | 'crouch_walk' | 'kick' | 'stab';
 
 export class AnimationController {
     private currentState: AnimState = 'idle';
@@ -59,10 +59,9 @@ export class AnimationController {
 
             if (prev && prev !== next) prev.fadeOut(0.15);
             next.reset().fadeIn(0.15).play();
-
             this.currentState = newState;
             return;
-        } else if (newState === 'punch' || newState === 'crouch_idle') {
+        } else if (newState === 'punch' || newState === 'kick' || newState === 'stab' || newState === 'crouch_idle') {
             this.isJumping = false;
             next.setLoop(THREE.LoopOnce, 1);
             next.clampWhenFinished = true;
@@ -113,6 +112,8 @@ export class AnimationController {
         jump: boolean;
         swim: boolean;
         punch: boolean;
+        kick: boolean;
+        stab: boolean;
         shoot: boolean;
         crouch: boolean;
     }, isGrounded: boolean) {
@@ -136,7 +137,19 @@ export class AnimationController {
             return;
         }
 
-        if (this.currentState === 'punch') return;
+        // Trigger kick
+        if (input.kick && !this.isJumping && this.currentState !== 'kick') {
+            this.setState('kick', true);
+            return;
+        }
+
+        // Trigger stab
+        if (input.stab && !this.isJumping && this.currentState !== 'stab') {
+            this.setState('stab', true);
+            return;
+        }
+
+        if (this.currentState === 'punch' || this.currentState === 'kick' || this.currentState === 'stab') return;
 
         if (this.isJumping) {
             this.jumpTimer += dt;
@@ -210,8 +223,8 @@ export class AnimationController {
 
     private onAnimationFinished(action: THREE.AnimationAction) {
         for (const [state, act] of Object.entries(this.actions)) {
-            if (act === action && (state === 'jump' || state === 'runningjump' || state === 'punch')) {
-                this.landFromJump(); // Also works for returning from punch
+            if (act === action && (state === 'jump' || state === 'runningjump' || state === 'punch' || state === 'kick' || state === 'stab')) {
+                this.landFromJump(); 
                 break;
             }
         }

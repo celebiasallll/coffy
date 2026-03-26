@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Open World AAA Prototype</title>
+  <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #000;
+      overflow: hidden;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    #hud {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 10;
+      color: #fff;
+      font-size: 12px;
+    }
+
+    #stats {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      padding: 8px 12px;
+      background: rgba(5, 10, 20, 0.8);
+      border-radius: 10px;
+      border: 1px solid rgba(120, 200, 255, 0.3);
+      backdrop-filter: blur(10px);
+    }
+
+    #hud-hp {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 220px;
+    }
+
+    #hp-track {
+      height: 12px;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.75);
+      border: 1px solid rgba(255, 80, 80, 0.6);
+      overflow: hidden;
+      box-shadow: 0 0 8px rgba(255, 0, 0, 0.4);
+    }
+
+    #hp-fill {
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(90deg, #c00, #f44, #f88);
+      transition: width .25s;
+      border-radius: 6px;
+    }
+
+    #hp-text {
+      margin-top: 3px;
+      text-align: center;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    #fps {
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255, 255, 255, 0.4);
+      font-size: 10px;
+    }
+
+    #interact {
+      position: absolute;
+      bottom: 40%;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 6px 14px;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 215, 0, 0.4);
+      background: rgba(0, 0, 0, 0.6);
+      color: #ffd700;
+      font-size: 12px;
+      letter-spacing: 1px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s;
+    }
+
+    #hint {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      color: rgba(255, 255, 255, 0.65);
+      font-size: 11px;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    /* Score / level box */
+    #score-box {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      text-align: right;
+      padding: 10px 16px;
+      border-radius: 12px;
+      background: rgba(5, 10, 20, 0.85);
+      border: 1px solid rgba(0, 255, 170, 0.25);
+      backdrop-filter: blur(10px);
+    }
+
+    #score-num {
+      color: #0fa;
+      font-size: 32px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      text-shadow: 0 0 20px #0fa, 0 0 40px rgba(0, 255, 170, 0.5);
+    }
+
+    #score-lbl {
+      color: rgba(255, 255, 255, 0.45);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    #level-txt {
+      color: #ffd700;
+      font-size: 13px;
+      margin-top: 4px;
+      text-shadow: 0 0 8px #ffd700;
+    }
+
+    /* XP bar */
+    #xp-wrap {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 360px;
+      text-align: center;
+    }
+
+    #xp-label {
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 11px;
+      margin-bottom: 4px;
+      letter-spacing: 1px;
+    }
+
+    #xp-track {
+      width: 100%;
+      height: 8px;
+      background: rgba(0, 0, 0, 0.6);
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 0 10px rgba(0, 180, 255, 0.25);
+    }
+
+    #xp-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #0af, #08f, #0fa);
+      transition: width .5s cubic-bezier(.2, 1, .3, 1);
+      border-radius: 4px;
+      box-shadow: 0 0 8px rgba(0, 150, 255, 0.6);
+    }
+
+    /* Kill feed, combo, popup */
+    #kill-feed {
+      position: absolute;
+      top: 80px;
+      right: 18px;
+      text-align: right;
+      font-size: 12px;
+      color: rgba(255, 120, 60, 0.95);
+      text-shadow: 0 0 8px #f40;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    #combo {
+      position: absolute;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #ffd700;
+      font-size: 28px;
+      font-weight: 900;
+      text-shadow: 0 0 20px #ffd700, 0 0 40px rgba(255, 180, 0, 0.5), 0 3px 6px #000;
+      opacity: 0;
+      pointer-events: none;
+      letter-spacing: 3px;
+      white-space: nowrap;
+      transition: opacity .2s;
+    }
+
+    #popup {
+      position: absolute;
+      top: 34%;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #fff;
+      font-size: 22px;
+      font-weight: 700;
+      text-shadow: 0 0 20px #0fa, 0 0 40px rgba(0, 255, 180, 0.5), 0 2px 6px #000;
+      opacity: 0;
+      pointer-events: none;
+      white-space: nowrap;
+      transition: opacity .2s;
+    }
+
+    #dmg-flash {
+      position: absolute;
+      inset: 0;
+      background: rgba(255, 0, 0, 0);
+      pointer-events: none;
+      transition: background .1s;
+    }
+
+
+    /* Loading + Game Over overlays */
+    #loading {
+      position: fixed;
+      inset: 0;
+      background: #070c14;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      color: #fff;
+      gap: 10px;
+    }
+
+    #loading h1 {
+      font-size: 32px;
+      color: #0fa;
+      text-shadow: 0 0 30px #0fa, 0 0 60px rgba(0, 255, 170, 0.3);
+      letter-spacing: 4px;
+      margin-bottom: 4px;
+    }
+
+    #loading p {
+      color: rgba(255, 255, 255, 0.4);
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+
+    #load-bar-wrap {
+      width: 320px;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 3px;
+      overflow: hidden;
+      box-shadow: 0 0 12px rgba(0, 255, 170, 0.2);
+    }
+
+    #load-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #0fa, #0af, #08f);
+      transition: width .2s;
+    }
+
+    #load-msg {
+      color: rgba(255, 255, 255, 0.35);
+      font-size: 12px;
+      letter-spacing: 1px;
+    }
+
+    #gameover {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.9);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 500;
+      color: #fff;
+    }
+
+    #gameover h2 {
+      font-size: 52px;
+      color: #f44;
+      text-shadow: 0 0 40px #f00, 0 0 80px rgba(255, 0, 0, 0.3);
+      margin-bottom: 12px;
+      letter-spacing: 4px;
+    }
+
+    #gameover p {
+      color: rgba(255, 255, 255, 0.6);
+      margin-bottom: 6px;
+      font-size: 18px;
+    }
+
+    #gameover button {
+      margin-top: 20px;
+      padding: 14px 36px;
+      font-size: 16px;
+      background: #0fa;
+      color: #000;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 900;
+      letter-spacing: 2px;
+      pointer-events: all;
+      box-shadow: 0 0 20px #0fa;
+      transition: transform .1s;
+    }
+
+    #gameover button:hover {
+      transform: scale(1.05);
+    }
+
+    /* ─────────────────────── SURVIVAL BARS (AAA) ─────────────────────── */
+    #survival-box {
+      position: absolute;
+      bottom: 30px;
+      left: 30px;
+      display: flex;
+      gap: 16px;
+      pointer-events: none;
+    }
+
+    .core-container {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(255, 255, 255, 0.15);
+      background: rgba(0, 0, 0, 0.7);
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(4px);
+      overflow: hidden;
+    }
+
+    .core-container::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      box-shadow: inset 0 3px 6px rgba(255, 255, 255, 0.15), inset 0 -4px 10px rgba(0, 0, 0, 0.8);
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    .core-liquid {
+      position: absolute;
+      inset: 0;
+      clip-path: inset(0% 0 0 0);
+      transition: clip-path 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 1;
+      opacity: 0.5;
+    }
+
+    .core-icon {
+      font-size: 18px;
+      position: relative;
+      z-index: 2;
+      color: rgba(255, 255, 255, 0.95);
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 1), 0 0 10px rgba(0, 0, 0, 0.8);
+    }
+
+  </style>
+  <script type="module" crossorigin src="/assets/index-C5PaDSZk.js"></script>
+</head>
+
+<body>
+  <div id="hud">
+    <div id="fps">FPS</div>
+    <div id="interact"></div>
+    <div id="kill-feed"></div>
+    <div id="combo"></div>
+    <div id="popup"></div>
+    <div id="dmg-flash"></div>
+    <div id="survival-warning"></div>
+  </div>
+
+  <div id="loading">
+    <h1>🌍 OPEN WORLD</h1>
+    <p>Preparing the island...</p>
+    <div id="load-bar-wrap">
+      <div id="load-bar"></div>
+    </div>
+    <div id="load-msg">Loading assets...</div>
+  </div>
+
+  <div id="gameover">
+    <h2>💀 GAME OVER</h2>
+    <p id="go-score">Score: 0</p>
+    <p id="go-level">Level: 1</p>
+    <button onclick="location.reload()">RESTART</button>
+  </div>
+
+</body>
+
+</html>

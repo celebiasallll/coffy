@@ -1,0 +1,30 @@
+{
+  "name": "açık-dünya-aaa",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@dimforge/rapier3d-compat": "^0.18.0",
+    "bitecs": "^0.3.38",
+    "howler": "^2.2.4",
+    "postprocessing": "^6.38.3",
+    "simplex-noise": "^4.0.3",
+    "three": "^0.170.0",
+    "three-csm": "^4.2.1",
+    "three-mesh-bvh": "^0.9.9",
+    "viem": "^2.0.0",
+    "yuka": "^0.7.4"
+  },
+  "devDependencies": {
+    "@types/howler": "^2.2.11",
+    "@types/three": "^0.170.0",
+    "typescript": "^5.4.0",
+    "vite": "^6.0.0"
+  }
+}

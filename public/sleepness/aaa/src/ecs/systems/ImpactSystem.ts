@@ -31,7 +31,7 @@ export function spawnImpact(scene: THREE.Scene, position: { x: number, y: number
 }
 
 function spawnBlood(scene: THREE.Scene, position: { x: number, y: number, z: number }) {
-    const particleCount = 15; // Original count per user request (skip item 4)
+    const particleCount = 30; // Increased from 15 for better visual
     const geometry = new THREE.BufferGeometry();
     const positions = new Float32Array(particleCount * 3);
     const velocities = new Float32Array(particleCount * 3);
@@ -41,23 +41,26 @@ function spawnBlood(scene: THREE.Scene, position: { x: number, y: number, z: num
         positions[i * 3 + 1] = position.y;
         positions[i * 3 + 2] = position.z;
 
-        // Increased velocity spreads for larger splatter
-        velocities[i * 3] = (Math.random() - 0.5) * 6;
-        velocities[i * 3 + 1] = Math.random() * 7 + 3;
-        velocities[i * 3 + 2] = (Math.random() - 0.5) * 6;
+        // Burst outward in all directions with strong upward bias
+        const angle = Math.random() * Math.PI * 2;
+        const xzSpeed = 4 + Math.random() * 8;
+        velocities[i * 3]     = Math.cos(angle) * xzSpeed;
+        velocities[i * 3 + 1] = Math.random() * 10 + 2; // upward
+        velocities[i * 3 + 2] = Math.sin(angle) * xzSpeed;
     }
 
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     const material = new THREE.PointsMaterial({
-        color: 0xaa0000,
-        size: 0.25, // Original size per user request (skip item 4)
+        color: 0x990000,   // deep dark red
+        size: 0.28,
         transparent: true,
-        opacity: 1
+        opacity: 1,
+        sizeAttenuation: true,
     });
 
     const particles = new THREE.Points(geometry, material);
     scene.add(particles);
-    impactPool.push({ mesh: particles, time: 0.8, type: ImpactType.FLESH, particles, velocities });
+    impactPool.push({ mesh: particles, time: 1.0, type: ImpactType.FLESH, particles, velocities });
 }
 
 export function updateImpacts(scene: THREE.Scene, dt: number) {

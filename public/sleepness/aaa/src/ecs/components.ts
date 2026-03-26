@@ -61,7 +61,7 @@ export const Projectile = defineComponent({
 
 // Animasyon durumu — AnimationController ile senkron
 export const AnimState = defineComponent({
-  // 0:idle 1:walk 2:run 3:jump 4:swim 5:shoot 6:punch 7:kick 8:runningjump
+  // 0:idle 1:walk 2:run 3:jump 4:swim 5:shoot 6:punch 7:kick 8:runningjump 10:crouch_idle 11:crouch_walk 12:stab
   current: Types.ui8,
   previous: Types.ui8,
   // Zıplama cooldown (race condition önler)
@@ -84,10 +84,13 @@ export const InputIntents = defineComponent({
   shootRequest: Types.ui8,
   reloadRequest: Types.ui8,
   aimRequest: Types.ui8,
-  switchWeaponRequest: Types.ui8,
+  switchWeaponRequest: Types.ui8, // 1: Rifle, 2: Knife
+  punchRequest: Types.ui8,
+  kickRequest: Types.ui8,
   aimYaw: Types.f32,
   aimPitch: Types.f32,
   crouch: Types.ui8,
+  jetRequest: Types.ui8,
 });
 
 export const Weapon = defineComponent({

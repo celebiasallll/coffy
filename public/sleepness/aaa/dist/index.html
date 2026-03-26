@@ -35,15 +35,35 @@
     }
 
     #stats {
+      display: none; /* v24.1: FPS Deaktif (geçici) */
       position: absolute;
       top: 16px;
       left: 16px;
-      padding: 8px 12px;
-      background: rgba(5, 10, 20, 0.8);
-      border-radius: 10px;
-      border: 1px solid rgba(120, 200, 255, 0.3);
-      -webkit-backdrop-filter: blur(10px);
-              backdrop-filter: blur(10px);
+      padding: 10px 14px;
+      background: rgba(5, 10, 20, 0.82);
+      border-radius: 12px;
+      border: 1px solid rgba(0, 255, 170, 0.3);
+      -webkit-backdrop-filter: blur(12px);
+              backdrop-filter: blur(12px);
+      /* display: flex; REMOVED to hide HUD */
+      flex-direction: column;
+      gap: 2px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+
+    #fps {
+      color: #0fa;
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 1px;
+    }
+
+    #quality-label {
+      color: rgba(255, 255, 255, 0.45);
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      font-weight: 600;
     }
 
     /* ─── Modern HP HUD ─────────────────────────────────────────────────── */
@@ -115,6 +135,7 @@
     }
 
     #hp-icon {
+      display: none;
       font-size: 20px;
       line-height: 1;
       filter: drop-shadow(0 0 6px rgba(231, 76, 60, 0.8));
@@ -217,7 +238,7 @@
     #hp-fill {
       height: 100%;
       width: 100%;
-      background: linear-gradient(90deg, #1a9e2e, #2ecc71);
+      background: linear-gradient(90deg, #c0392b, #e74c3c);
       border-radius: 4px;
       transition: width 0.2s cubic-bezier(.2, 1, .3, 1), background 0.4s;
       position: relative;
@@ -260,14 +281,6 @@
       box-shadow: inset 0 0 120px rgba(200, 0, 0, 0);
     }
 
-    #fps {
-      position: absolute;
-      bottom: 8px;
-      left: 50%;
-      transform: translateX(-50%);
-      color: rgba(255, 255, 255, 0.4);
-      font-size: 10px;
-    }
 
 
     #hint {
@@ -1160,7 +1173,7 @@
 
     .char-btn {
       position: relative;
-      width: 195px;
+      width: 220px; /* Büyütüldü (v18.0) */
       padding: 0;
       background: rgba(6, 12, 24, 0.95);
       border: 1px solid rgba(255, 255, 255, 0.07);
@@ -1393,63 +1406,71 @@
       position: fixed;
       top: 110px;
       left: 20px;
-      padding: 10px 18px;
-      background: linear-gradient(135deg, rgba(0, 0, 0, 0.4) 0%, rgba(20, 20, 20, 0.25) 100%);
-      border-left: 3px solid #0fa;
-      border-radius: 0 8px 8px 0;
+      width: 180px;      /* v28.0: Perfect Modern Square */
+      height: 180px;     /* v28.0: Perfect Modern Square */
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 20px;
+      background: rgba(0, 10, 20, 0.55);
+      border-radius: 24px; /* Premium Rounded */
       color: #fff;
       font-family: 'Rajdhani', sans-serif;
       z-index: 900;
       pointer-events: none;
-      -webkit-backdrop-filter: blur(8px);
-              backdrop-filter: blur(8px);
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-      min-width: 220px;
-      border: 1px solid rgba(0, 255, 170, 0.05);
-      transform: scale(0.5);
+      -webkit-backdrop-filter: blur(14px);
+              backdrop-filter: blur(14px);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      transform: scale(0.7);
       transform-origin: top left;
-      animation: mission-slide-in 0.6s cubic-bezier(0.2, 1, 0.3, 1) both;
+      opacity: 0.6;
+      animation: mission-slide-in 0.8s cubic-bezier(0.2, 1, 0.3, 1) both;
     }
 
     @keyframes mission-slide-in {
-      from { transform: translateX(-40px); opacity: 0; }
-      to { transform: translateX(0); opacity: 1; }
+      from { transform: scale(0.7) translateY(-30px); opacity: 0; }
+      to { transform: scale(0.7) translateY(0); opacity: 0.6; }
     }
 
     #mission-score {
-      font-size: 24px;
+      font-size: 42px; /* v28.0: Hero size for square */
       font-weight: 900;
       color: #ffd700;
-      margin-bottom: 2px;
-      text-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
-      font-family: ' Rajdhani', sans-serif;
+      margin-top: -10px;
+      margin-bottom: 4px;
+      text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+      line-height: 1;
     }
     #mission-title {
-      font-size: 9px;
+      font-size: 12px;
       text-transform: uppercase;
       letter-spacing: 2px;
       color: #0fa;
       font-weight: 700;
-      margin-bottom: 4px;
-      opacity: 0.8;
+      margin-bottom: 6px;
+      opacity: 0.9;
     }
 
     #mission-desc {
-      font-size: 13px;
-      font-weight: 600;
-      line-height: 1.3;
-      color: #fff;
-      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+      font-size: 11.5px;
+      line-height: 1.4;
+      opacity: 0.85;
+      margin-bottom: 12px;
+      color: #eee;
     }
 
     #mission-progress {
-      margin-top: 8px;
-      font-size: 11px;
-      font-weight: 700;
-      color: rgba(255, 255, 255, 0.4);
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      color: #ffd700;
+      padding: 5px 12px;
+      background: rgba(255, 215, 0, 0.15);
+      border-radius: 8px;
+      display: inline-block;
     }
 
     #mission-progress span {
@@ -1495,19 +1516,125 @@
       transition: opacity 1s;
       pointer-events: none;
     }
+    @keyframes sleep-shake {
+      0%, 100% { transform: translate(0, 0); }
+      10%, 30%, 50%, 70%, 90% { transform: translate(-2px, -1px); }
+      20%, 40%, 60%, 80% { transform: translate(2px, 1.5px); }
+    }
+    .sleep-shake {
+      animation: sleep-shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+    }
+    .critical-pulse {
+      animation: hp-pulse 0.6s ease-in-out infinite;
+      border-color: #cc44ff !important;
+      box-shadow: 0 0 15px rgba(204, 68, 255, 0.4) !important;
+    }
+
+    /* ─── Input Guide Panels (Absolute on Right) ───────────────────────── */
+    .input-guides-wrapper {
+      position: absolute;
+      right: 120px; /* Sola kaydırıldı (v18.0) */
+      top: 15%;   /* Daha yukarı taşındı */
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      animation: cs-in 0.8s 0.4s ease both;
+      z-index: 100;
+    }
+
+    .input-guide {
+      width: 200px;
+      padding: 20px;
+      background: rgba(5, 10, 20, 0.65);
+      -webkit-backdrop-filter: blur(15px);
+              backdrop-filter: blur(15px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+    .input-guide .guide-title {
+      font-size: 10px;
+      letter-spacing: 3px;
+      color: rgba(0, 255, 170, 0.7);
+      text-transform: uppercase;
+      margin-bottom: 2px;
+      border-bottom: 1px solid rgba(0, 255, 170, 0.25);
+      padding-bottom: 6px;
+    }
+    .guide-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .guide-key {
+      min-width: 32px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 5px;
+      font-size: 10px;
+      font-weight: 800;
+      color: #fff;
+      font-family: 'Rajdhani', sans-serif;
+    }
+    .guide-desc {
+      font-size: 9px;
+      color: rgba(255, 255, 255, 0.45);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .guide-row.heavy .guide-key {
+      border-color: rgba(0, 255, 170, 0.6);
+      color: #0fa;
+      background: rgba(0, 255, 170, 0.08);
+      box-shadow: 0 0 12px rgba(0, 255, 170, 0.15);
+    }
+    .guide-row.heavy .guide-desc {
+      color: rgba(255, 255, 255, 0.9);
+      font-weight: 700;
+    }
+
+    @media (max-width: 1500px) {
+      .input-guides-wrapper { right: 20px; scale: 0.9; }
+    }
+    @media (max-width: 1250px) {
+      .input-guides-wrapper { display: none; }
+    }
   </style>
-  <script type="module" crossorigin src="./assets/index-DUF59To6.js"></script>
+  <script type="module" crossorigin src="./assets/index-D2tAQCWw.js"></script>
 </head>
 
 <body>
   <div id="hud">
-    <div id="fps">FPS</div>
+    <div id="stats">
+      <div id="fps">-- FPS</div>
+      <div id="quality-label">ULTRA QUALITY</div>
+    </div>
     <div id="interact"></div>
     <div id="kill-feed"></div>
     <div id="combo"></div>
     <div id="popup"></div>
     <div id="dmg-flash"></div>
     <div id="survival-warning"></div>
+
+    <div id="survival-box">
+      <!-- Energy -->
+      <div class="core-container">
+        <div id="energy-fill" class="core-liquid" style="background: linear-gradient(to top, #f39c12, #f1c40f);"></div>
+        <div class="core-icon">⚡</div>
+      </div>
+      <!-- Sleep -->
+      <div class="core-container" id="sleep-bar">
+        <div id="sleep-fill" class="core-liquid" style="background: linear-gradient(to top, #4a148c, #9c27b0);"></div>
+        <div class="core-icon">🌙</div>
+      </div>
+    </div>
 
     <!-- Mission Objective HUD -->
     <div id="mission-hud">
@@ -1519,7 +1646,7 @@
 
     <!-- Modern HP HUD -->
     <div id="hp-hud">
-      <div id="hp-icon">❤</div>
+      <div id="hp-icon"></div>
       <div id="hp-bar-wrap">
         <div id="hp-label-row">
           <span id="hp-label">HEALTH</span>
@@ -1552,6 +1679,7 @@
 
   <div id="char-select">
     <div id="cs-bg"></div>
+    
     <div id="cs-inner">
       <div class="cs-eyebrow">Open World AAA Prototype</div>
       <h1>CHOOSE YOUR WARRIOR</h1>
@@ -1565,7 +1693,6 @@
       </div>
 
       <div class="char-btns">
-
         <button class="char-btn selected" id="btn-p1" tabindex="-1">
           <div class="char-btn-shine"></div>
           <div class="char-btn-img"><img src="./assets/p2_preview-DEIAQC_v.png" style="width:100%;height:100%;object-fit:cover;"></div>
@@ -1573,21 +1700,9 @@
             <div class="char-btn-name">Smith</div>
             <div class="char-btn-desc">Battle-hardened soldier. Reliable under fire.</div>
             <div class="char-btn-stats">
-              <div class="char-stat"><span>SPD</span>
-                <div class="char-stat-bar">
-                  <div class="char-stat-fill" style="width:72%"></div>
-                </div>
-              </div>
-              <div class="char-stat"><span>STR</span>
-                <div class="char-stat-bar">
-                  <div class="char-stat-fill" style="width:82%"></div>
-                </div>
-              </div>
-              <div class="char-stat"><span>AGI</span>
-                <div class="char-stat-bar">
-                  <div class="char-stat-fill" style="width:68%"></div>
-                </div>
-              </div>
+              <div class="char-stat"><span>SPD</span><div class="char-stat-bar"><div class="char-stat-fill" style="width:72%"></div></div></div>
+              <div class="char-stat"><span>STR</span><div class="char-stat-bar"><div class="char-stat-fill" style="width:82%"></div></div></div>
+              <div class="char-stat"><span>AGI</span><div class="char-stat-bar"><div class="char-stat-fill" style="width:68%"></div></div></div>
             </div>
           </div>
           <span class="char-btn-badge">SELECTED</span>
@@ -1600,26 +1715,13 @@
             <div class="char-btn-name">Elric</div>
             <div class="char-btn-desc">Elite spec-ops agent. Speed is survival.</div>
             <div class="char-btn-stats">
-              <div class="char-stat"><span>SPD</span>
-                <div class="char-stat-bar">
-                  <div class="char-stat-fill" style="width:92%"></div>
-                </div>
-              </div>
-              <div class="char-stat"><span>STR</span>
-                <div class="char-stat-bar">
-                  <div class="char-stat-fill" style="width:58%"></div>
-                </div>
-              </div>
-              <div class="char-stat"><span>AGI</span>
-                <div class="char-stat-bar">
-                  <div class="char-stat-fill" style="width:96%"></div>
-                </div>
-              </div>
+              <div class="char-stat"><span>SPD</span><div class="char-stat-bar"><div class="char-stat-fill" style="width:92%"></div></div></div>
+              <div class="char-stat"><span>STR</span><div class="char-stat-bar"><div class="char-stat-fill" style="width:58%"></div></div></div>
+              <div class="char-stat"><span>AGI</span><div class="char-stat-bar"><div class="char-stat-fill" style="width:96%"></div></div></div>
             </div>
           </div>
           <span class="char-btn-badge">SELECT</span>
         </button>
-
       </div>
 
       <div class="cs-start-row">
@@ -1629,8 +1731,30 @@
         </button>
       </div>
 
-      <div class="cs-hint">&#8592; &#8594; &nbsp;or&nbsp; A / D &nbsp;to switch &nbsp;&middot;&nbsp; SPACE or click to
-        begin</div>
+      <div class="cs-hint">&#8592; &#8594; &nbsp;or&nbsp; A / D &nbsp;to switch &nbsp;&middot;&nbsp; SPACE or click to begin</div>
+    </div>
+
+    <!-- Right Side Input Guides -->
+    <div class="input-guides-wrapper">
+      <div class="input-guide">
+          <div class="guide-title">MOBILITY</div>
+          <div class="guide-row"><div class="guide-key">WASD</div><div class="guide-desc">Position / Drive</div></div>
+          <div class="guide-row"><div class="guide-key">SPACE</div><div class="guide-desc">Jump / Lift</div></div>
+          <div class="guide-row"><div class="guide-key">SHIFT</div><div class="guide-desc">Tactical Sprint</div></div>
+          <div class="guide-row"><div class="guide-key">C</div><div class="guide-desc">Crouch / Stealth</div></div>
+      </div>
+
+      <div class="input-guide">
+          <div class="guide-title">COMBAT</div>
+          <div class="guide-row heavy"><div class="guide-key">LMB</div><div class="guide-desc">Attack / Fire</div></div>
+          <div class="guide-row"><div class="guide-key">RMB</div><div class="guide-desc">Focus Aim</div></div>
+          <div class="guide-row heavy"><div class="guide-key">F</div><div class="guide-desc">Punch</div></div>
+          <div class="guide-row heavy"><div class="guide-key">G</div><div class="guide-desc">Kick</div></div>
+          <div class="guide-row"><div class="guide-key">E</div><div class="guide-desc">Interact</div></div>
+          <div class="guide-row heavy"><div class="guide-key">T</div><div class="guide-desc">BOARD JET</div></div>
+          <div class="guide-row"><div class="guide-key">R</div><div class="guide-desc">Reload</div></div>
+          <div class="guide-row"><div class="guide-key">Q</div><div class="guide-desc">Switch Gear</div></div>
+      </div>
     </div>
   </div>
 

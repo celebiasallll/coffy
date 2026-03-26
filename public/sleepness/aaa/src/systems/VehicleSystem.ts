@@ -6,6 +6,8 @@ import { getHeight } from '../world/terrain.js';
 import { getPhysicsWorld } from '../core/physics.js';
 import { VehicleController, VehicleConfig } from '../core/VehicleController.js';
 import { audioManager } from '../core/AudioManager.js';
+import { spawnBurst } from './particles.js';
+import { isNearLake } from '../world/environment.js';
 
 export type VehicleType = 'atv' | 'jeep' | 'drifter';
 
@@ -14,13 +16,20 @@ export interface Vehicle {
     controller: VehicleController;
     isOccupied: boolean;
     enterRadius: number;
-    fuel: number;
-    maxFuel: number;
-    fuelBurnRate: number;
     engineSound: THREE.Audio | null;
 }
 
 const vehicles: Vehicle[] = [];
+// Vehicle audio state tracking
+const vehicleAudioStates = new Map<Vehicle, { 
+    lastThrottle: number, 
+    popCooldown: number,
+    loadFactor: number,
+    terrainSound?: THREE.Audio,
+    dustCooldown: number,   // [EKLENDİ] Partikül optimizasyonu için
+    skidCooldown: number,   // [EKLENDİ]
+    isFading: boolean       // [EKLENDİ] Fade-out spam engelleyici
+}>();
 
 // ─── YARDIMCI FONKSİYONLAR ───────────────────────────────────────────────────
 function createPart(geom: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number, rx = 0, ry = 0, rz = 0): THREE.Mesh {
@@ -461,7 +470,7 @@ export function spawnVehicles(scene: THREE.Scene): void {
     });
     scene.add(atvGroup);
     const atvEngine = audioManager.createEngineSound('/assets/sounds/engine_sound.mp3', 0);
-    vehicles.push({ type: 'atv', controller: atv, isOccupied: false, enterRadius: 12, fuel: 100, maxFuel: 100, fuelBurnRate: 1, engineSound: atvEngine });
+    vehicles.push({ type: 'atv', controller: atv, isOccupied: false, enterRadius: 5, engineSound: atvEngine });
 
     // ─── JEEP ─────────────────────────────────────────────────────────────────
     const jeepGroup = new THREE.Group();
@@ -644,8 +653,8 @@ export function spawnVehicles(scene: THREE.Scene): void {
     });
 
     scene.add(jeepGroup);
-    const jeepEngine = audioManager.createEngineSound('/assets/sounds/engine_sound_1.mp3', 0);
-    vehicles.push({ type: 'jeep', controller: jeep, isOccupied: false, enterRadius: 15, fuel: 100, maxFuel: 100, fuelBurnRate: 1.5, engineSound: jeepEngine });
+    const jeepEngine = audioManager.createEngineSound('/assets/sounds/engine_sound.mp3', 0);
+    vehicles.push({ type: 'jeep', controller: jeep, isOccupied: false, enterRadius: 5, engineSound: jeepEngine });
 
     // ─── DRIFTER TRUCK (GLB) ───
     // Silindi.
@@ -659,18 +668,85 @@ export function updateVehicles(dt: number, input: { forward: boolean; back: bool
         const steer = (input.left ? 1 : 0) - (input.right ? 1 : 0);
         v.controller.update(cdt, { throttle: v.isOccupied ? throttle : 0, steer: v.isOccupied ? steer : 0, brake: v.isOccupied ? input.brake : false });
 
-        // ── Ses Güncellemesi ──
         if (v.engineSound) {
+            let aState = vehicleAudioStates.get(v);
+            if (!aState) {
+                // State başlangıç ataması
+                aState = { lastThrottle: 0, popCooldown: 0, loadFactor: 0, dustCooldown: 0, skidCooldown: 0, isFading: false };
+                vehicleAudioStates.set(v, aState);
+            }
+
+            aState.dustCooldown -= dt;
+            aState.skidCooldown -= dt;
+
             if (v.isOccupied) {
+                aState.isFading = false; // Bindiğimiz an fade-out kilidini aç
                 if (!v.engineSound.isPlaying) v.engineSound.play();
-                const vel = v.controller.rigidBody.linvel();
-                const speed = Math.hypot(vel.x, vel.z);
-                const rpm = Math.min(1.0, speed / v.controller.config.maxSpeed);
                 
-                v.engineSound.setVolume(0.12 + rpm * 0.15);
-                v.engineSound.setPlaybackRate(0.8 + rpm * 0.8);
+                const rb = v.controller.rigidBody;
+                const vel = rb.linvel();
+                const speed = Math.hypot(vel.x, vel.z);
+                const maxSpd = v.controller.config.maxSpeed;
+                
+                const targetLoad = Math.abs(throttle) > 0.1 ? 1.0 : 0.0;
+                aState.loadFactor = THREE.MathUtils.lerp(aState.loadFactor, targetLoad, 4.0 * dt);
+
+                const rpm = speed / maxSpd;
+                const basePitch = v.type === 'atv' ? 0.85 : 0.75;
+                const pitchShift = rpm * 0.9 + aState.loadFactor * 0.15;
+                
+                v.engineSound.setPlaybackRate(basePitch + pitchShift);
+                v.engineSound.setVolume(0.15 + rpm * 0.1 + aState.loadFactor * 0.08);
+
+                aState.popCooldown -= dt;
+                if (aState.lastThrottle > 0.5 && throttle < 0.1 && aState.popCooldown <= 0 && speed > 5) {
+                    audioManager.playSFX('/assets/sounds/impact.mp3', 0.15, 0.4, 2.0); 
+                    aState.popCooldown = 1.2 + Math.random() * 2.0;
+                }
+                aState.lastThrottle = throttle;
+
+                if (speed > 2) {
+                    const pos = v.controller.mesh.position;
+                    const isWet = isNearLake(pos.x, pos.z); // [DÜZELTİLDİ: İmkansız matematik (speed < 0) silindi]
+                    
+                    if (!aState.terrainSound) {
+                        aState.terrainSound = audioManager.createAmbientSound('/assets/sounds/footstep.mp3', 0);
+                        aState.terrainSound.play();
+                    }
+                    const tireVol = Math.min(0.15, speed * 0.008);
+                    aState.terrainSound.setVolume(tireVol);
+                    aState.terrainSound.setPlaybackRate(0.5 + speed * 0.05);
+
+                    const isDrifting = Math.abs(steer) > 0.5 && speed > 10;
+                    const isBraking = input.brake && speed > 5;
+
+                    // [DÜZELTİLDİ: FPS optimizasyonu için partiküllere cooldown eklendi]
+                    // --- OPTIMIZATION (v10.1): Removed Car Dust/Skid Particles ---
+                    /*
+                    if ((isDrifting || isBraking) && aState.dustCooldown <= 0) {
+                        const dustPos = pos.clone(); dustPos.y += 0.2;
+                        spawnBurst(dustPos, isWet ? 0x443322 : 0xbb9977, 4, 0.5);
+                        aState.dustCooldown = 0.08; 
+                    }
+
+                    if ((isDrifting || isBraking) && aState.skidCooldown <= 0) {
+                        const skidPos = pos.clone(); skidPos.y = getHeight(pos.x, pos.z) + 0.05;
+                        spawnBurst(skidPos, 0x111111, 1, 0.1);
+                        aState.skidCooldown = 0.15;
+                    }
+                    */
+                } else if (aState.terrainSound) {
+                    aState.terrainSound.setVolume(0);
+                }
+
             } else {
-                if (v.engineSound.isPlaying) audioManager.fadeOutAndStop(v.engineSound, 0.8);
+                // [DÜZELTİLDİ: Fade-out işlemi sadece 1 kere tetiklenecek, spam önlendi]
+                if (v.engineSound.isPlaying && !aState.isFading) {
+                    audioManager.fadeOutAndStop(v.engineSound, 1.2);
+                    aState.isFading = true; 
+                }
+                if (aState.terrainSound) aState.terrainSound.setVolume(0);
+                aState.lastThrottle = 0;
             }
         }
     }

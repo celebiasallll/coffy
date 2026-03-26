@@ -23,7 +23,7 @@ import { showMessage } from '../systems/DialogueSystem.js';
 // ── Sabitler ─────────────────────────────────────────────────────────────────
 
 /** Tam bir gün/gece döngüsünün gerçek süresi (saniye). Değiştirilebilir. */
-export const DAY_CYCLE_SECONDS = 240; // 4 dakika = 1 oyun günü
+export const DAY_CYCLE_SECONDS = 600; // v26.0: 10 dakika (Gerçekçi süre)
 
 /** Başlangıç saati: 0.3 ≈ sabah 7:00 */
 const DEFAULT_START_TIME = 0.3;
@@ -68,6 +68,27 @@ const HEMI_SKY_KEYS: ColorKey[] = [
   { t: 1.00, hex: 0x000820 },
 ];
 
+/** v26.0: Işık şiddeti (intensity) için pürüzsüz geçiş tabloları */
+type ValueKey = { t: number; v: number };
+
+const HEMI_INTENSITY_KEYS: ValueKey[] = [
+  { t: 0.00, v: 0.18 }, // Gece
+  { t: 0.22, v: 0.18 }, // Şafak başlangıcı
+  { t: 0.32, v: 1.0 },  // Gündüz tam güç
+  { t: 0.70, v: 1.0 },  // Akşamüstü başlangıç
+  { t: 0.80, v: 0.18 }, // Gece tam karanlık
+  { t: 1.00, v: 0.18 },
+];
+
+const AMBIENT_INTENSITY_KEYS: ValueKey[] = [
+  { t: 0.00, v: 0.06 },
+  { t: 0.22, v: 0.06 },
+  { t: 0.32, v: 0.85 },
+  { t: 0.68, v: 0.85 },
+  { t: 0.78, v: 0.06 },
+  { t: 1.00, v: 0.06 },
+];
+
 // ── Yardımcı: renk interpolasyonu ────────────────────────────────────────────
 
 const _ca = new THREE.Color();
@@ -86,6 +107,17 @@ function lerpColorKeys(keys: ColorKey[], t: number): THREE.Color {
     }
   }
   return _tmpColor.setHex(keys[0].hex);
+}
+
+function lerpValueKeys(keys: ValueKey[], t: number): number {
+  t = ((t % 1) + 1) % 1;
+  for (let i = 0; i < keys.length - 1; i++) {
+    if (t >= keys[i].t && t <= keys[i + 1].t) {
+      const f = (t - keys[i].t) / (keys[i + 1].t - keys[i].t);
+      return keys[i].v + (keys[i + 1].v - keys[i].v) * f;
+    }
+  }
+  return keys[0].v;
 }
 
 // ── Durum ─────────────────────────────────────────────────────────────────────
@@ -183,7 +215,7 @@ export function updateDayNight(
   // ── Işıklar ───────────────────────────────────────────────────────────────
   if (isDay || isDawn || isDusk) {
     const rise = Math.max(0, Math.sin((t - 0.25) * Math.PI / 0.5));
-    sun.intensity = rise * 3.36; // Increased by 20% (original 2.8)
+    sun.intensity = rise * 2.6; // Reduced from 3.36 to fix terrain whitish glare
     sun.color.copy(lerpColorKeys(SUN_COLOR_KEYS, t));
     sun.position.set(
       camPos.x + sunDirection.x * 300,
@@ -203,8 +235,10 @@ export function updateDayNight(
 
   hemi.color.copy(lerpColorKeys(HEMI_SKY_KEYS, t));
   hemi.groundColor.set(isNight ? 0x112200 : 0x4a7c40);
-  hemi.intensity = isNight ? 0.18 : (isDawn || isDusk ? 0.45 : 1.0);  // Increased for environment brightness
-  ambient.intensity = isNight ? 0.06 : (isDawn || isDusk ? 0.4 : 0.85); // Increased for environment brightness
+
+  // v26.0: Pürüzsüz şiddet geçişleri (lerp)
+  hemi.intensity = lerpValueKeys(HEMI_INTENSITY_KEYS, t);
+  ambient.intensity = lerpValueKeys(AMBIENT_INTENSITY_KEYS, t);
 
   // ── Sky sphere tinting (renderer.setClearColor yerine) ────────────────────
   // sky.png skybox sphere tüm arka planı kaplar → setClearColor görünmez.

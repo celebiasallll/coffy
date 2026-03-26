@@ -12,7 +12,7 @@ export let water: Water;
 
 export function createWater(scene: THREE.Scene): Water {
   // CircleGeometry — yuvarlak göl, 128 segment pürüzsüz kenar
-  const geo = new THREE.CircleGeometry(LAKE_RADIUS * 0.98, 128);
+  const geo = new THREE.CircleGeometry(LAKE_RADIUS * 0.98, 64);
 
   water = new Water(geo, {
     textureWidth: 256,
@@ -37,9 +37,8 @@ export function createWater(scene: THREE.Scene): Water {
 
   // Kıyı şeridi — su kenarını yumuşatır, kum/toprak görünümü verir
   const shoreGeo = new THREE.RingGeometry(
-    LAKE_RADIUS * 0.98,
     LAKE_RADIUS * 1.12,
-    128
+    64
   );
   const shoreMat = new THREE.MeshStandardMaterial({
     color: 0x8b7355,   // kum/toprak rengi
@@ -58,10 +57,46 @@ export function createWater(scene: THREE.Scene): Water {
   return water;
 }
 
-export function updateWater(dt: number, sunDirection: THREE.Vector3): void {
+export function updateWater(dt: number, sunDirection: THREE.Vector3, cameraPos: THREE.Vector3): void {
   if (!water) return;
   water.material.uniforms['time'].value += dt * 0.4;
   water.material.uniforms['sunDirection'].value.copy(sunDirection).normalize();
+
+  // Smart LOD Logic
+  const dist = cameraPos.distanceTo(water.position);
+  
+  // Target values based on distance
+  let targetDistortion = 1.0;
+  let targetAlpha = 0.92;
+
+  if (dist > 1200) {
+    targetDistortion = 0.15;
+    targetAlpha = 0.65;
+  } else if (dist > 500) {
+    const factor = (dist - 500) / 700; // 0 to 1
+    targetDistortion = THREE.MathUtils.lerp(1.0, 0.15, factor);
+    targetAlpha = THREE.MathUtils.lerp(0.92, 0.65, factor);
+  }
+
+  // Smooth transition
+  const lerpSpeed = dt * 2.0;
+  water.material.uniforms['distortionScale'].value = THREE.MathUtils.lerp(
+    water.material.uniforms['distortionScale'].value,
+    targetDistortion,
+    lerpSpeed
+  );
+  water.material.uniforms['alpha'].value = THREE.MathUtils.lerp(
+    water.material.uniforms['alpha'].value,
+    targetAlpha,
+    lerpSpeed
+  );
+
+  // Visibility Toggle (Huge FPS gain when far)
+  if (dist > 2200) {
+      water.visible = false;
+  } else {
+      water.visible = true;
+  }
 }
 
 export function isInWater(playerY: number, playerX: number = 0, playerZ: number = 0): boolean {

@@ -11,6 +11,8 @@ import {
 
 export let composer: EffectComposer;
 export let smaaEffect: SMAAEffect | null = null;
+let currentSMAAPreset: SMAAPreset = SMAAPreset.HIGH;
+const systemStartTime = performance.now();
 
 export function initPostprocessing(
   scene: THREE.Scene,
@@ -24,14 +26,15 @@ export function initPostprocessing(
 
   const bloomEffect = new BloomEffect({
     blendFunction: BlendFunction.SCREEN,
-    mipmapBlur: true,
-    luminanceThreshold: 1.5, // Increased further to kill excessive ground glare
-    intensity: 0.12,         // Slightly reduced intensity
-    radius: 0.4
+    mipmapBlur: true,         
+    luminanceThreshold: 0.9,  // [v10.7] Increased threshold: only extremely bright lights glow
+    luminanceSmoothing: 0.1,
+    intensity: 0.35,          // [v10.7] Reduced intensity for better perf
+    radius: 0.45,             
   });
 
   smaaEffect = new SMAAEffect({
-    preset: SMAAPreset.ULTRA
+    preset: SMAAPreset.HIGH
   });
 
   composer.addPass(new EffectPass(camera, bloomEffect, smaaEffect));
@@ -49,11 +52,25 @@ export function initPostprocessing(
 export function setSMAAPreset(preset: SMAAPreset): void {
   if (smaaEffect) {
     smaaEffect.applyPreset(preset);
+    currentSMAAPreset = preset;
   }
 }
 
 export function renderComposer(
   delta?: number
 ): void {
-  if (composer) composer.render(delta);
+  if (!composer) return;
+
+  const start = performance.now();
+  composer.render(delta);
+  const duration = performance.now() - start;
+
+  // --- v16.0: HEAVY RENDER GUARD (Optimized) ---
+  // Quality only drops if a frame is consistently slow, ignoring loading freezes (>500ms)
+  const now = performance.now();
+  if (duration > 35 && duration < 500 && (now - systemStartTime) > 8000 && smaaEffect && currentSMAAPreset !== SMAAPreset.MEDIUM) {
+    smaaEffect.applyPreset(SMAAPreset.MEDIUM);
+    currentSMAAPreset = SMAAPreset.MEDIUM;
+    console.warn(`[PERF] SMAA AUTO-OPTIMIZE: Frame took ${duration.toFixed(1)}ms. Quality dropped to MEDIUM.`);
+  }
 }

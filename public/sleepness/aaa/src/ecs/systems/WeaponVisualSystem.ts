@@ -48,8 +48,9 @@ export const weaponVisualSystem = (camera: THREE.PerspectiveCamera, scene: THREE
 
         for (let i = 0; i < entities.length; i++) {
             const id = entities[i] as EntityId;
+            const isKnife = Weapon.type[id] === 3;
 
-            if (WeaponState.state[id] === 1) { // FIRING
+            if (WeaponState.state[id] === 1 && !isKnife) { // FIRING (Exclude knife)
                 recoilOffset.z = 0.12;
                 recoilRotation.x = 0.04;
 
@@ -90,7 +91,8 @@ export const weaponVisualSystem = (camera: THREE.PerspectiveCamera, scene: THREE
                         tDir.subVectors(world.aimTarget, new THREE.Vector3(mX, mY, mZ)).normalize();
                     }
 
-                    const bullet = new THREE.Mesh(_sharedBulletGeo, _sharedBulletMat.clone());
+                    // FIX: clone() kaldırıldı — shared material kullan, GC baskısını azalt
+                    const bullet = new THREE.Mesh(_sharedBulletGeo, _sharedBulletMat);
                     bullet.frustumCulled = false;
                     bullet.renderOrder = 2000;
                     bullet.position.set(mX, mY, mZ);
@@ -204,8 +206,7 @@ export const weaponVisualSystem = (camera: THREE.PerspectiveCamera, scene: THREE
 
             if (t.time <= 0) {
                 scene.remove(t.mesh);
-                // Geometry paylaşımlı — dispose etme. Material clone'landı — dispose et.
-                if (t.mesh.material) (t.mesh.material as THREE.Material).dispose();
+                // FIX: Geometry ve material paylaşımlı — dispose etme, sadece scene'den kaldır
                 tracers.splice(i, 1);
             }
         }

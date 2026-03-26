@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "cd public/sleepness/aaa && npm install && npm run build && cd ../../.. && next build",
+    "build": "cd public/sleepness/aaa && npm install --include=dev && npm run build && cd ../../.. && next build",
     "start": "next start",
     "lint": "next lint",
     "dev:flagracer": "cd public/flagraceronline && npm start",

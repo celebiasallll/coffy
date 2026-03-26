@@ -135,27 +135,27 @@ export async function spawnPlayer(scene: THREE.Scene, x: number, _y: number, z: 
     Health.max[id] = 100;
 
     const isP2 = playerType === 1;
-    const idleFbxPromise = loader.loadAsync(isP2 ? '/models/player2/Breathing Idle.fbx' : '/models/Standing Idle.fbx');
-    const walkFbxPromise = loader.loadAsync(isP2 ? '/models/player2/Walking (6).fbx' : '/models/Walking.fbx');
-    const runFbxPromise = loader.loadAsync(isP2 ? '/models/player2/Running (1).fbx' : '/models/Running.fbx');
-    const jumpFbxPromise = loader.loadAsync(isP2 ? '/models/player2/Jump (4).fbx' : '/models/Jumping.fbx');
-    const runJumpFbxPromise = loader.loadAsync(isP2 ? '/models/player2/Running Jump.fbx' : '/models/runningjump.fbx');
-    const swimFbxPromise = loader.loadAsync(isP2 ? '/models/player2/Swimming (1).fbx' : '/models/Swimming.fbx');
+    const idleFbxPromise = loader.loadAsync(isP2 ? 'models/player2/Breathing Idle.fbx' : 'models/Standing Idle.fbx');
+    const walkFbxPromise = loader.loadAsync(isP2 ? 'models/player2/Walking (6).fbx' : 'models/Walking.fbx');
+    const runFbxPromise = loader.loadAsync(isP2 ? 'models/player2/Running (1).fbx' : 'models/Running.fbx');
+    const jumpFbxPromise = loader.loadAsync(isP2 ? 'models/player2/Jump (4).fbx' : 'models/Jumping.fbx');
+    const runJumpFbxPromise = loader.loadAsync(isP2 ? 'models/player2/Running Jump.fbx' : 'models/runningjump.fbx');
+    const swimFbxPromise = loader.loadAsync(isP2 ? 'models/player2/Swimming (1).fbx' : 'models/Swimming.fbx');
 
-    const shootIdlePromise = loader.loadAsync(isP2 ? '/models/player2/Shoot Rifle (1).fbx' : '/models/Shoot Rifle.fbx');
-    const shootRunPromise = loader.loadAsync(isP2 ? '/models/player2/Gunplay (2).fbx' : '/models/Gunplay (1).fbx');
+    const shootIdlePromise = loader.loadAsync(isP2 ? 'models/player2/Shoot Rifle (1).fbx' : 'models/Shoot Rifle.fbx');
+    const shootRunPromise = loader.loadAsync(isP2 ? 'models/player2/Gunplay (2).fbx' : 'models/Gunplay (1).fbx');
 
     const gltfLoader = new GLTFLoader();
-    const scarPromise = gltfLoader.loadAsync('/assets/low-poly_scar_16s.glb');
-    const knifePromise = gltfLoader.loadAsync('/assets/switch_knife.glb');
+    const scarPromise = gltfLoader.loadAsync('assets/low-poly_scar_16s.glb');
+    const knifePromise = gltfLoader.loadAsync('assets/switch_knife.glb');
 
-    const crouchIdleFbxPromise = loader.loadAsync(isP2 ? '/models/player2/Crouch To Stand.fbx' : '/models/Stand To Crouch.fbx');
-    const crouchWalkFbxPromise = loader.loadAsync(isP2 ? '/models/player2/Walk Crouching Forward.fbx' : '/models/Walk Crouching Forward Right.fbx');
+    const crouchIdleFbxPromise = loader.loadAsync(isP2 ? 'models/player2/Crouch To Stand.fbx' : 'models/Stand To Crouch.fbx');
+    const crouchWalkFbxPromise = loader.loadAsync(isP2 ? 'models/player2/Walk Crouching Forward.fbx' : 'models/Walk Crouching Forward Right.fbx');
     
-    const punchFbxPromise = loader.loadAsync(isP2 ? '/models/player2/Cross Punch.fbx' : '/models/Cross Punch.fbx');
-    const kickFbxPromise = loader.loadAsync(isP2 ? '/models/player2/Hurricane Kick.fbx' : '/models/Kicking.fbx');
-    const stabFbxPromise = loader.loadAsync(isP2 ? '/models/player2/Stabbing.fbx' : '/models/Stabbing.fbx');
-    const deathFbxPromise = loader.loadAsync('/models/Dying Backwards (6).fbx');
+    const punchFbxPromise = loader.loadAsync(isP2 ? 'models/player2/Cross Punch.fbx' : 'models/Cross Punch.fbx');
+    const kickFbxPromise = loader.loadAsync(isP2 ? 'models/player2/Hurricane Kick.fbx' : 'models/Kicking.fbx');
+    const stabFbxPromise = loader.loadAsync(isP2 ? 'models/player2/Stabbing.fbx' : 'models/Stabbing.fbx');
+    const deathFbxPromise = loader.loadAsync('models/Dying Backwards (6).fbx');
 
     const [
         idleFbx,
@@ -431,7 +431,7 @@ export async function spawnWolf(scene: THREE.Scene, x: number, z: number): Promi
     const gltfLoader = new GLTFLoader();
     try {
         if (!wolfCachedP) {
-            wolfCachedP = gltfLoader.loadAsync('/assets/low_poly_wolf.glb').then(gltf => {
+            wolfCachedP = gltfLoader.loadAsync('assets/low_poly_wolf.glb').then(gltf => {
                 return { scene: gltf.scene, animations: gltf.animations };
             });
         }
@@ -502,7 +502,7 @@ export async function spawnWolf(scene: THREE.Scene, x: number, z: number): Promi
         colliderToEntity.set(collider.handle, id);
 
         // Positional Audio (Reduced distance: 4m ref, 50% volume)
-        const wolfSound = audioManager.createPositionalAudio('/assets/sounds/freesound_community-angry-dog-14473.mp3', 4, 0.2);
+        const wolfSound = audioManager.createPositionalAudio('assets/sounds/freesound_community-angry-dog-14473.mp3', 4, 0.2);
         wolfSound.setDistanceModel('exponential');
         wolfPivot.add(wolfSound);
         // Store for cleanup if needed, but Three.js will handle most of it if we just stop it on death
@@ -564,16 +564,16 @@ export async function spawnZombie(scene: THREE.Scene, x: number, z: number): Pro
 
     try {
         if (!zombieCacheP.idle) {
-            zombieCacheP.idle = loader.loadAsync('/models/zombie/Zombie Idle.fbx').then(fbx => {
+            zombieCacheP.idle = loader.loadAsync('models/zombie/Zombie Idle.fbx').then(fbx => {
                 fbx.scale.setScalar(0.026); cleanupTraverse(fbx); stripRootMotion(fbx); return fbx;
             });
-            zombieCacheP.walk = loader.loadAsync('/models/zombie/Zombie Running.fbx').then(fbx => {
+            zombieCacheP.walk = loader.loadAsync('models/zombie/Zombie Running.fbx').then(fbx => {
                 fbx.scale.setScalar(0.026); cleanupTraverse(fbx); stripRootMotion(fbx); return fbx;
             });
-            zombieCacheP.attack = loader.loadAsync('/models/zombie/Zombie Attack.fbx').then(fbx => {
+            zombieCacheP.attack = loader.loadAsync('models/zombie/Zombie Attack.fbx').then(fbx => {
                 fbx.scale.setScalar(0.026); cleanupTraverse(fbx); stripRootMotion(fbx); return fbx;
             });
-            zombieCacheP.death = loader.loadAsync('/models/Dying Backwards (6).fbx').then(fbx => {
+            zombieCacheP.death = loader.loadAsync('models/Dying Backwards (6).fbx').then(fbx => {
                 fbx.scale.setScalar(0.026);
                 cleanupTraverse(fbx);
                 // FULL STRIP for death to prevent "jumping" up
@@ -617,7 +617,7 @@ export async function spawnZombie(scene: THREE.Scene, x: number, z: number): Pro
         entityMeshes.set(id, pivot);
 
         // Positional Audio (Reduced distance: 5m ref, 50% volume)
-        const zombieSound = audioManager.createPositionalAudio('/assets/sounds/freesound_community-zombie-sounds-95180.mp3', 5, 0.175);
+        const zombieSound = audioManager.createPositionalAudio('assets/sounds/freesound_community-zombie-sounds-95180.mp3', 5, 0.175);
         zombieSound.setDistanceModel('exponential');
         pivot.add(zombieSound);
         // Store for cleanup in AISystem

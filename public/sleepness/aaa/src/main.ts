@@ -410,7 +410,7 @@ async function init(playerType: number) {
     // ── Player Hurt Sound Update ──
     const hpAfterWeapon = Health.current[playerId];
     if (hpAfterWeapon < hpBeforeAI && !playerDead) {
-      audioManager.playSFX('/assets/sounds/freesound_community-young-man-being-hurt-95628.mp3', 0.09, 0.1);
+      audioManager.playSFX('assets/sounds/freesound_community-young-man-being-hurt-95628.mp3', 0.09, 0.1);
     }
     // @ts-ignore
     if (!world.weaponVisual) {
@@ -482,7 +482,7 @@ async function init(playerType: number) {
             if (playerMesh) playerMesh.visible = false;
             showJetHUD(true);
             // v24.2: Jet start-up sound reduced by 60% (0.15 -> 0.06)
-            audioManager.playSFX('/assets/sounds/freesound_community-f16-fighter-jet-start-upaif-14690.mp3', 0.06);
+            audioManager.playSFX('assets/sounds/freesound_community-f16-fighter-jet-start-upaif-14690.mp3', 0.06);
           } else if (interactPressed) {
             occupiedVehicle = tryEnterVehicle(playerMesh.position);
             if (occupiedVehicle) {
@@ -848,7 +848,7 @@ async function init(playerType: number) {
 
     const cameraUnderwater = (camera.position.y < WATER_LEVEL - 0.3) && (exitVehicleTimer <= 0);
     if (!underwaterSound) {
-      underwaterSound = audioManager.createAmbientSound('/assets/sounds/splash1.wav', 0.6);
+      underwaterSound = audioManager.createAmbientSound('assets/sounds/splash1.wav', 0.6);
     }
 
     // Araçtayken kamera su altına girse bile boğulma sesi çalmasın (isteğe bağlı)
@@ -873,7 +873,7 @@ async function init(playerType: number) {
     // @ts-ignore
     if (isSwimming && !world.wasSwimming) {
       // Suya giriş sesi
-      audioManager.playSFX('/assets/sounds/splash1.wav', 0.12);
+      audioManager.playSFX('assets/sounds/splash1.wav', 0.12);
       splashCooldown = 1.5;
     }
     // @ts-ignore
@@ -886,7 +886,7 @@ async function init(playerType: number) {
       if (speed > 1.0) {
         splashCooldown -= dt;
         if (splashCooldown <= 0) {
-          audioManager.playSFX('/assets/sounds/splash1.wav', 0.06);
+          audioManager.playSFX('assets/sounds/splash1.wav', 0.06);
           splashCooldown = 1.2 + Math.random() * 0.5;
         }
       }
@@ -905,7 +905,7 @@ async function init(playerType: number) {
       const stepDist = (Speed2D > 6) ? 1.4 : 0.75;
       footstepDistCounter += Speed2D * dt;
       if (footstepDistCounter >= stepDist) {
-        const sfx = '/assets/sounds/footstep.mp3';
+        const sfx = 'assets/sounds/footstep.mp3';
         const vol = camFollowPos.y > 10 ? 0.05 : 0.06;
         audioManager.playSFX(sfx, vol, 0.1);
         footstepDistCounter = 0;

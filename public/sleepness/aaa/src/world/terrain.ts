@@ -159,7 +159,7 @@ export function createTerrain(scene: THREE.Scene): { terrain: THREE.Mesh; size: 
 
   // Rock — local
   const rockTex = loadTex('/textures/gray_rocks_diff.jpg');
-  const rockNormal = loadTex('/assets/textures/waternormals.png'); // Use local water normal as fallback
+  const rockNormal = loadTex('assets/textures/waternormals.png'); // Use local water normal as fallback
   const detailNormal = loadTex('https://threejs.org/examples/textures/waternormals.jpg'); // Reusing water normal as a detailed noise/grain
   detailNormal.repeat.set(128, 128);
 

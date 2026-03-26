@@ -4,7 +4,7 @@ class AudioManager {
   private listener: THREE.AudioListener;
   private loader: THREE.AudioLoader;
   private bgm: THREE.Audio | null = null;
-  private bgmPool: string[] = ['/assets/sounds/ambient.mp3', '/assets/sounds/theme.mp3'];
+  private bgmPool: string[] = ['assets/sounds/ambient.mp3', 'assets/sounds/theme.mp3'];
   private currentBgmIndex: number = 0;
   private isInitialized: boolean = false;
   private bufferCache: Map<string, AudioBuffer> = new Map();

@@ -94,7 +94,7 @@ export function updateProjectiles(dt: number, enemiesRef: Map<EntityId, RigidBod
         const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
         if (d < 1.6 + 0.35) {
           spawnBurst(b.pos.clone(), 0xFF0000, 10, 3);
-          audioManager.playSFX('/assets/sounds/damage.wav', 0.2);
+          audioManager.playSFX('assets/sounds/damage.wav', 0.2);
           b.vel.multiplyScalar(0.3);
           if (Health.current[eid] !== undefined) {
             Health.current[eid] -= 25;

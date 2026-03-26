@@ -18,7 +18,7 @@ export function createWater(scene: THREE.Scene): Water {
     textureWidth: 256,
     textureHeight: 256,
     waterNormals: new THREE.TextureLoader().load(
-      '/assets/textures/waternormals.png',
+      'assets/textures/waternormals.png',
       (tex) => { tex.wrapS = tex.wrapT = THREE.RepeatWrapping; }
     ),
     sunDirection: new THREE.Vector3(0.5, 1, 0.5).normalize(),

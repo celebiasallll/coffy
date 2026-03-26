@@ -38,7 +38,7 @@ export const weaponSystem = defineSystem((world: IWorld) => {
 
             Weapon.type[id] = newType;
             WeaponState.state[id] = 0; // Reset to IDLE
-            audioManager.playSFX('/assets/sounds/freesound_community-empty-gun-shot-6209.mp3', 0.2);
+            audioManager.playSFX('assets/sounds/freesound_community-empty-gun-shot-6209.mp3', 0.2);
 
             InputIntents.switchWeaponRequest[id] = 0;
         }
@@ -66,7 +66,7 @@ export const weaponSystem = defineSystem((world: IWorld) => {
         if (InputIntents.reloadRequest[id] && WeaponState.state[id] !== 2 && Weapon.type[id] !== 3) {
             WeaponState.state[id] = 2; // RELOADING
             WeaponState.reloadTimer[id] = 2.0;
-            audioManager.playSFX('/assets/sounds/dragon-studio-gun-reload-504026.mp3', 0.5);
+            audioManager.playSFX('assets/sounds/dragon-studio-gun-reload-504026.mp3', 0.5);
             continue;
         }
 
@@ -81,8 +81,8 @@ export const weaponSystem = defineSystem((world: IWorld) => {
             } else if (WeaponState.state[id] !== 2) {
                 WeaponState.state[id] = 2;
                 WeaponState.reloadTimer[id] = 2.0;
-                audioManager.playSFX('/assets/sounds/dragon-studio-gun-reload-504026.mp3', 0.5);
-                audioManager.playSFX('/assets/sounds/freesound_community-empty-gun-shot-6209.mp3', 0.5);
+                audioManager.playSFX('assets/sounds/dragon-studio-gun-reload-504026.mp3', 0.5);
+                audioManager.playSFX('assets/sounds/freesound_community-empty-gun-shot-6209.mp3', 0.5);
             }
         } else if (!InputIntents.shootRequest[id] && WeaponState.state[id] === 1) {
             WeaponState.state[id] = 0;
@@ -94,14 +94,14 @@ export const weaponSystem = defineSystem((world: IWorld) => {
         // KICK_DELAY:  ~0.40s matches the kick extend phase
         if (InputIntents.punchRequest[id]) {
             // Play whoosh sound immediately for feel
-            audioManager.playSFX('/assets/sounds/impact.mp3', 0.15);
+            audioManager.playSFX('assets/sounds/impact.mp3', 0.15);
             scheduleMeleeHit(id, 0.32, 45, 5.5,
-                '/assets/sounds/impact.mp3');
+                'assets/sounds/impact.mp3');
         }
         if (InputIntents.kickRequest[id]) {
-            audioManager.playSFX('/assets/sounds/impact.mp3', 0.15);
+            audioManager.playSFX('assets/sounds/impact.mp3', 0.15);
             scheduleMeleeHit(id, 0.40, 75, 5.5,
-                '/assets/sounds/impact.mp3');
+                'assets/sounds/impact.mp3');
         }
 
         // 5. Tick pending melee hits
@@ -139,12 +139,12 @@ function fireWeapon(id: EntityId, world: GameWorld, rapierWorld: RAPIER.World, n
         Weapon.ammo[id]--;
         // Hybrid Logic: First shot snappy (0.8s), Burst full (0s = original length)
         const duration = (WeaponState.fireSequence[id] === 1) ? 0.8 : 0;
-        audioManager.playSFX('/assets/sounds/universfield-gunshot-352466.mp3', 0.06, 0.1, 1.0, duration, `gunshot_${id}`);
+        audioManager.playSFX('assets/sounds/universfield-gunshot-352466.mp3', 0.06, 0.1, 1.0, duration, `gunshot_${id}`);
     }
 
     if (type === 3) { // Knife Melee
         WeaponState.state[id] = 1;
-        audioManager.playSFX('/assets/sounds/impact.mp3', 0.3);
+        audioManager.playSFX('assets/sounds/impact.mp3', 0.3);
         performMelee(id, world, rapierWorld, 40, 3.0); // 3m Range
         return;
     }

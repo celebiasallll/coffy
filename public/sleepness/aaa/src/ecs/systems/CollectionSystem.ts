@@ -51,7 +51,7 @@ export const collectionSystem = defineSystem((world: IWorld) => {
         if (distSq < COLLECTION_DIST_SQ) {
             addCoffyCoin(1);
             // Fallback to impact.mp3 as coin_collect.mp3 is missing from assets
-            audioManager.playSFX('/assets/sounds/impact.mp3', 0.25, 0.1);
+            audioManager.playSFX('assets/sounds/impact.mp3', 0.25, 0.1);
             
             // New: Respawn coin randomly to keep population stable
             const scene = (gameWorld as any).scene;

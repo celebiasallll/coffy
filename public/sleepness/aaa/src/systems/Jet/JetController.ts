@@ -527,7 +527,7 @@ function handleJetCrash(j: NonNullable<typeof jet>, scene: THREE.Scene): void {
     animateFlash();
 
     try {
-        audioManager.playSFX('/assets/sounds/explosion.mp3', 1.0);
+        audioManager.playSFX('assets/sounds/explosion.mp3', 1.0);
     } catch (e) {}
 
     // 3. Hide Jet

@@ -469,7 +469,7 @@ export function spawnVehicles(scene: THREE.Scene): void {
         atv.addWheel(wmg, new THREE.Vector3(wx, 0, wz), true, isFront);
     });
     scene.add(atvGroup);
-    const atvEngine = audioManager.createEngineSound('/assets/sounds/engine_sound.mp3', 0);
+    const atvEngine = audioManager.createEngineSound('assets/sounds/engine_sound.mp3', 0);
     vehicles.push({ type: 'atv', controller: atv, isOccupied: false, enterRadius: 5, engineSound: atvEngine });
 
     // ─── JEEP ─────────────────────────────────────────────────────────────────
@@ -653,7 +653,7 @@ export function spawnVehicles(scene: THREE.Scene): void {
     });
 
     scene.add(jeepGroup);
-    const jeepEngine = audioManager.createEngineSound('/assets/sounds/engine_sound.mp3', 0);
+    const jeepEngine = audioManager.createEngineSound('assets/sounds/engine_sound.mp3', 0);
     vehicles.push({ type: 'jeep', controller: jeep, isOccupied: false, enterRadius: 5, engineSound: jeepEngine });
 
     // ─── DRIFTER TRUCK (GLB) ───
@@ -700,7 +700,7 @@ export function updateVehicles(dt: number, input: { forward: boolean; back: bool
 
                 aState.popCooldown -= dt;
                 if (aState.lastThrottle > 0.5 && throttle < 0.1 && aState.popCooldown <= 0 && speed > 5) {
-                    audioManager.playSFX('/assets/sounds/impact.mp3', 0.15, 0.4, 2.0); 
+                    audioManager.playSFX('assets/sounds/impact.mp3', 0.15, 0.4, 2.0); 
                     aState.popCooldown = 1.2 + Math.random() * 2.0;
                 }
                 aState.lastThrottle = throttle;
@@ -710,7 +710,7 @@ export function updateVehicles(dt: number, input: { forward: boolean; back: bool
                     const isWet = isNearLake(pos.x, pos.z); // [DÜZELTİLDİ: İmkansız matematik (speed < 0) silindi]
                     
                     if (!aState.terrainSound) {
-                        aState.terrainSound = audioManager.createAmbientSound('/assets/sounds/footstep.mp3', 0);
+                        aState.terrainSound = audioManager.createAmbientSound('assets/sounds/footstep.mp3', 0);
                         aState.terrainSound.play();
                     }
                     const tireVol = Math.min(0.15, speed * 0.008);

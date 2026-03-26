@@ -146,7 +146,7 @@ export function initWeather(scene: THREE.Scene): void {
   scene.add(rainPoints);
 
   // Initialize Rain Audio (80% volume reduction target)
-  rainSound = audioManager.createAmbientSound('/assets/sounds/rain.mp3', 0);
+  rainSound = audioManager.createAmbientSound('assets/sounds/rain.mp3', 0);
 }
 
 export function setRain(active: boolean, intensity = 1.0): void {

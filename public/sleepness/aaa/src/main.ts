@@ -329,26 +329,43 @@ async function init(playerType: number) {
   let defaultPct = 0;
   let bgPct = 0;
 
-  function updateTotalProgress() {
-    // Weighted Average: 40% Critical (Defaults like Terrain), 60% Background (NPCs, Zombies)
-    const totalPct = (defaultPct * 0.4) + (bgPct * 0.6);
-    
-    if (pctEl) pctEl.textContent = `${Math.round(totalPct)}%`;
-    if (loadBarEl) loadBarEl.style.width = `${totalPct}%`;
-    
-    const msgIdx = Math.min(Math.floor(totalPct / 20), loadMsgs.length - 1);
-    if (msgEl) msgEl.textContent = loadMsgs[msgIdx];
-  }
-
   THREE.DefaultLoadingManager.onProgress = (url, loaded, total) => {
-    defaultPct = (loaded / total) * 100;
-    updateTotalProgress();
+    const pct = (loaded / total) * 100;
+    if (pctEl) pctEl.textContent = `${Math.round(pct)}%`;
+    if (loadBarEl) loadBarEl.style.width = `${pct}%`;
+    const msgIdx = Math.min(Math.floor(pct / 20), loadMsgs.length - 1);
+    if (msgEl) msgEl.textContent = loadMsgs[msgIdx];
   };
 
+  // bgManager is still running in background, but we don't block the UI for it
   bgManager.onProgress = (url, loaded, total) => {
-    bgPct = (loaded / total) * 100;
-    updateTotalProgress();
+    // Optionally log progress to console for debug
   };
+
+  let assetsLoaded = false;
+  let loadingHidden = false; 
+
+  THREE.DefaultLoadingManager.onLoad = () => { 
+    assetsLoaded = true; 
+    checkLoading(); 
+  };
+
+  function checkLoading() {
+    // ONLY wait for Phase 1 (Critical) to enter the world FAST
+    if (!loadingHidden && assetsLoaded && loadingEl) {
+      loadingHidden = true;
+      if (pctEl) pctEl.textContent = '100%';
+      if (loadBarEl) loadBarEl.style.width = '100%';
+      if (msgEl) msgEl.textContent = 'Ready.';
+      audioManager.setMuted(false); 
+
+      const last = document.getElementById('ld-log-5');
+      if (last) { last.classList.add('done'); last.textContent = 'World ready'; }
+
+      loadingEl.classList.add('fade-out');
+      setTimeout(() => { if (loadingEl) loadingEl.style.display = 'none'; }, 800);
+    }
+  }
 
   const wolfQ = defineQuery([WolfTag]);
   const zombieQ = defineQuery([ZombieTag]);
@@ -370,30 +387,6 @@ async function init(playerType: number) {
   let footstepDistCounter = 0;
   let envAcc = 0;
   const ENV_STEP = 1 / 20; // 20 Hz: campfire/bird/horse güncellemesi
-
-  // ── Real Loading Sync ──────────────────────────────────────────────────
-  let assetsLoaded = false;
-  let bgAssetsLoaded = false;
-  let loadingHidden = false; 
-
-  THREE.DefaultLoadingManager.onLoad = () => { assetsLoaded = true; checkLoading(); };
-  bgManager.onLoad = () => { bgAssetsLoaded = true; checkLoading(); };
-
-  function checkLoading() {
-    if (!loadingHidden && assetsLoaded && bgAssetsLoaded && loadingEl) {
-      loadingHidden = true;
-      if (pctEl) pctEl.textContent = '100%';
-      if (loadBarEl) loadBarEl.style.width = '100%';
-      if (msgEl) msgEl.textContent = 'Ready.';
-      audioManager.setMuted(false); 
-
-      const last = document.getElementById('ld-log-5');
-      if (last) { last.classList.add('done'); last.textContent = 'World ready'; }
-
-      loadingEl.classList.add('fade-out');
-      setTimeout(() => { if (loadingEl) loadingEl.style.display = 'none'; }, 800);
-    }
-  }
 
   // ── Ana döngü ──────────────────────────────────────────────────────────────
   function animate() {

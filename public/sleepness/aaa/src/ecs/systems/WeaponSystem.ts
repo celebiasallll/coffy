@@ -93,15 +93,14 @@ export const weaponSystem = defineSystem((world: IWorld) => {
         // PUNCH_DELAY: ~0.32s matches the punch wind-up (animation mid-point)
         // KICK_DELAY:  ~0.40s matches the kick extend phase
         if (InputIntents.punchRequest[id]) {
-            // Play whoosh sound immediately for feel
-            audioManager.playSFX('assets/sounds/impact.mp3', 0.15);
+            // WHOOSH REMOVED
             scheduleMeleeHit(id, 0.32, 45, 5.5,
-                'assets/sounds/impact.mp3');
+                ''); // SOUND REMOVED
         }
         if (InputIntents.kickRequest[id]) {
-            audioManager.playSFX('assets/sounds/impact.mp3', 0.15);
+            // WHOOSH REMOVED
             scheduleMeleeHit(id, 0.40, 75, 5.5,
-                'assets/sounds/impact.mp3');
+                ''); // SOUND REMOVED
         }
 
         // 5. Tick pending melee hits
@@ -111,7 +110,7 @@ export const weaponSystem = defineSystem((world: IWorld) => {
                 hits[h].timer -= dt;
                 if (hits[h].timer <= 0) {
                     // Impact moment — actually deal damage
-                    audioManager.playSFX(hits[h].soundPath, 0.5);
+                    if (hits[h].soundPath) audioManager.playSFX(hits[h].soundPath, 0.5);
                     performMelee(id, gameWorld, rapierWorld, hits[h].damage, hits[h].range);
                     hits.splice(h, 1);
                 }
@@ -144,7 +143,7 @@ function fireWeapon(id: EntityId, world: GameWorld, rapierWorld: RAPIER.World, n
 
     if (type === 3) { // Knife Melee
         WeaponState.state[id] = 1;
-        audioManager.playSFX('assets/sounds/impact.mp3', 0.3);
+        // SOUND REMOVED
         performMelee(id, world, rapierWorld, 40, 3.0); // 3m Range
         return;
     }

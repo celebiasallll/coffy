@@ -173,8 +173,8 @@ export async function spawnPlayer(scene: THREE.Scene, x: number, _y: number, z: 
     const secondaryPromises = {
         'runningjump': loader.loadAsync(isP2 ? 'models/player2/Running Jump.fbx' : 'models/runningjump.fbx'),
         'swim': loader.loadAsync(isP2 ? 'models/player2/Swimming (1).fbx' : 'models/Swimming.fbx'),
-        'shoot_idle': loader.loadAsync(isP2 ? 'models/player2/Shoot Rifle (1).fbx' : 'models/Shoot Rifle.fbx'),
-        'shoot_run': loader.loadAsync(isP2 ? 'models/player2/Gunplay (2).fbx' : 'models/Gunplay (1).fbx'),
+        'shoot_idle': loader.loadAsync(isP2 ? 'models/player2/Gunplay (2).fbx' : 'models/Gunplay (1).fbx'),
+        'shoot_run': loader.loadAsync(isP2 ? 'models/player2/Shoot Rifle (1).fbx' : 'models/Shoot Rifle.fbx'),
         'crouch_idle': loader.loadAsync(isP2 ? 'models/player2/Crouch To Stand.fbx' : 'models/Stand To Crouch.fbx'),
         'crouch_walk': loader.loadAsync(isP2 ? 'models/player2/Walk Crouching Forward.fbx' : 'models/Walk Crouching Forward Right.fbx'),
         'punch': loader.loadAsync(isP2 ? 'models/player2/Cross Punch.fbx' : 'models/Cross Punch.fbx'),

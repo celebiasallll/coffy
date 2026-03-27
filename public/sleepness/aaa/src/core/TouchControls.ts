@@ -37,9 +37,34 @@ export class TouchControls {
     private lastLookY = 0;
     private smoothLook = { x: 0, y: 0 };
 
+    // Bound events for proper removal (Memory Leak Fix)
+    private boundTouchStart = (e: TouchEvent) => this.onTouchStart(e);
+    private boundTouchMove = (e: TouchEvent) => this.onTouchMove(e);
+    private boundTouchEnd = (e: TouchEvent) => this.onTouchEnd(e);
+
     constructor() {
         this.initHUD();
         this.bindEvents();
+    }
+
+    public dispose() {
+        window.removeEventListener('touchstart', this.boundTouchStart);
+        window.removeEventListener('touchmove', this.boundTouchMove);
+        window.removeEventListener('touchend', this.boundTouchEnd);
+        window.removeEventListener('touchcancel', this.boundTouchEnd);
+    }
+
+    private bindButton(id: string, property: keyof this) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        
+        const set = (val: boolean) => {
+            (this as any)[property] = val;
+        };
+
+        el.addEventListener('touchstart', (e) => { e.preventDefault(); set(true); }, { passive: false });
+        el.addEventListener('touchend', (e) => { e.preventDefault(); set(false); }, { passive: false });
+        el.addEventListener('touchcancel', (e) => { e.preventDefault(); set(false); }, { passive: false });
     }
 
     private initHUD() {
@@ -49,94 +74,29 @@ export class TouchControls {
         this.jetControlsMobile = document.getElementById('jet-controls-mobile');
         this.charActionsHUD = document.getElementById('char-actions');
 
-        const btnFire = document.getElementById('btn-fire');
-        const btnJump = document.getElementById('btn-jump');
-        const btnSprint = document.getElementById('btn-sprint');
-        const btnReload = document.getElementById('btn-reload');
-        const btnInteract = document.getElementById('btn-interact');
-        const btnJet = document.getElementById('btn-jet');
+        // Character Actions
+        this.bindButton('btn-fire', 'isFiring');
+        this.bindButton('btn-jump', 'isJumping');
+        this.bindButton('btn-reload', 'isReloading');
+        this.bindButton('btn-interact', 'isInteracting');
+        this.bindButton('btn-jet', 'isJetting');
         
-        // Jet buttons
-        const btnJetUp = document.getElementById('btn-jet-up');
-        const btnJetDown = document.getElementById('btn-jet-down');
-        const btnJetYawL = document.getElementById('btn-jet-yaw-l');
-        const btnJetYawR = document.getElementById('btn-jet-yaw-r');
-        const btnJetThrUp = document.getElementById('btn-jet-thr-up');
-        const btnJetThrDown = document.getElementById('btn-jet-thr-down');
-        const btnJetBoost = document.getElementById('btn-jet-boost');
-        const btnJetFire = document.getElementById('btn-jet-fire');
-
-        if (btnFire) {
-            btnFire.addEventListener('touchstart', (e) => { e.preventDefault(); this.isFiring = true; });
-            btnFire.addEventListener('touchend', (e) => { e.preventDefault(); this.isFiring = false; });
-        }
-        if (btnJump) {
-            btnJump.addEventListener('touchstart', (e) => { e.preventDefault(); this.isJumping = true; });
-            btnJump.addEventListener('touchend', (e) => { e.preventDefault(); this.isJumping = false; });
-        }
-        if (btnSprint) {
-            btnSprint.addEventListener('touchstart', (e) => { e.preventDefault(); this.isSprinting = true; });
-            btnSprint.addEventListener('touchend', (e) => { e.preventDefault(); this.isSprinting = false; });
-        }
-        if (btnReload) {
-            btnReload.addEventListener('touchstart', (e) => { e.preventDefault(); this.isReloading = true; });
-            btnReload.addEventListener('touchend', (e) => { e.preventDefault(); this.isReloading = false; });
-        }
-        if (btnInteract) {
-            btnInteract.addEventListener('touchstart', (e) => { e.preventDefault(); this.isInteracting = true; });
-            btnInteract.addEventListener('touchend', (e) => { e.preventDefault(); this.isInteracting = false; });
-        }
-        if (btnJet) {
-            btnJet.addEventListener('touchstart', (e) => { 
-                e.preventDefault(); 
-                this.isJetting = true; 
-            });
-            btnJet.addEventListener('touchend', (e) => { 
-                e.preventDefault(); 
-                this.isJetting = false; 
-            });
-        }
-
-        // Jet control bindings
-        if (btnJetUp) {
-            btnJetUp.addEventListener('touchstart', (e) => { e.preventDefault(); this.jetPitchUp = true; });
-            btnJetUp.addEventListener('touchend', (e) => { e.preventDefault(); this.jetPitchUp = false; });
-        }
-        if (btnJetDown) {
-            btnJetDown.addEventListener('touchstart', (e) => { e.preventDefault(); this.jetPitchDown = true; });
-            btnJetDown.addEventListener('touchend', (e) => { e.preventDefault(); this.jetPitchDown = false; });
-        }
-        if (btnJetYawL) {
-            btnJetYawL.addEventListener('touchstart', (e) => { e.preventDefault(); this.jetYawLeft = true; });
-            btnJetYawL.addEventListener('touchend', (e) => { e.preventDefault(); this.jetYawLeft = false; });
-        }
-        if (btnJetYawR) {
-            btnJetYawR.addEventListener('touchstart', (e) => { e.preventDefault(); this.jetYawRight = true; });
-            btnJetYawR.addEventListener('touchend', (e) => { e.preventDefault(); this.jetYawRight = false; });
-        }
-        if (btnJetThrUp) {
-            btnJetThrUp.addEventListener('touchstart', (e) => { e.preventDefault(); this.jetThrottleUp = true; });
-            btnJetThrUp.addEventListener('touchend', (e) => { e.preventDefault(); this.jetThrottleUp = false; });
-        }
-        if (btnJetThrDown) {
-            btnJetThrDown.addEventListener('touchstart', (e) => { e.preventDefault(); this.jetThrottleDown = true; });
-            btnJetThrDown.addEventListener('touchend', (e) => { e.preventDefault(); this.jetThrottleDown = false; });
-        }
-        if (btnJetBoost) {
-            btnJetBoost.addEventListener('touchstart', (e) => { e.preventDefault(); this.jetBoost = true; });
-            btnJetBoost.addEventListener('touchend', (e) => { e.preventDefault(); this.jetBoost = false; });
-        }
-        if (btnJetFire) {
-            btnJetFire.addEventListener('touchstart', (e) => { e.preventDefault(); this.jetFire = true; });
-            btnJetFire.addEventListener('touchend', (e) => { e.preventDefault(); this.jetFire = false; });
-        }
+        // Jet Controls
+        this.bindButton('btn-jet-up', 'jetPitchUp');
+        this.bindButton('btn-jet-down', 'jetPitchDown');
+        this.bindButton('btn-jet-yaw-l', 'jetYawLeft');
+        this.bindButton('btn-jet-yaw-r', 'jetYawRight');
+        this.bindButton('btn-jet-thr-up', 'jetThrottleUp');
+        this.bindButton('btn-jet-thr-down', 'jetThrottleDown');
+        this.bindButton('btn-jet-boost', 'jetBoost');
+        this.bindButton('btn-jet-fire', 'jetFire');
     }
 
     private bindEvents() {
-        window.addEventListener('touchstart', (e) => this.onTouchStart(e), { passive: false });
-        window.addEventListener('touchmove', (e) => this.onTouchMove(e), { passive: false });
-        window.addEventListener('touchend', (e) => this.onTouchEnd(e), { passive: false });
-        window.addEventListener('touchcancel', (e) => this.onTouchEnd(e), { passive: false });
+        window.addEventListener('touchstart', this.boundTouchStart, { passive: false });
+        window.addEventListener('touchmove', this.boundTouchMove, { passive: false });
+        window.addEventListener('touchend', this.boundTouchEnd, { passive: false });
+        window.addEventListener('touchcancel', this.boundTouchEnd, { passive: false });
     }
 
     private onTouchStart(e: TouchEvent) {
@@ -187,6 +147,13 @@ export class TouchControls {
 
     private onTouchMove(e: TouchEvent) {
         this.validateTouches(e);
+        
+        // Prevent default browser behavior (e.g. rubber-banding, pull-to-refresh)
+        // If the user is currently using joystick or looking around.
+        if (this.joystickTouchId !== null || this.lookTouchId !== null) {
+            e.preventDefault();
+        }
+
         Array.from(e.touches).forEach(touch => {
             // Joystick movement
             if (touch.identifier === this.joystickTouchId) {
@@ -220,6 +187,9 @@ export class TouchControls {
 
                 this.rawJoystick.x = moveX / maxDist;
                 this.rawJoystick.y = moveY / maxDist;
+
+                // Auto-sprint if pushing joystick far enough (e.g. > 85%)
+                this.isSprinting = (currentDist / maxDist) > 0.85;
 
                 // Joystick deadzone (Point 10)
                 if (currentDist < 10) {
@@ -294,26 +264,18 @@ export class TouchControls {
         
         if (Math.abs(this.moveJoystick.x) < 0.02) this.moveJoystick.x = 0;
         if (Math.abs(this.moveJoystick.y) < 0.02) this.moveJoystick.y = 0;
-
-        // Look Smoothing (Pro Fix 4)
-        const smoothingFactor = 0.2;
-        this.smoothLook.x += (this.lookDelta.x - this.smoothLook.x) * smoothingFactor;
-        this.smoothLook.y += (this.lookDelta.y - this.smoothLook.y) * smoothingFactor;
     }
     
     public getAndClearLookDelta() {
-        // Delta Clamping - Increased for Flick turns (Pro Fix 4 refined)
-        const maxDelta = 0.12; 
+        // Responsive camera mapping
         const delta = { 
-            x: Math.max(-maxDelta, Math.min(maxDelta, this.smoothLook.x)), 
-            y: Math.max(-maxDelta, Math.min(maxDelta, this.smoothLook.y)) 
+            x: this.lookDelta.x, 
+            y: this.lookDelta.y 
         };
         
-        // Clear both raw and smoothed
+        // Clear delta completely
         this.lookDelta.x = 0;
         this.lookDelta.y = 0;
-        this.smoothLook.x = 0;
-        this.smoothLook.y = 0;
         
         return delta;
     }

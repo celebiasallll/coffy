@@ -22,6 +22,29 @@ console.error = (...args) => {
   _error.apply(console, args);
 };
 
+// --- MOBILE DETECTION & IMMERSIVE SETUP ---
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 0);
+if (isMobile) {
+  document.body.classList.add('mobile-device');
+  const triggerImmersive = () => {
+    try {
+      const docEl = document.documentElement as any;
+      const requestFS = docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.mozRequestFullScreen || docEl.msRequestFullscreen;
+      if (requestFS) {
+        requestFS.call(docEl).then(() => {
+          if (screen.orientation && (screen.orientation as any).lock) {
+            (screen.orientation as any).lock('landscape').catch(() => {});
+          }
+        }).catch(() => {});
+      }
+    } catch (e) {}
+    document.removeEventListener('touchstart', triggerImmersive);
+    document.removeEventListener('click', triggerImmersive);
+  };
+  document.addEventListener('touchstart', triggerImmersive);
+  document.addEventListener('click', triggerImmersive);
+}
+
 import { createRenderer, createSceneAndCamera, setupResize, setupLights } from './core/renderer.js';
 import { createTerrain, getHeight } from './world/terrain.js';
 import { populateEnvironment, updateEnvironment, isSpaceOccupied, isNearLake, optimizer } from './world/environment.js';
@@ -58,6 +81,7 @@ import { DebugPanel } from './core/DebugPanel.js';
 import { WorldStreamer } from './core/WorldStreamer.js';
 import { audioManager } from './core/AudioManager.js';
 import { removeEntity, defineQuery } from 'bitecs';
+import { touchControls } from './core/TouchControls.js';
 
 // ── Yeni sistemler ────────────────────────────────────────────────────────────
 import {
@@ -107,13 +131,22 @@ function updateTimeHUD(): void {
   if (!el) {
     el = document.createElement('div');
     el.id = 'time-label';
-    el.style.cssText = [
-      'position:fixed', 'top:14px', 'right:16px',
-      'color:#fff', 'font-size:13px', 'font-family:monospace',
-      'text-shadow:1px 1px 3px #000', 'pointer-events:none',
-      'background:rgba(0,0,0,.35)', 'padding:4px 10px',
-      'border-radius:6px', 'z-index:100',
-    ].join(';');
+    el.style.cssText = `
+      position: fixed;
+      top: 14px;
+      right: 16px;
+      color: #fff;
+      font-size: 13px;
+      font-family: 'Rajdhani', sans-serif;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+      pointer-events: none;
+      background: rgba(0,0,0,0.35);
+      padding: 5px 12px;
+      border-radius: 20px;
+      z-index: 100;
+      border: 1px solid rgba(255,255,255,0.05);
+      backdrop-filter: blur(4px);
+    `;
     document.body.appendChild(el);
   }
   const rain = isRaining() ? ' 🌧' : '';
@@ -161,6 +194,7 @@ const worldStreamer = new WorldStreamer(null as any);
 
 let lowFpsTimer = 0;
 let smaaDegraded = false;
+let currentSMAA = 'ULTRA';
 
 async function init(playerType: number) {
   initBVH();
@@ -202,6 +236,9 @@ async function init(playerType: number) {
   initWeather(scene);        // yağmur sistemi (T tuşuyla toggle)
 
   initPostprocessing(scene, camera, renderer);
+  // @ts-ignore
+  const composer = (window as any).composer; 
+  setupResize(renderer, camera, composer);
   createTerrain(scene);
   createWater(scene);
 
@@ -218,7 +255,7 @@ async function init(playerType: number) {
 
   // Spawning 10 Wolves: 6 near player (50-250m), 4 global
   for (let i = 0; i < 6; i++) {
-    let rx, rz;
+    let rx: number, rz: number;
     let attempts = 0;
     do {
       const angle = Math.random() * Math.PI * 2;
@@ -230,7 +267,7 @@ async function init(playerType: number) {
     spawnWolf(scene, rx, rz);
   }
   for (let i = 0; i < 4; i++) {
-    let rx, rz;
+    let rx: number, rz: number;
     let attempts = 0;
     do {
       rx = (Math.random() - 0.5) * 1700;
@@ -242,7 +279,7 @@ async function init(playerType: number) {
 
   // Spawning 10 Zombies: 6 near player (50-250m), 4 global
   for (let i = 0; i < 6; i++) {
-    let rx, rz;
+    let rx: number, rz: number;
     let attempts = 0;
     do {
       const angle = Math.random() * Math.PI * 2;
@@ -254,7 +291,7 @@ async function init(playerType: number) {
     spawnZombie(scene, rx, rz);
   }
   for (let i = 0; i < 4; i++) {
-    let rx, rz;
+    let rx: number, rz: number;
     let attempts = 0;
     do {
       rx = (Math.random() - 0.5) * 1700;
@@ -266,7 +303,7 @@ async function init(playerType: number) {
 
   initItemSpawner(scene, world);
 
-  // Spawn 10 NPC Quest Givers: Parallelized & Non-blocking for Loading screen
+  // Spawn 10 NPC Quest Givers
   const npcPromises = [];
   for (let i = 0; i < 6; i++) {
     npcPromises.push(spawnRandomNPC(scene, px, pz, 250, i % 2 === 0 ? 0 : 1));
@@ -274,8 +311,6 @@ async function init(playerType: number) {
   for (let i = 0; i < 4; i++) {
     npcPromises.push(spawnRandomNPC(scene, px, pz, -1, i % 2 === 0 ? 1 : 0));
   }
-  // We do NOT await npcPromises here, or if we do, we do it after the loading screen is gone.
-  // Actually, spawnRandomNPC is already using bgLoader, so it's fine.
   
   onDeath(() => {
     InputState.sprint[playerId] = 0;
@@ -326,20 +361,12 @@ async function init(playerType: number) {
   const loadBarEl = document.getElementById('load-bar');
   const loadMsgs = ['Initializing...', 'Loading terrain...', 'Spawning assets...', 'Preparing enemies...', 'Almost ready...'];
 
-  let defaultPct = 0;
-  let bgPct = 0;
-
   THREE.DefaultLoadingManager.onProgress = (url, loaded, total) => {
     const pct = (loaded / total) * 100;
     if (pctEl) pctEl.textContent = `${Math.round(pct)}%`;
     if (loadBarEl) loadBarEl.style.width = `${pct}%`;
     const msgIdx = Math.min(Math.floor(pct / 20), loadMsgs.length - 1);
     if (msgEl) msgEl.textContent = loadMsgs[msgIdx];
-  };
-
-  // bgManager is still running in background, but we don't block the UI for it
-  bgManager.onProgress = (url, loaded, total) => {
-    // Optionally log progress to console for debug
   };
 
   let assetsLoaded = false;
@@ -351,7 +378,6 @@ async function init(playerType: number) {
   };
 
   function checkLoading() {
-    // ONLY wait for Phase 1 (Critical) to enter the world FAST
     if (!loadingHidden && assetsLoaded && loadingEl) {
       loadingHidden = true;
       if (pctEl) pctEl.textContent = '100%';
@@ -371,28 +397,29 @@ async function init(playerType: number) {
   const zombieQ = defineQuery([ZombieTag]);
   const npcQ = defineQuery([NPCTag]);
 
+  // --- PRE-ALLOCATED MATH OBJECTS (GC OPTIMIZATION) ---
   const camTarget = new THREE.Vector3();
-  let cumulativeWolfDamage = 0;
-  let playerDead = false; // Ölüm sekansı bir kez tetiklensin
-
-  // DYNAMIC QUALITY
-  let currentSMAA = 'ULTRA';
-  let fpsWindow: number[] = [];
+  const tempVec1 = new THREE.Vector3();
+  const camDir = new THREE.Vector3();
+  const aimPoint = new THREE.Vector3();
   const fallbackCamPos = new THREE.Vector3();
+
+  let cumulativeWolfDamage = 0;
+  let playerDead = false; 
+  let fpsWindow: number[] = [];
   const clock = new THREE.Clock();
-  let isUnderwater = false;
-  let underwaterSound: any = null;
-  let exitVehicleTimer = 0; // Cooldown to prevent underwater flicker
+  let envAcc = 0;
+  const ENV_STEP = 1 / 20; 
+  let exitVehicleTimer = 0;
   let splashCooldown = 0;
   let footstepDistCounter = 0;
-  let envAcc = 0;
-  const ENV_STEP = 1 / 20; // 20 Hz: campfire/bird/horse güncellemesi
+  let underwaterSound: any = null;
+  let isUnderwater = false;
 
-  // ── Ana döngü ──────────────────────────────────────────────────────────────
   function animate() {
     if (isGameOver()) return;
     requestAnimationFrame(animate);
-    const dt = Math.min(clock.getDelta(), 0.05);
+    const dt = Math.min(clock.getDelta(), 0.1); 
     world.dt = dt;
     checkLoading();
 
@@ -417,18 +444,17 @@ async function init(playerType: number) {
     cumulativeWolfDamage += wolfDmgThisFrame;
 
     physicsSystem(world);
-
     animationSystem(world);
-
     renderSystem(world);
-
     weaponSystem(world);
+    updateImpacts(scene, dt);
+    updateParticles(dt);
 
-    // ── Player Hurt Sound Update ──
     const hpAfterWeapon = Health.current[playerId];
     if (hpAfterWeapon < hpBeforeAI && !playerDead) {
       audioManager.playSFX('assets/sounds/freesound_community-young-man-being-hurt-95628.mp3', 0.09, 0.1);
     }
+    
     // @ts-ignore
     if (!world.weaponVisual) {
       // @ts-ignore
@@ -437,16 +463,12 @@ async function init(playerType: number) {
     // @ts-ignore
     world.weaponVisual(world);
 
-    // Araç binme / inme
-
-    // Araç binme / inme - Sadece yakında NPC yoksa araca binilebilir
     const interactPressed = InputState.interact[playerId] === 1;
     const jetPressed = InputIntents.jetRequest[playerId] === 1;
 
     if ((interactPressed || jetPressed) && getNearestNPC() === null) {
       if (inJet) {
         if (jetPressed) {
-          // Exit jet (v27.0 High-Altitude Fatality check)
           const exitAlt = getJetAltitude();
           const exitPos = exitJet();
           const rb = entityPhysicsBodies.get(playerId);
@@ -461,12 +483,8 @@ async function init(playerType: number) {
           showJetHUD(false);
           exitVehicleTimer = 0.5;
 
-          // 150 birimden yüksekte atladıysa 2 saniye sonra ölür
           if (exitAlt > 150) {
-            console.warn(`[JET FATALITY] High altitude jump: ${exitAlt.toFixed(1)}m. Ending game in 2s.`);
-            setTimeout(() => {
-                if (!isGameOver()) triggerGameOver();
-            }, 2000);
+            setTimeout(() => { if (!isGameOver()) triggerGameOver(); }, 2000);
           }
         }
       } else if (occupiedVehicle) {
@@ -486,7 +504,6 @@ async function init(playerType: number) {
       } else {
         const playerMesh = entityMeshes.get(playerId);
         if (playerMesh) {
-          // Try jet first (Key T), then ground vehicles (Key E)
           if (jetPressed && tryEnterJet(playerMesh.position)) {
             inJet = true;
             InputState.isDriving[playerId] = 1;
@@ -498,7 +515,6 @@ async function init(playerType: number) {
             }
             if (playerMesh) playerMesh.visible = false;
             showJetHUD(true);
-            // v24.2: Jet start-up sound reduced by 60% (0.15 -> 0.06)
             audioManager.playSFX('assets/sounds/freesound_community-f16-fighter-jet-start-upaif-14690.mp3', 0.06);
           } else if (interactPressed) {
             occupiedVehicle = tryEnterVehicle(playerMesh.position);
@@ -529,26 +545,17 @@ async function init(playerType: number) {
     } : { forward: false, back: false, left: false, right: false, brake: false };
 
     updateVehicles(dt, vInput);
-
-    // ── Jet flight update ─────────────────────────────────────────────────
     updateJet(dt, scene, camera);
 
-    // ── Survival: can sprint + health drain ─────────────────────────────
     const sprintWanted = InputState.sprint[playerId] === 1;
     const sprintAllowed = sprintWanted && canSprint();
     InputState.sprint[playerId] = sprintAllowed ? 1 : 0;
     const surv = updateSurvival(dt, sprintAllowed);
-    // HEALTH FIX: surv.health SurvivalSystem'in kendi başlangıç değerinden (100) düşer.
-    // cumulativeWolfDamage her frame surv.health'ten çıkarılır → kalıcı hasar.
-    // surv.health 0'a inerse zaten ölüyor, cumulativeWolfDamage'i cap'le.
     cumulativeWolfDamage = Math.min(cumulativeWolfDamage, surv.health);
     Health.current[playerId] = Math.max(0, surv.health - cumulativeWolfDamage);
 
-    // ── Player Death ──────────────────────────────────────────────────────
     if (Health.current[playerId] <= 0 && !playerDead) {
       playerDead = true;
-
-      // Input kilitle
       InputState.sprint[playerId] = 0;
       InputState.moveX[playerId] = 0;
       InputState.moveZ[playerId] = 0;
@@ -556,84 +563,57 @@ async function init(playerType: number) {
       InputState.attack[playerId] = 0;
       InputIntents.shootRequest[playerId] = 0;
 
-      // Animasyonları durdur — death clip varsa oynatan AnimationController
       const animCtrl = entityAnimationControllers.get(playerId) as any;
       if (animCtrl) {
-        if (animCtrl.actions?.['death']) {
-          animCtrl.setState('death', true);
-        } else {
-          // death clip yoksa tüm animasyonları kapat
-          const acts = animCtrl.actions as Record<string, any> | undefined;
-          if (acts) {
-            for (const key in acts) {
-              if (acts[key]?.isRunning?.()) acts[key].fadeOut(0.4);
-            }
-          }
+        if (animCtrl.actions?.['death']) animCtrl.setState('death', true);
+        else {
+          const acts = animCtrl.actions;
+          if (acts) for (const key in acts) if (acts[key]?.isRunning?.()) acts[key].fadeOut(0.4);
         }
       }
-
-      // 2 saniye sonra game over ekranı
       setTimeout(() => triggerGameOver(), 2000);
     }
 
     npcSystem(world);
 
-    // ── Global Interaction Prompt (NPC > Vehicle) ────────────────────────
     const interactEl = document.getElementById('interact');
     if (interactEl) {
       const nearestNPC = getNearestNPC();
-      if (nearestNPC !== null && !isDialogueOpen()) {
-        // NPCSystem handles NPC prompt internally
-      } else {
+      if (nearestNPC === null || isDialogueOpen()) {
         const pMesh = entityMeshes.get(playerId);
-        const vNear = getNearestVehicleInfo(pMesh?.position || new THREE.Vector3());
+        const pPos = pMesh?.position || tempVec1.set(0,0,0);
+        const vNear = getNearestVehicleInfo(pPos);
         const jNear = pMesh ? getJetNearInfo(pMesh.position) : null;
 
-        if (inJet || occupiedVehicle) {
-          interactEl.style.display = 'none';
-        } else if (jNear && !isDialogueOpen()) {
+        if (inJet || occupiedVehicle) interactEl.style.display = 'none';
+        else if (jNear && !isDialogueOpen()) {
           interactEl.innerHTML = `<span class="kbd">T</span> <b style="color:#00e5ff">F-16 FIGHTER JET</b> · Enter`;
           interactEl.style.display = 'block';
         } else if (vNear && !isDialogueOpen()) {
           interactEl.innerHTML = `<span class="kbd">E</span> ${vNear.type.toUpperCase()} · Enter`;
           interactEl.style.display = 'block';
-        } else {
-          interactEl.style.display = 'none';
-        }
+        } else interactEl.style.display = 'none';
       }
     }
     collectionSystem(world);
 
-    // ── HUD Updates ───────────────────────────────────────────────────────
     const crosshairEl = document.getElementById('crosshair');
-    if (crosshairEl) {
-      crosshairEl.style.display = (inJet || occupiedVehicle) ? 'none' : 'block';
-    }
+    if (crosshairEl) crosshairEl.style.display = (inJet || occupiedVehicle) ? 'none' : 'block';
 
     const ammoTextEl = document.getElementById('ammo-text');
     const reloadMsgEl = document.getElementById('ammo-reload-msg');
     if (ammoTextEl) {
-      const ammo = Weapon.ammo[playerId];
-      const max = Weapon.maxAmmo[playerId];
-      ammoTextEl.textContent = `${ammo} / ${max}`;
-
+      ammoTextEl.textContent = `${Weapon.ammo[playerId]} / ${Weapon.maxAmmo[playerId]}`;
       const isReloading = WeaponState.state[playerId] === 2;
       if (reloadMsgEl) {
         if (isReloading) reloadMsgEl.classList.add('visible');
         else reloadMsgEl.classList.remove('visible');
       }
     }
-    updateImpacts(scene, dt);
 
     fallbackCamPos.set(Position.x[playerId], Position.y[playerId], Position.z[playerId]);
+    const camFollowPos = inJet ? (getJetPosition() ?? fallbackCamPos) : occupiedVehicle ? occupiedVehicle.controller.mesh.position : fallbackCamPos;
 
-    const camFollowPos = inJet
-      ? (getJetPosition() ?? fallbackCamPos)
-      : occupiedVehicle
-      ? occupiedVehicle.controller.mesh.position
-      : fallbackCamPos;
-
-    // ── Gece/Gündüz ──────────────────────────────────────────────────────────
     const newSunDir = updateDayNight(dt, sun, hemi, ambient, renderer, scene, camFollowPos);
 
     if (optimizer) {
@@ -642,95 +622,18 @@ async function init(playerType: number) {
       optimizer.optimizeShadows(sun, camera);
     }
 
-    // ── Yağmur ───────────────────────────────────────────────────────────────
     updateWeather(dt, camFollowPos, getTimeOfDay());
 
-    // ── Diğer güncellemeler ───────────────────────────────────────────────────
     envAcc += dt;
-    // Environment güncellemesi (campfire/bird/horse) her frame'de gerekmez.
     if (envAcc >= ENV_STEP) {
       updateEnvironment(envAcc, clock.getElapsedTime());
-      updateWater(envAcc, newSunDir, camera.position);        // su refleksiyonu güneş yönüyle güncellenir
+      updateWater(envAcc, newSunDir, camera.position);
       updateClouds(envAcc);
       envAcc = 0;
     }
     worldStreamer.update(camFollowPos);
-    updateParticles(dt);
 
-    // ── Respawn System (Delayed & Event-Driven) ──────────────────────────
-    // @ts-ignore
-    if (world.wolfRespawnTimer === undefined) world.wolfRespawnTimer = 0;
-    // @ts-ignore
-    if (world.zombieRespawnTimer === undefined) world.zombieRespawnTimer = 0;
-
-    const currentWolves = wolfQ(world);
-    const currentZombies = zombieQ(world);
-    const currentNPCs = npcQ(world);
-    const activeWolvesCount = currentWolves.length;
-    const activeZombiesCount = currentZombies.length;
-
-    // Wolf Respawn
-    if (activeWolvesCount < 10) {
-      // @ts-ignore
-      if (world.wolfRespawnTimer <= 0) {
-        // @ts-ignore
-        world.wolfRespawnTimer = 8.0;
-      } else {
-        // @ts-ignore
-        world.wolfRespawnTimer -= dt;
-        // @ts-ignore
-        if (world.wolfRespawnTimer <= 0) {
-          let rx, rz;
-          let attempts = 0;
-          const px = Position.x[playerId];
-          const pz = Position.z[playerId];
-          do {
-            const angle = Math.random() * Math.PI * 2;
-            const radius = 150 + Math.random() * 150;
-            rx = px + Math.cos(angle) * radius;
-            rz = pz + Math.sin(angle) * radius;
-            attempts++;
-          } while ((isSpaceOccupied(rx, rz, 4) || isNearLake(rx, rz, 15)) && attempts < 50);
-          spawnWolf(scene, rx, rz);
-        }
-      }
-    } else {
-      // @ts-ignore
-      world.wolfRespawnTimer = 0;
-    }
-
-    // Zombie Respawn
-    if (activeZombiesCount < 10) {
-      // @ts-ignore
-      if (world.zombieRespawnTimer <= 0) {
-        // @ts-ignore
-        world.zombieRespawnTimer = 12.0;
-      } else {
-        // @ts-ignore
-        world.zombieRespawnTimer -= dt;
-        // @ts-ignore
-        if (world.zombieRespawnTimer <= 0) {
-          let rx, rz;
-          let attempts = 0;
-          const px = Position.x[playerId];
-          const pz = Position.z[playerId];
-          do {
-            // Proximity respawn (150-300m from player)
-            const angle = Math.random() * Math.PI * 2;
-            const radius = 150 + Math.random() * 150;
-            rx = px + Math.cos(angle) * radius;
-            rz = pz + Math.sin(angle) * radius;
-            attempts++;
-          } while ((isSpaceOccupied(rx, rz, 4) || isNearLake(rx, rz, 15)) && attempts < 50);
-          spawnZombie(scene, rx, rz);
-        }
-      }
-    } else {
-      // @ts-ignore
-      world.zombieRespawnTimer = 0;
-    }
-
-    // ── Entity Bubble (Dynamic Density) ─────────────────────────────────
+    // Dynamic Entity Bubble
     // @ts-ignore
     if (world.bubbleTimer === undefined) world.bubbleTimer = 0;
     // @ts-ignore
@@ -741,16 +644,15 @@ async function init(playerType: number) {
       world.bubbleTimer = 0;
       const px = Position.x[playerId];
       const pz = Position.z[playerId];
-
+      const currentWolves = wolfQ(world);
+      const currentZombies = zombieQ(world);
+      const currentNPCs = npcQ(world);
       const entities = [...currentWolves, ...currentZombies, ...currentNPCs];
 
       entities.forEach(id => {
         const dx = Position.x[id] - px;
         const dz = Position.z[id] - pz;
-        // Threshold: Enemies/NPCs > 500m
-        const threshold = 500;
-
-        if (dx * dx + dz * dz > threshold * threshold) {
+        if (dx * dx + dz * dz > 250000) { // 500m
           let rx, rz;
           let attempts = 0;
           do {
@@ -764,38 +666,28 @@ async function init(playerType: number) {
           Position.x[id] = rx;
           Position.z[id] = rz;
           Position.y[id] = getHeight(rx, rz);
-
           const rb = entityPhysicsBodies.get(id as any);
-          if (rb) {
-            rb.setTranslation({ x: rx, y: Position.y[id], z: rz }, true);
-          }
+          if (rb) rb.setTranslation({ x: rx, y: Position.y[id], z: rz }, true);
         }
       });
     }
 
-    // --- PROFILER LOG ---
     // @ts-ignore
     if (!world._frameCount) world._frameCount = 0;
     // @ts-ignore
     world._frameCount++;
 
-    // DYNAMIC QUALITY LOGIC
     fpsWindow.push(1 / dt);
     if (fpsWindow.length > 60) fpsWindow.shift();
 
     // @ts-ignore
     if (world._frameCount % 60 === 0) {
-      const avgFps = fpsWindow.reduce((a, b) => a + b, 0) / fpsWindow.length;
-      if (avgFps > 55 && currentSMAA !== 'ULTRA') {
-        setSMAAPreset(SMAAPreset.ULTRA);
-        currentSMAA = 'ULTRA';
-      } else if (avgFps < 48 && currentSMAA !== 'HIGH') {
-        setSMAAPreset(SMAAPreset.HIGH);
-        currentSMAA = 'HIGH';
-      }
+      const avgFps = fpsWindow.reduce((a, b) => a + b, 0) / Math.max(1, fpsWindow.length);
+      if (avgFps > 55 && currentSMAA !== 'ULTRA') { setSMAAPreset(SMAAPreset.ULTRA); currentSMAA = 'ULTRA'; }
+      else if (avgFps < 48 && currentSMAA !== 'HIGH') { setSMAAPreset(SMAAPreset.HIGH); currentSMAA = 'HIGH'; }
     }
 
-    // Kamera (GTA/PUBG Style OTS)
+    touchControls.update();
     const isAiming = (InputIntents.aimRequest[playerId] ?? 0) === 1;
     // @ts-ignore
     if (world.adsFactor === undefined) world.adsFactor = 0;
@@ -808,45 +700,31 @@ async function init(playerType: number) {
     const pitch = Math.max(PITCH_MIN, Math.min(PITCH_MAX, InputState.pitch[playerId] ?? 0.25));
     const cosPitch = Math.cos(pitch);
 
-    // Persistent Shoulder Offset (GTA Style)
-    // Idle iken 1.3 (+40cm daha sağ), Nişan alırken daha fazla.
     if (!inJet) {
       const shoulderOffset = 1.3 + 0.6 * adsFactor;
       const sideX = Math.cos(yaw) * shoulderOffset;
       const sideZ = -Math.sin(yaw) * shoulderOffset;
-
-      // Uzaklık ADS'de biraz azalır.
       const effectiveCamDist = occupiedVehicle ? Math.max(15, camDist) : camDist;
       const currentDist = effectiveCamDist * (1 - 0.4 * adsFactor);
 
       const desiredX = camFollowPos.x + Math.sin(yaw) * cosPitch * currentDist + sideX;
       const desiredZ = camFollowPos.z + Math.cos(yaw) * cosPitch * currentDist + sideZ;
       const zoomFactor = (camDist - CAM_DIST_MIN) / (CAM_DIST_MAX - CAM_DIST_MIN);
-
-      // Yükseklik ADS'de biraz artar
       const baseHeight = 3.4 + 0.4 * zoomFactor; 
       const desiredY = camFollowPos.y + baseHeight + (0.4 * adsFactor);
-      const clampedY = Math.max(camFollowPos.y + 0.5, desiredY);
-
-      camTarget.set(desiredX, clampedY, desiredZ);
+      
+      camTarget.set(desiredX, Math.max(camFollowPos.y + 0.5, desiredY), desiredZ);
       camera.position.lerp(camTarget, CAM_LERP);
-
       camera.rotation.order = 'YXZ';
       camera.rotation.set(-pitch, yaw, 0);
-
-      // FOV Zoom (ADS'de 45, Idle'da 75)
       camera.fov = THREE.MathUtils.lerp(75, 45, adsFactor);
       camera.updateProjectionMatrix();
 
-      // Atış Hassasiyeti (Raycast)
       const physicsWorld = getPhysicsWorld();
-      const camDir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
-      const camRay = new RAPIER.Ray(
-        { x: camera.position.x, y: camera.position.y, z: camera.position.z },
-        { x: camDir.x, y: camDir.y, z: camDir.z }
-      );
+      camDir.set(0, 0, -1).applyQuaternion(camera.quaternion);
+      const camRay = new RAPIER.Ray(camera.position, camDir);
       const camHit = physicsWorld.castRay(camRay, 200, true);
-      let aimPoint = new THREE.Vector3().copy(camera.position).add(camDir.clone().multiplyScalar(100));
+      aimPoint.copy(camera.position).add(tempVec1.copy(camDir).multiplyScalar(100));
 
       if (camHit) {
         // @ts-ignore
@@ -860,160 +738,91 @@ async function init(playerType: number) {
 
     if (skyMesh) skyMesh.position.copy(camera.position);
 
-    // Araçtan inince saniyelik flicker'ı önlemek için timer bekle
     if (exitVehicleTimer > 0) exitVehicleTimer -= dt;
+    const isCameraUnderwater = (camera.position.y < WATER_LEVEL - 0.3) && (exitVehicleTimer <= 0);
 
-    const cameraUnderwater = (camera.position.y < WATER_LEVEL - 0.3) && (exitVehicleTimer <= 0);
     if (!underwaterSound) {
       underwaterSound = audioManager.createAmbientSound('assets/sounds/splash1.wav', 0.6);
     }
-
-    // Araçtayken kamera su altına girse bile boğulma sesi çalmasın (isteğe bağlı)
-    if (cameraUnderwater && !isUnderwater && !occupiedVehicle) {
+    if (isCameraUnderwater && !isUnderwater && !occupiedVehicle) {
       isUnderwater = true;
       scene.fog = new THREE.FogExp2(0x005577, 0.06);
       renderer.setClearColor(0x005577, 1);
       hemi.color.set(0x003344);
       if (underwaterSound && underwaterSound.buffer && !underwaterSound.isPlaying) underwaterSound.play();
-    } else if (!cameraUnderwater && isUnderwater) {
+    } else if (!isCameraUnderwater && isUnderwater) {
       isUnderwater = false;
       scene.fog = null;
       renderer.setClearColor(0x000000, 1);
       if (underwaterSound && underwaterSound.isPlaying) underwaterSound.stop();
     }
 
-    // ── Swimming Splash SFX ──────────────────────────────────────────
+    // Swimming Splash
     // @ts-ignore
     if (world.wasSwimming === undefined) world.wasSwimming = false;
     const isSwimming = InputState.swim[playerId] === 1;
-
     // @ts-ignore
-    if (isSwimming && !world.wasSwimming) {
-      // Suya giriş sesi
-      audioManager.playSFX('assets/sounds/splash1.wav', 0.12);
-      splashCooldown = 1.5;
-    }
+    if (isSwimming && !world.wasSwimming) { audioManager.playSFX('assets/sounds/splash1.wav', 0.12); splashCooldown = 1.5; }
     // @ts-ignore
     world.wasSwimming = isSwimming;
 
     if (isSwimming) {
-      const pVel = entityPhysicsBodies.get(playerId)?.linvel();
-      const speed = pVel ? Math.hypot(pVel.x, pVel.z) : 0;
-
-      if (speed > 1.0) {
+      const pVelStr = entityPhysicsBodies.get(playerId)?.linvel();
+      const speedStr = pVelStr ? Math.hypot(pVelStr.x, pVelStr.z) : 0;
+      if (speedStr > 1.0) {
         splashCooldown -= dt;
-        if (splashCooldown <= 0) {
-          audioManager.playSFX('assets/sounds/splash1.wav', 0.06);
-          splashCooldown = 1.2 + Math.random() * 0.5;
-        }
+        if (splashCooldown <= 0) { audioManager.playSFX('assets/sounds/splash1.wav', 0.06); splashCooldown = 1.2 + Math.random() * 0.5; }
       }
-    } else {
-      splashCooldown = 0;
     }
 
-    // ── Footstep SFX ────────────────────────────────────────────────────
-    let pVel: any = null;
-    try { pVel = occupiedVehicle ? null : entityPhysicsBodies.get(playerId)?.linvel(); } catch { }
-    const Speed2D = pVel ? Math.hypot(pVel.x, pVel.z) : 0;
-    const onGround = pVel ? Math.abs(pVel.y) < 0.8 : false;
-
-    const isMovingInput = Math.abs(InputState.moveX[playerId]) > 0.1 || Math.abs(InputState.moveZ[playerId]) > 0.1;
-    if (isMovingInput && Speed2D > 0.5 && onGround && !cameraUnderwater) {
-      const stepDist = (Speed2D > 6) ? 1.4 : 0.75;
-      footstepDistCounter += Speed2D * dt;
-      if (footstepDistCounter >= stepDist) {
-        const sfx = 'assets/sounds/footstep.mp3';
-        const vol = camFollowPos.y > 10 ? 0.05 : 0.06;
-        audioManager.playSFX(sfx, vol, 0.1);
-        footstepDistCounter = 0;
-      }
-    } else {
-      footstepDistCounter = 0;
-    }
+    // Footsteps
+    let footPvel: any = null;
+    try { footPvel = occupiedVehicle ? null : entityPhysicsBodies.get(playerId)?.linvel(); } catch { }
+    const speed2D = footPvel ? Math.hypot(footPvel.x, footPvel.z) : 0;
+    const onGround = footPvel ? Math.abs(footPvel.y) < 0.8 : false;
+    if ((Math.abs(InputState.moveX[playerId]) > 0.1 || Math.abs(InputState.moveZ[playerId]) > 0.1) && speed2D > 0.5 && onGround && !isCameraUnderwater) {
+      const stepDist = (speed2D > 6) ? 1.4 : 0.75;
+      footstepDistCounter += speed2D * dt;
+      if (footstepDistCounter >= stepDist) { audioManager.playSFX('assets/sounds/footstep.mp3', 0.06, 0.1); footstepDistCounter = 0; }
+    } else footstepDistCounter = 0;
 
     // HUD
-    let speed = 0;
-    if (occupiedVehicle) {
-      const vv = occupiedVehicle.controller.rigidBody.linvel();
-      speed = Math.hypot(vv.x, vv.z);
-    } else {
-      const vel = entityPhysicsBodies.get(playerId)?.linvel() ?? { x: 0, y: 0, z: 0 };
-      speed = Math.hypot(vel.x, vel.z);
-    }
-    const currentFps = dt > 0 ? 1 / dt : 60;
-    const currentQuality = smaaDegraded ? "HIGH" : "ULTRA";
-    updateHUD(dt, { pos: camFollowPos, speed, fps: Math.round(currentFps), quality: currentQuality });
-
-    // Performance Optimizer (v9.2): LODs & Dynamic Shadows
-    if (optimizer) {
-      optimizer.setJetMode(inJet, inJet ? getJetAltitude() : 0);
-      optimizer.update(camera);
-      optimizer.optimizeShadows(sun, camera);
-    }
-
-    // Adaptive Quality: SMAA Ultra -> High if < 50 FPS for 4s
-    if (currentFps < 50 && !smaaDegraded) {
-      lowFpsTimer += dt;
-      if (lowFpsTimer >= 4.0) {
-        setSMAAPreset(SMAAPreset.HIGH);
-        smaaDegraded = true;
-        showPopup("PERFORMANS MODU: SMAA HIGH", "#ffaa00");
-      }
-    } else {
-      lowFpsTimer = 0;
-    }
+    let speedLabel = 0;
+    if (occupiedVehicle) { const vv = occupiedVehicle.controller.rigidBody.linvel(); speedLabel = Math.hypot(vv.x, vv.z); }
+    else speedLabel = speed2D;
+    
+    updateHUD(dt, { pos: camFollowPos, speed: speedLabel, fps: Math.round(1/dt), quality: currentSMAA });
 
     const hp = Health.current[playerId] ?? 100;
-    const hpMax = Health.max[playerId] ?? 100;
-    const hpPct = Math.max(0, (hp / hpMax) * 100);
+    const hpPct = Math.max(0, (hp / (Health.max[playerId] ?? 100)) * 100);
     const hpFill = document.getElementById('hp-fill');
     const hpText = document.getElementById('hp-text');
     const hpHud = document.getElementById('hp-hud');
-    if (hpFill) hpFill.style.width = `${hpPct.toFixed(1)}%`;
-    // Bar rengi: yeşil → sarı → kırmızı
+    const dmgFlashEl = document.getElementById('dmg-flash');
+
     if (hpFill) {
-      // v22.1: Full Red Health Bar (User request)
-      if (hpPct > 30) (hpFill as HTMLElement).style.background = 'linear-gradient(90deg, #c0392b, #e74c3c)';
-      else (hpFill as HTMLElement).style.background = 'linear-gradient(90deg, #8b0000, #c0392b)'; 
+      hpFill.style.width = `${hpPct.toFixed(1)}%`;
+      if (hpPct > 30) hpFill.style.background = 'linear-gradient(90deg, #c0392b, #e74c3c)';
+      else hpFill.style.background = 'linear-gradient(90deg, #8b0000, #c0392b)'; 
     }
     if (hpText) hpText.textContent = `${Math.round(hp)}`;
-    // Hit flash + HUD damaged state
-    const dmgFlashEl = document.getElementById('dmg-flash');
-    const phTimer = (world as any).playerHitTimer ?? 0;
+    if (hpHud) hpHud.classList.toggle('hp-critical', hpPct <= 25);
+    
     if (wolfDmgThisFrame > 0) {
-      // Kurt ısırdı: ekran flash + HUD shake
       if (dmgFlashEl) dmgFlashEl.style.background = 'rgba(220,20,20,0.45)';
       if (hpHud) { hpHud.classList.add('hp-damaged'); setTimeout(() => hpHud?.classList.remove('hp-damaged'), 500); }
-    } else if (phTimer <= 0) {
+    } else {
       if (dmgFlashEl) dmgFlashEl.style.background = 'rgba(255,0,0,0)';
     }
-    // Sürekli düşük HP: nabız efekti
-    if (hpHud) hpHud.classList.toggle('hp-critical', hpPct <= 25);
 
-    // Zaman / hava HUD
     updateTimeHUD();
-
-    // (Removed broken checkLoading)
-    checkLoading();
     renderComposer();
-    
-    // debugPanel.update(renderer, getPhysicsWorld());
   }
 
   animate();
 }
 
-document.getElementById('btn-p1')?.addEventListener('click', () => {
-  document.getElementById('char-select')!.style.display = 'none';
-  document.getElementById('loading')!.style.display = 'flex';
-  init(0); // Smith
-});
-
-document.getElementById('btn-p2')?.addEventListener('click', () => {
-  document.getElementById('char-select')!.style.display = 'none';
-  document.getElementById('loading')!.style.display = 'flex';
-  init(1); // Elric
-});
+// Character Selection handled by setupCharSelect below
 
 // ── Karakter Seçim Ekranı — Klavye + Fare + Ok Navigasyonu ──────────────────
 (function setupCharSelect() {
@@ -1048,17 +857,30 @@ document.getElementById('btn-p2')?.addEventListener('click', () => {
     const cs = document.getElementById('char-select');
     if (!cs || cs.style.display === 'none') return;
     
-    // Modern UX: Enter Fullscreen & Pointer Lock
+    // Modern UX: Enter Fullscreen, Lock Orientation & Pointer Lock
     try {
-        document.documentElement.requestFullscreen().then(() => {
-            // Wait a tiny bit for fullscreen transition then lock
-            setTimeout(() => {
-                document.body.requestPointerLock();
-            }, 100);
-        }).catch(() => {});
-    } catch(e) {}
+        const docEl = document.documentElement as any;
+        const requestFS = docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.mozRequestFullScreen || docEl.msRequestFullscreen;
+        
+        if (requestFS) {
+            requestFS.call(docEl).then(() => {
+                // Try to lock orientation to landscape
+                if (screen.orientation && (screen.orientation as any).lock) {
+                    (screen.orientation as any).lock('landscape').catch(() => {
+                        console.log('Orientation lock not supported or failed');
+                    });
+                }
+                // Wait a tiny bit for fullscreen transition then lock pointer (desktop)
+                setTimeout(() => {
+                    try { document.body.requestPointerLock(); } catch(e) {}
+                }, 200);
+            }).catch(() => {});
+        }
+    } catch(e) {
+        console.error('Fullscreen/Orientation failed:', e);
+    }
 
-    cs.style.display = 'none';
+    if (cs) cs.style.display = 'none';
     const loading = document.getElementById('loading');
     if (loading) loading.style.display = 'flex';
     const nameEl = document.getElementById('ld-char-name');
@@ -1076,15 +898,20 @@ document.getElementById('btn-p2')?.addEventListener('click', () => {
   }
 
   // Kart tıklaması: zaten seçiliyse başlat, değilse seç
+  // v25.2: Use pointerdown for instant response on mobile
   btns.forEach((btn, i) => {
-    btn?.addEventListener('click', () => {
+    btn?.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
       const n = i + 1;
       if (selectedChar === n) startGame();
       else select(n);
     });
   });
 
-  startBtn?.addEventListener('click', startGame);
+  startBtn?.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    startGame();
+  });
 
   window.addEventListener('keydown', (e: KeyboardEvent) => {
     const cs = document.getElementById('char-select');

@@ -16,93 +16,9 @@
     <link rel="stylesheet" href="css/mobile.css">
     <link rel="stylesheet" href="css/game.css">
     
-    <!-- Ethers.js CDN with optimized loading -->
-    <script>
-      window.ethersLoaded = false;
-      
-      function loadEthers() {
-        const cdnUrls = [
-          "https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js",
-          "https://cdn.ethers.io/lib/ethers-5.7.umd.min.js", // Backup CDN
-          "https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js" // Third backup
-        ];
-        
-        let currentIndex = 0;
-        let loadTimeout;
-        
-        function attemptLoad() {
-          if (currentIndex >= cdnUrls.length) {
-            console.log("ethers.js could not be loaded, Web3 features will be disabled");
-            window.ethersLoaded = false;
-            window.ethersLoadFailed = true;
-            window.dispatchEvent(new CustomEvent('ethersLoadFailed'));
-            return;
-          }
-          
-          const script = document.createElement('script');
-          script.src = cdnUrls[currentIndex];
-          script.async = true; // Changed to true for better page loading performance
-          script.crossOrigin = "anonymous"; // Add cross-origin attribute
-          
-          // Set timeout to detect very slow loads
-          loadTimeout = setTimeout(() => {
-            console.log(`Timeout loading ethers.js from ${cdnUrls[currentIndex]}`);
-            currentIndex++;
-            attemptLoad();
-          }, 5000); // 5 second timeout
-          
-          script.onload = function() {
-            clearTimeout(loadTimeout);
-            console.log(`✅ Ethers.js loaded successfully from ${cdnUrls[currentIndex]}`);
-            window.ethersLoaded = true;
-            window.ethersLoadFailed = false;
-            window.dispatchEvent(new CustomEvent('ethersLoaded'));
-            
-            // Initialize Web3 features after load
-            if (typeof initializeWeb3Features === 'function') {
-              initializeWeb3Features();
-            }
-          };
-          
-          script.onerror = function() {
-            clearTimeout(loadTimeout);
-            console.log(`Failed to load ethers.js from ${cdnUrls[currentIndex]}`);
-            currentIndex++;
-            attemptLoad();
-          };
-          
-          document.head.appendChild(script);
-        }
-        
-        // Start loading attempt
-        attemptLoad();
-        
-        // Add fallback mechanism for when the user goes offline and back online
-        window.addEventListener('online', function() {
-          if (!window.ethersLoaded && window.ethersLoadFailed) {
-            console.log("Network connection restored. Retrying ethers.js load.");
-            currentIndex = 0;
-            window.ethersLoadFailed = false;
-            attemptLoad();
-          }
-        });
-      }
-      
-      // Load ethers after a small delay to prioritize UI loading first
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function() {
-          setTimeout(loadEthers, 500);
-        });
-      } else {
-        setTimeout(loadEthers, 500);
-      }
-      
-      // Function that will be called when ethers is loaded
-      function initializeWeb3Features() {
-        // This will be called automatically when ethers is loaded
-        console.log("Web3 features are now available");
-      }
-    </script>
+    <!-- Web3 Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <script src="js/web3manager.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
     <!-- <script src="js/hud.js"></script> -->
 </head>
@@ -203,6 +119,7 @@
                 
                 <div class="button-container">
                     <button id="startButton" class="pulse action-button">Start Game</button>
+                    <button id="resetSessionButton" class="action-button danger-button" style="display: none;">Reset Stuck Session</button>
                     <button id="connectWalletButton" class="action-button">Connect Wallet</button>
                     <button id="claimRewardsButton" class="action-button" disabled>Claim Rewards</button>
                 </div>
@@ -425,6 +342,17 @@
             100% { box-shadow: 0 0 0 0 rgba(78, 205, 196, 0); }
         }
         
+        /* Reset session button highlight */
+        .danger-button {
+            border: 1px solid #ff4e50 !important;
+            color: #ff4e50 !important;
+            background-color: rgba(255, 78, 80, 0.1) !important;
+        }
+
+        .danger-button:hover {
+            background-color: rgba(255, 78, 80, 0.2) !important;
+        }
+
         /* Mobile optimizations */
         @media (max-width: 480px) {
             .stats-container {

@@ -66,11 +66,18 @@ export function renderComposer(
   const duration = performance.now() - start;
 
   // --- v16.0: HEAVY RENDER GUARD (Optimized) ---
-  // Quality only drops if a frame is consistently slow, ignoring loading freezes (>500ms)
   const now = performance.now();
-  if (duration > 35 && duration < 500 && (now - systemStartTime) > 8000 && smaaEffect && currentSMAAPreset !== SMAAPreset.MEDIUM) {
-    smaaEffect.applyPreset(SMAAPreset.MEDIUM);
-    currentSMAAPreset = SMAAPreset.MEDIUM;
-    console.warn(`[PERF] SMAA AUTO-OPTIMIZE: Frame took ${duration.toFixed(1)}ms. Quality dropped to MEDIUM.`);
+  if ((now - systemStartTime) > 10000) { // Start optimization after 10s stability
+    if (duration > 30 && currentSMAAPreset !== SMAAPreset.LOW) {
+        // Very slow frame, drop to LOW immediately
+        smaaEffect?.applyPreset(SMAAPreset.LOW);
+        currentSMAAPreset = SMAAPreset.LOW;
+        console.warn(`[PERF] SMAA CRITICAL: Frame took ${duration.toFixed(1)}ms. Quality dropped to LOW.`);
+    } else if (duration > 20 && currentSMAAPreset === SMAAPreset.ULTRA) {
+        // Slightly slow, drop to HIGH/MEDIUM
+        smaaEffect?.applyPreset(SMAAPreset.MEDIUM);
+        currentSMAAPreset = SMAAPreset.MEDIUM;
+        console.warn(`[PERF] SMAA DEGRADE: Frame took ${duration.toFixed(1)}ms. Quality dropped to MEDIUM.`);
+    }
   }
 }

@@ -25,11 +25,11 @@ class GameManager {
         this.score = 0;
 
         // COFFY token tracking
-        this.coffyTokens = this.loadCoffyTokens(); // Load saved tokens
-        this.levelCompletionReward = 15; // Reduced by 85% (was 100, now 15)
-        this.coffeeCollectibleReward = 7.5; // Reduced by 85% (was 50, now 7.5)
-        this.enemyKillReward = 15; // Reduced by 85% (was 100, now 15)
-        this.tokensNeedSaving = false; // Flag to track if tokens have changed
+        this.coffyTokens = window.web3Manager ? window.web3Manager.getEarnedRewards() : 0;
+        this.levelCompletionReward = 15;
+        this.coffeeCollectibleReward = 7.5;
+        this.enemyKillReward = 15;
+        this.tokensNeedSaving = false;
 
         // IP-based rate limiting for token claims
         this.maxClaimsPerDay = 2; // Maximum claims per IP per day
@@ -64,13 +64,6 @@ class GameManager {
         // Effects Manager reference
         this.effectsManager = null;
 
-        // Wallet connection state to prevent multiple connection attempts
-        this.walletConnectionInProgress = false;
-
-        // Performans optimizasyonları
-        this.pendingTokenSave = false;
-        this.tokenSaveDelay = 1000; // 1 saniye bekle
-
         // Collectible pooling and respawn system
         this.collectiblePool = [];
         this.collectibleRespawnQueue = [];
@@ -104,6 +97,10 @@ class GameManager {
 
         // Setup mobile controls if needed
         this.setupMobileControls();
+        this.loadSavedProgress();
+        
+        // Initialize Web3 UI synchronization
+        this.initWeb3UI();
 
         // Update COFFY token display
         this.updatePendingRewards();
@@ -119,6 +116,120 @@ class GameManager {
 
         this.loadSavedProgress();
     }
+
+    /**
+     * Initialize Web3 UI and event listeners
+     */
+    initWeb3UI() {
+        // Expose global updateRewardsUI hook
+        window.updateRewardsUI = () => {
+            if (window.web3Manager && this.isGameRunning === false) {
+                this.coffyTokens = window.web3Manager.getEarnedRewards();
+                this.updatePendingRewards();
+                this.updateWalletUI();
+                this.updateResetButton();
+            }
+        };
+
+        // Connect Wallet button
+        const connectBtn = document.getElementById('connectWalletButton');
+        if (connectBtn) {
+            connectBtn.onclick = async () => {
+                const connected = await window.web3Manager.connect();
+                if (connected) {
+                    window.updateRewardsUI();
+                }
+            };
+        }
+
+        // Claim Rewards button
+        const claimBtn = document.getElementById('claimRewardsButton');
+        if (claimBtn) {
+            claimBtn.onclick = async () => {
+                const session = await window.web3Manager.getActiveSession();
+                if (!session) {
+                    alert("No active game session found on contract. Start a game first.");
+                    return;
+                }
+                const success = await window.web3Manager.claimRewards(this.coffyTokens, session.id);
+                if (success) {
+                    this.coffyTokens = 0;
+                    this.updatePendingRewards();
+                }
+            };
+        }
+
+        // Reset Session button
+        const resetBtn = document.getElementById('resetSessionButton');
+        if (resetBtn) {
+            resetBtn.onclick = async () => {
+                if (confirm("This will clear your stuck session on the contract. Are you sure?")) {
+                    await window.web3Manager.forceResetStuckSession();
+                    this.updateResetButton();
+                }
+            };
+        }
+
+        // Initial UI sync
+        window.updateRewardsUI();
+    }
+
+    /**
+     * Update the "Reset Session" button visibility
+     */
+    async updateResetButton() {
+        const resetBtn = document.getElementById('resetSessionButton');
+        if (!resetBtn || !window.web3Manager.address || this.isGameRunning) {
+            if (resetBtn) resetBtn.style.display = 'none';
+            return;
+        }
+
+        const session = await window.web3Manager.getActiveSession();
+        if (session) {
+            const elapsed = Date.now() - session.startTime;
+            // Show only if older than 4 hours as per contract rules
+            if (elapsed > 4 * 60 * 60 * 1000) {
+                resetBtn.style.display = 'block';
+            } else {
+                resetBtn.style.display = 'none';
+            }
+        } else {
+            resetBtn.style.display = 'none';
+        }
+    }
+
+    /**
+     * Update wallet balance and address in UI
+     */
+    async updateWalletUI() {
+        if (!window.web3Manager.address) return;
+        
+        const addr = window.web3Manager.address;
+        const formatted = `${addr.substring(0, 6)}...${addr.substring(addr.length - 4)}`;
+        
+        const addrSpan = document.getElementById('connected-wallet-address');
+        if (addrSpan) addrSpan.textContent = formatted;
+        
+        const infoDiv = document.getElementById('walletInfo');
+        if (infoDiv) infoDiv.style.display = 'block';
+
+        const connectBtn = document.getElementById('connectWalletButton');
+        if (connectBtn) {
+            connectBtn.textContent = "Wallet Connected";
+            connectBtn.disabled = true;
+        }
+
+        const claimBtn = document.getElementById('claimRewardsButton');
+        if (claimBtn) claimBtn.disabled = (this.coffyTokens <= 0);
+
+        // Fetch and display balance
+        if (window.web3Manager.tokenContract) {
+            const balance = await window.web3Manager.tokenContract.balanceOf(addr);
+            const balSpan = document.getElementById('wallet-coffy-balance');
+            if (balSpan) balSpan.textContent = ethers.utils.formatUnits(balance, 18);
+        }
+    }
+
 
     /**
      * Set up event listeners for UI interaction
@@ -279,10 +390,12 @@ class GameManager {
     startGame() {
         console.log("Starting game...");
 
-        // ✅ YENİ: Kontrat üzerinde startGame fonksiyonunu çağır
-        this.startGameOnContract().catch(err => {
-            console.warn("Kontrat startGame çağrısı başarısız, oyun devam edecek:", err);
-        });
+        // Use Web3Manager to start game on contract
+        if (window.web3Manager && window.web3Manager.address) {
+            window.web3Manager.startGame().catch(err => {
+                console.warn("Contract startGame failed:", err);
+            });
+        }
 
         // Hide start screen
         if (this.uiElements.startScreen) {
@@ -2326,707 +2439,15 @@ class GameManager {
     }
 
     /**
-     * Optimize edilmiş token kaydetme
-     */
-    saveCoffyTokens() {
-        if (!this.pendingTokenSave) {
-            this.pendingTokenSave = true;
-            setTimeout(() => {
-                try {
-                    localStorage.setItem('coffyTokens', this.coffyTokens);
-                    debugLog('COFFY tokens saved:', this.coffyTokens);
-                } catch (e) {
-                    console.warn('Error saving COFFY tokens:', e);
-                }
-                this.pendingTokenSave = false;
-            }, this.tokenSaveDelay);
-        }
-    }
-
-    /**
-     * Update all UI elements that display COFFY tokens
-     */
-    updateCoffyTokenDisplays() {
-        // Update in-game counter
-        const coffyCounter = document.getElementById('coffyCounter');
-        if (coffyCounter) {
-            coffyCounter.innerHTML = `${this.coffyTokens} <span class="token-status">💰</span>`;
-        }
-
-        // Update total counter in main menu
-        const totalCoffyTokens = document.getElementById('totalCoffyTokens');
-        if (totalCoffyTokens) {
-            totalCoffyTokens.innerHTML = `${this.coffyTokens} <small>(pending)</small>`;
-        }
-    }
-
-    /**
-     * Load COFFY tokens from localStorage
-     * @returns {number} The loaded token amount or 0
-     */
-    loadCoffyTokens() {
-        try {
-            const savedTokens = localStorage.getItem('coffyTokens');
-            const parsedTokens = savedTokens ? parseInt(savedTokens, 10) : 0;
-            console.log(`Loaded ${parsedTokens} COFFY tokens from localStorage`);
-            return parsedTokens;
-        } catch (e) {
-            console.error("Failed to load COFFY tokens:", e);
-            return 0;
-        }
-    }
-
-    /**
-     * Claim COFFY tokens to wallet
-     * @returns {boolean} Success status
-     */
-    async claimCoffyTokens() {
-        try {
-            // First check if wallet is connected
-            if (!window.gameState.walletConnected || !window.gameState.walletAddress) {
-                const connectNow = confirm('You need to connect your wallet first to claim COFFY tokens.\n\nWould you like to connect your wallet now?');
-                if (connectNow) {
-                    const connected = await this.connectWallet();
-                    if (!connected) {
-                        return false;
-                    }
-                } else {
-                    return false;
-                }
-            }
-
-            // Check if tokens are available to claim
-            if (this.coffyTokens <= 0) {
-                alert('No COFFY tokens to claim!');
-                return false;
-            }
-
-            // Check rate limit
-            const rateLimit = this.checkClaimRateLimit();
-            if (!rateLimit.canClaim) {
-                alert(rateLimit.message);
-                return false;
-            }
-
-            if (!window.ethereum) {
-                alert('No wallet detected. Please install MetaMask, Trust Wallet, BNB Wallet or OKX Wallet.');
-                this.tryAlternativeWallets();
-                return false;
-            }
-
-            try {
-                // Apply daily maximum limit of 5000 tokens (YENİ LİMİT - consistency with other games)
-                const MAX_CLAIM_LIMIT = 5000;
-                const claimAmount = this.coffyTokens > MAX_CLAIM_LIMIT ? MAX_CLAIM_LIMIT : this.coffyTokens;
-
-                // Display claiming status to user
-                const statusElement = document.createElement('div');
-                statusElement.style.position = 'fixed';
-                statusElement.style.top = '50%';
-                statusElement.style.left = '50%';
-                statusElement.style.transform = 'translate(-50%, -50%)';
-                statusElement.style.background = 'rgba(0, 0, 0, 0.8)';
-                statusElement.style.color = 'white';
-                statusElement.style.padding = '20px';
-                statusElement.style.borderRadius = '10px';
-                statusElement.style.zIndex = '10000';
-                statusElement.style.textAlign = 'center';
-                statusElement.innerHTML = `
-                <h3>Claiming COFFY Tokens</h3>
-                <p>Amount: ${claimAmount} COFFY${this.coffyTokens > MAX_CLAIM_LIMIT ? ` (of ${this.coffyTokens} total)` : ''}</p>
-                <div id="claimStatus">Connecting to wallet...</div>
-                <button id="cancelClaim" style="margin-top: 15px; padding: 5px 10px; background: #333; border: none; color: white; border-radius: 5px; cursor: pointer;">Cancel</button>
-            `;
-                document.body.appendChild(statusElement);
-
-                // Add cancel button listener
-                document.getElementById('cancelClaim').addEventListener('click', () => {
-                    document.body.removeChild(statusElement);
-                });
-
-                const updateStatus = (message) => {
-                    const statusDiv = document.getElementById('claimStatus');
-                    if (statusDiv) statusDiv.textContent = message;
-                };
-
-                // Get appropriate provider based on available wallets
-                const provider = await this.getWalletProvider();
-                if (!provider) {
-                    updateStatus('No supported wallet found. Please install MetaMask, Trust Wallet, BNB Wallet or OKX Wallet.');
-                    setTimeout(() => document.body.removeChild(statusElement), 3000);
-                    return false;
-                }
-
-                updateStatus('Checking wallet connection...');
-
-                try {
-                    await provider.send('eth_requestAccounts', []);
-                } catch (err) {
-                    updateStatus('Wallet access denied. Please approve the connection in your wallet.');
-                    setTimeout(() => document.body.removeChild(statusElement), 3000);
-                    return false;
-                }
-
-                const signer = provider.getSigner();
-                const address = await signer.getAddress();
-
-                // Update status with wallet address
-                updateStatus(`Connected to wallet: ${address.substring(0, 6)}...${address.substring(address.length - 4)}`);
-
-                // Check if we're on BSC network
-                updateStatus('Checking network...');
-                const network = await provider.getNetwork();
-                if (network.chainId !== 56) { // BSC Mainnet
-                    updateStatus('Switching to Binance Smart Chain...');
-                    // Try to switch to BSC
-                    try {
-                        await provider.send('wallet_switchEthereumChain', [{ chainId: '0x2105' }]); // Base Mainnet
-                    } catch (switchError) {
-                        // If BSC not added to wallet, add it
-                        if (switchError.code === 4902) {
-                            updateStatus('Adding Base Mainnet to wallet...');
-                            try {
-                                await provider.send('wallet_addEthereumChain', [{
-                                    chainId: '0x2105',
-                                    chainName: 'Base Mainnet',
-                                    nativeCurrency: {
-                                        name: 'ETH',
-                                        symbol: 'ETH',
-                                        decimals: 18
-                                    },
-                                    rpcUrls: ['https://mainnet.base.org'],
-                                    blockExplorerUrls: ['https://basescan.org']
-                                }]);
-                            } catch (addError) {
-                                updateStatus('Failed to add Base network. Please add it manually in your wallet.');
-                                setTimeout(() => document.body.removeChild(statusElement), 3000);
-                                throw addError;
-                            }
-                        } else {
-                            updateStatus('Failed to switch network. Please switch to Base manually.');
-                            setTimeout(() => document.body.removeChild(statusElement), 3000);
-                            throw switchError;
-                        }
-                    }
-                }
-
-                // Token contract info (BSC)
-                const tokenAddress = '0x29248bA2420757bF50595Af6d8903E5d8Dcb9b41'; // Base Mainnet
-                const tokenABI = [{ "inputs": [{ "internalType": "address", "name": "_treasury", "type": "address" }, { "internalType": "address", "name": "_liquidity", "type": "address" }, { "internalType": "address", "name": "_community", "type": "address" }, { "internalType": "address", "name": "_team", "type": "address" }, { "internalType": "address", "name": "_marketing", "type": "address" }], "stateMutability": "nonpayable", "type": "constructor" }, { "inputs": [], "name": "AccessControlBadConfirmation", "type": "error" }, { "inputs": [{ "internalType": "address", "name": "account", "type": "address" }, { "internalType": "bytes32", "name": "neededRole", "type": "bytes32" }], "name": "AccessControlUnauthorizedAccount", "type": "error" }, { "inputs": [{ "internalType": "address", "name": "spender", "type": "address" }, { "internalType": "uint256", "name": "allowance", "type": "uint256" }, { "internalType": "uint256", "name": "needed", "type": "uint256" }], "name": "ERC20InsufficientAllowance", "type": "error" }, { "inputs": [{ "internalType": "address", "name": "sender", "type": "address" }, { "internalType": "uint256", "name": "balance", "type": "uint256" }, { "internalType": "uint256", "name": "needed", "type": "uint256" }], "name": "ERC20InsufficientBalance", "type": "error" }, { "inputs": [{ "internalType": "address", "name": "approver", "type": "address" }], "name": "ERC20InvalidApprover", "type": "error" }, { "inputs": [{ "internalType": "address", "name": "receiver", "type": "address" }], "name": "ERC20InvalidReceiver", "type": "error" }, { "inputs": [{ "internalType": "address", "name": "sender", "type": "address" }], "name": "ERC20InvalidSender", "type": "error" }, { "inputs": [{ "internalType": "address", "name": "spender", "type": "address" }], "name": "ERC20InvalidSpender", "type": "error" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "address", "name": "owner", "type": "address" }, { "indexed": true, "internalType": "address", "name": "spender", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "value", "type": "uint256" }], "name": "Approval", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "address", "name": "buyer", "type": "address" }, { "indexed": true, "internalType": "uint256", "name": "characterId", "type": "uint256" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "CharacterPurchased", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": false, "internalType": "bool", "name": "enabled", "type": "bool" }], "name": "CrossChainEnabled", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "address", "name": "module", "type": "address" }], "name": "CrossChainModuleSet", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "address", "name": "user", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }, { "indexed": false, "internalType": "uint256", "name": "penalty", "type": "uint256" }], "name": "EarlyUnstakePenalty", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "address", "name": "user", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "GameRewardsClaimed", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "address", "name": "module", "type": "address" }, { "indexed": true, "internalType": "address", "name": "from", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }, { "indexed": false, "internalType": "uint256", "name": "totalBurnedThisYear", "type": "uint256" }], "name": "GlobalModuleBurn", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "address", "name": "module", "type": "address" }, { "indexed": true, "internalType": "address", "name": "to", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }, { "indexed": false, "internalType": "uint256", "name": "totalMintedThisYear", "type": "uint256" }], "name": "GlobalModuleMint", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }, { "indexed": false, "internalType": "uint256", "name": "time", "type": "uint256" }], "name": "InflationMinted", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "address", "name": "module", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "executeTime", "type": "uint256" }], "name": "ModuleDeauthorizationScheduled", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": false, "internalType": "string", "name": "moduleType", "type": "string" }], "name": "ModuleEnabled", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": false, "internalType": "string", "name": "moduleType", "type": "string" }, { "indexed": false, "internalType": "address", "name": "module", "type": "address" }], "name": "ModuleSet", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "address", "name": "user", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }, { "indexed": false, "internalType": "string", "name": "rewardType", "type": "string" }], "name": "PendingRewardAdded", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "address", "name": "user", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "totalAmount", "type": "uint256" }], "name": "PendingRewardsClaimed", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "bytes32", "name": "role", "type": "bytes32" }, { "indexed": true, "internalType": "bytes32", "name": "previousAdminRole", "type": "bytes32" }, { "indexed": true, "internalType": "bytes32", "name": "newAdminRole", "type": "bytes32" }], "name": "RoleAdminChanged", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "bytes32", "name": "role", "type": "bytes32" }, { "indexed": true, "internalType": "address", "name": "account", "type": "address" }, { "indexed": true, "internalType": "address", "name": "sender", "type": "address" }], "name": "RoleGranted", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "bytes32", "name": "role", "type": "bytes32" }, { "indexed": true, "internalType": "address", "name": "account", "type": "address" }, { "indexed": true, "internalType": "address", "name": "sender", "type": "address" }], "name": "RoleRevoked", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "address", "name": "user", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "Staked", "type": "event" }, { "anonymous": false, "inputs": [], "name": "TradingEnabled", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "address", "name": "from", "type": "address" }, { "indexed": true, "internalType": "address", "name": "to", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "value", "type": "uint256" }], "name": "Transfer", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "address", "name": "user", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "Unstaked", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "address", "name": "wallet", "type": "address" }, { "indexed": false, "internalType": "string", "name": "profileId", "type": "string" }], "name": "UserProfileLinked", "type": "event" }, { "inputs": [], "name": "ADMIN_ROLE", "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "ANNUAL_RATE", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "COMMUNITY_ALLOCATION", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "DAO_MEMBERSHIP_THRESHOLD", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "DEFAULT_ADMIN_ROLE", "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "DEX_TAX", "outputs": [{ "internalType": "uint16", "name": "", "type": "uint16" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "EARLY_UNSTAKE_PENALTY", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "FIXED_CHARACTERS_COUNT", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "LEGENDARY_CHARACTER_ID", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "LIQUIDITY_ALLOCATION", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "MARKETING_ALLOCATION", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "MAX_DAILY_CLAIM", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "MIN_ACTIVITY_DURATION", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "MIN_BALANCE_FOR_ACCUMULATION", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "MIN_CLAIM_BALANCE", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "MIN_STAKE_AMOUNT", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "MIN_WALLET_AGE", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "MODULE_ANNUAL_LIMIT_PERCENTAGE", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "MODULE_ROLE", "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "PENDING_REWARD_EXPIRY", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "SEMIANNUAL_INFLATION_RATE", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "TEAM_ALLOCATION", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "TIMELOCK_ADMIN_ROLE", "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "TIMELOCK_DELAY", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "TOTAL_SUPPLY", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "TREASURY_ALLOCATION", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "owner", "type": "address" }, { "internalType": "address", "name": "spender", "type": "address" }], "name": "allowance", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "spender", "type": "address" }, { "internalType": "uint256", "name": "value", "type": "uint256" }], "name": "approve", "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "authorizedModules", "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "account", "type": "address" }], "name": "balanceOf", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "from", "type": "address" }, { "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "burnForCrossChain", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "from", "type": "address" }, { "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "burnFromModule", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "name": "characterNames", "outputs": [{ "internalType": "string", "name": "", "type": "string" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "name": "characters", "outputs": [{ "internalType": "uint128", "name": "price", "type": "uint128" }, { "internalType": "uint128", "name": "totalSupply", "type": "uint128" }, { "internalType": "uint128", "name": "maxSupply", "type": "uint128" }, { "internalType": "uint16", "name": "multiplier", "type": "uint16" }, { "internalType": "uint16", "name": "claimMultiplier", "type": "uint16" }, { "internalType": "bool", "name": "isActive", "type": "bool" }, { "internalType": "string", "name": "metadataURI", "type": "string" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "uint256", "name": "baseAmount", "type": "uint256" }], "name": "claimGameRewards", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "claimPendingRewards", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "claimedToday", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "community", "outputs": [{ "internalType": "address", "name": "", "type": "address" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "crossChainEnabled", "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "crossChainModule", "outputs": [{ "internalType": "address", "name": "", "type": "address" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "currentChainId", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "dailyRewards", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "daoEnabled", "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "daoModule", "outputs": [{ "internalType": "address", "name": "", "type": "address" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "decimals", "outputs": [{ "internalType": "uint8", "name": "", "type": "uint8" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "enableCrossChain", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "enableDAO", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "enableNFT", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "enableSocial", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "enableTrading", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "module", "type": "address" }], "name": "executeModuleDeauthorization", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "user", "type": "address" }], "name": "getActivityStatus", "outputs": [{ "internalType": "uint256", "name": "gameStartTime", "type": "uint256" }, { "internalType": "uint256", "name": "stepStartTime", "type": "uint256" }, { "internalType": "bool", "name": "canClaimGame", "type": "bool" }, { "internalType": "bool", "name": "canClaimStep", "type": "bool" }, { "internalType": "uint256", "name": "remainingGameTime", "type": "uint256" }, { "internalType": "uint256", "name": "remainingStepTime", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "uint256", "name": "_characterId", "type": "uint256" }], "name": "getCharacter", "outputs": [{ "internalType": "string", "name": "name", "type": "string" }, { "internalType": "uint256", "name": "price", "type": "uint256" }, { "internalType": "uint256", "name": "totalSupply", "type": "uint256" }, { "internalType": "uint256", "name": "maxSupply", "type": "uint256" }, { "internalType": "uint256", "name": "multiplier", "type": "uint256" }, { "internalType": "uint256", "name": "claimMultiplier", "type": "uint256" }, { "internalType": "bool", "name": "isActive", "type": "bool" }, { "internalType": "string", "name": "metadataURI", "type": "string" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "getGlobalModuleLimits", "outputs": [{ "internalType": "uint256", "name": "maxAnnualMint", "type": "uint256" }, { "internalType": "uint256", "name": "maxAnnualBurn", "type": "uint256" }, { "internalType": "uint256", "name": "mintedThisYear", "type": "uint256" }, { "internalType": "uint256", "name": "burnedThisYear", "type": "uint256" }, { "internalType": "uint256", "name": "remainingMint", "type": "uint256" }, { "internalType": "uint256", "name": "remainingBurn", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "getInflationInfo", "outputs": [{ "internalType": "uint256", "name": "lastTime", "type": "uint256" }, { "internalType": "uint256", "name": "nextTime", "type": "uint256" }, { "internalType": "bool", "name": "canTrigger", "type": "bool" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "getModuleStates", "outputs": [{ "internalType": "address", "name": "dao", "type": "address" }, { "internalType": "bool", "name": "daoActive", "type": "bool" }, { "internalType": "address", "name": "nft", "type": "address" }, { "internalType": "bool", "name": "nftActive", "type": "bool" }, { "internalType": "address", "name": "social", "type": "address" }, { "internalType": "bool", "name": "socialActive", "type": "bool" }, { "internalType": "address", "name": "crossChain", "type": "address" }, { "internalType": "bool", "name": "crossChainActive", "type": "bool" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "user", "type": "address" }], "name": "getPendingRewardsStatus", "outputs": [{ "internalType": "uint256", "name": "totalPending", "type": "uint256" }, { "internalType": "uint256", "name": "gameRewards", "type": "uint256" }, { "internalType": "uint256", "name": "stepRewards", "type": "uint256" }, { "internalType": "uint256", "name": "snapRewards", "type": "uint256" }, { "internalType": "bool", "name": "canClaim", "type": "bool" }, { "internalType": "bool", "name": "hasExpired", "type": "bool" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "_user", "type": "address" }], "name": "getRemainingDailyLimit", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "bytes32", "name": "role", "type": "bytes32" }], "name": "getRoleAdmin", "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "_user", "type": "address" }], "name": "getStakeInfo", "outputs": [{ "internalType": "uint256", "name": "amount", "type": "uint256" }, { "internalType": "uint256", "name": "startTime", "type": "uint256" }, { "internalType": "uint256", "name": "pendingReward", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "_user", "type": "address" }, { "internalType": "uint256", "name": "_characterId", "type": "uint256" }], "name": "getUserCharacterBalance", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "user", "type": "address" }], "name": "getUserCharacterMultiplier", "outputs": [{ "internalType": "uint256", "name": "multiplier", "type": "uint256" }, { "internalType": "string", "name": "eligibleCharacter", "type": "string" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "wallet", "type": "address" }], "name": "getUserProfile", "outputs": [{ "internalType": "string", "name": "", "type": "string" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "string", "name": "profileId", "type": "string" }], "name": "getWalletByProfile", "outputs": [{ "internalType": "address", "name": "", "type": "address" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "globalModuleBurnedThisYear", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "globalModuleMintedThisYear", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "bytes32", "name": "role", "type": "bytes32" }, { "internalType": "address", "name": "account", "type": "address" }], "name": "grantRole", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "bytes32", "name": "role", "type": "bytes32" }, { "internalType": "address", "name": "account", "type": "address" }], "name": "hasRole", "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "isConstWallet", "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "isDAOMember", "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "isDEXPair", "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "lastClaimDay", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "lastGameStart", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "lastInflationTime", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "lastPendingUpdate", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "lastRewardDay", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "lastStepStart", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "string", "name": "profileId", "type": "string" }], "name": "linkUserProfile", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "liquidity", "outputs": [{ "internalType": "address", "name": "", "type": "address" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "marketing", "outputs": [{ "internalType": "address", "name": "", "type": "address" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "uint256", "name": "_characterId", "type": "uint256" }, { "internalType": "uint256", "name": "_amount", "type": "uint256" }], "name": "migrateToNFT", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "to", "type": "address" }, { "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "mintForModule", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "to", "type": "address" }, { "internalType": "uint256", "name": "amount", "type": "uint256" }, { "internalType": "bytes32", "name": "", "type": "bytes32" }], "name": "mintFromCrossChain", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "mobileAppBackend", "outputs": [{ "internalType": "address", "name": "", "type": "address" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "moduleDeauthScheduled", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "moduleTrackingYear", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "name", "outputs": [{ "internalType": "string", "name": "", "type": "string" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "nextCharacterId", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "nftEnabled", "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "nftModule", "outputs": [{ "internalType": "address", "name": "", "type": "address" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "pendingGameRewards", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "pendingSnapRewards", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "pendingStepRewards", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "user", "type": "address" }, { "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "processSocialReward", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "string", "name": "", "type": "string" }], "name": "profileToWallet", "outputs": [{ "internalType": "address", "name": "", "type": "address" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "uint256", "name": "_characterId", "type": "uint256" }, { "internalType": "uint256", "name": "_amount", "type": "uint256" }], "name": "purchaseCharacter", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "bytes32", "name": "role", "type": "bytes32" }, { "internalType": "address", "name": "callerConfirmation", "type": "address" }], "name": "renounceRole", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "bytes32", "name": "role", "type": "bytes32" }, { "internalType": "address", "name": "account", "type": "address" }], "name": "revokeRole", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "module", "type": "address" }], "name": "scheduleModuleDeauthorization", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "bytes32", "name": "operation", "type": "bytes32" }], "name": "scheduleOperation", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "_module", "type": "address" }], "name": "setCrossChainModule", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "_module", "type": "address" }], "name": "setDAOModule", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "_backend", "type": "address" }], "name": "setMobileBackend", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "_module", "type": "address" }], "name": "setNFTModule", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "_module", "type": "address" }], "name": "setSocialModule", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "socialEnabled", "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "socialModule", "outputs": [{ "internalType": "address", "name": "", "type": "address" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "stake", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "stakes", "outputs": [{ "internalType": "uint128", "name": "amount", "type": "uint128" }, { "internalType": "uint64", "name": "startTime", "type": "uint64" }, { "internalType": "uint64", "name": "lastClaim", "type": "uint64" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "startGame", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "startStep", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "bytes4", "name": "interfaceId", "type": "bytes4" }], "name": "supportsInterface", "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "symbol", "outputs": [{ "internalType": "string", "name": "", "type": "string" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "team", "outputs": [{ "internalType": "address", "name": "", "type": "address" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }], "name": "timelockOperations", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "totalStaked", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "totalSupply", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "to", "type": "address" }, { "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "transfer", "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "from", "type": "address" }, { "internalType": "address", "name": "to", "type": "address" }, { "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "transferFrom", "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "treasury", "outputs": [{ "internalType": "address", "name": "", "type": "address" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "triggerInflation", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "unstake", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }, { "internalType": "uint256", "name": "", "type": "uint256" }], "name": "userCharacters", "outputs": [{ "internalType": "uint128", "name": "", "type": "uint128" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "userProfiles", "outputs": [{ "internalType": "string", "name": "", "type": "string" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "walletCreatedAt", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }];
-
-                const tokenContract = new window.ethers.Contract(tokenAddress, tokenABI, signer);
-
-                // Convert to token decimal amount
-                const decimals = 18;
-                const rewardAmount = window.ethers.utils.parseUnits(claimAmount.toString(), decimals);
-
-                // Call the claim function - this will trigger MetaMask approval
-                updateStatus('Requesting claim signature from backend...');
-                try {
-                    // Backend'den EIP-712 imzasini al
-                    // Aktif gameId'yi zincirden al (yoksa cache'den kullan)
-                    let gameId = this.activeGameId || null;
-                    if (!gameId) {
-                        try {
-                            const gmABI = [{ "inputs": [{ "internalType": "address", "name": "user", "type": "address" }], "name": "getUserGameState", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }, { "internalType": "uint256", "name": "", "type": "uint256" }, { "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }];
-                            const gmContract = new window.ethers.Contract('0xEb00A304DD1aB9A5bC995d4eD9cAFc190bC593Ea', gmABI, signer);
-                            const state = await gmContract.getUserGameState(address);
-                            if (state[0] && state[0].toString() !== "0") {
-                                gameId = state[0].toString();
-                                this.activeGameId = gameId;
-                                console.log("Zincirden aktif gameId alindi:", gameId);
-                            }
-                        } catch (e) {
-                            console.warn("GameId zincirden alinamadi:", e);
-                        }
-                    }
-
-                    if (!gameId) {
-                        throw new Error("No active game session found. Please start a game first.");
-                    }
-
-                    const response = await fetch('/api/game-claim', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            userAddress: address,
-                            amount: claimAmount.toString(),
-                            gameId: gameId
-                        })
-                    });
-
-                    const resp = await response.json();
-                    const data = resp.data || resp;
-
-                    if (!response.ok) {
-                        throw new Error(resp.error || 'Failed to get claim signature from backend');
-                    }
-
-                    updateStatus('Please approve the transaction in your wallet...');
-
-                    // Game module contract oluştur
-                    const gameModuleAddress = '0xEb00A304DD1aB9A5bC995d4eD9cAFc190bC593Ea';
-                    const gameModuleABI = [
-                        "function claimSingleWin(uint256 id, uint256 payout, uint256 deadline, bytes sig) external"
-                    ];
-                    const gameModuleContract = new window.ethers.Contract(gameModuleAddress, gameModuleABI, signer);
-
-                    // Kontrat uzerinde claimSingleWin cagir
-                    const tx = await gameModuleContract.claimSingleWin(
-                        data.id,
-                        data.payout,
-                        data.deadline,
-                        data.signature
-                    );
-
-                    // Wait for transaction to be confirmed
-                    updateStatus('Waiting for transaction to be confirmed...');
-                    await tx.wait();
-
-                    // Record the claim for rate limiting
-                    this.recordClaim();
-
-                    // Aktif oyun bitti, temizle
-                    this.activeGameId = null;
-                    // Reduce tokens by claimed amount
-                    this.coffyTokens -= claimAmount;
-                    this.saveCoffyTokens();
-
-                    // Update the balance display
-                    const newBalance = await window.gameState.tokenContract.balanceOf(window.gameState.walletAddress);
-                    const formattedBalance = window.ethers.utils.formatUnits(newBalance, decimals);
-                    this.updateTokenBalance(formattedBalance);
-
-                    // Hide modal
-                    document.body.removeChild(statusElement);
-
-                    // Show confirmation with information about remaining tokens and claim limits
-                    const claimCount = this.getClaimCountToday();
-
-                    if (this.coffyTokens > 0) {
-                        alert(`Successfully claimed ${claimAmount} COFFY tokens!\nYour wallet balance: ${formattedBalance}\nRemaining tokens to claim: ${this.coffyTokens}\nClaims used today: ${claimCount}/${this.maxClaimsPerDay}`);
-                    } else {
-                        alert(`Successfully claimed ${claimAmount} COFFY tokens!\nYour wallet balance: ${formattedBalance}\nClaims used today: ${claimCount}/${this.maxClaimsPerDay}`);
-                    }
-
-                    // Update pending rewards display
-                    this.updatePendingRewards();
-
-                    return true;
-                } catch (err) {
-                    console.error("Error during claim process:", err);
-                    // Check if user rejected the transaction
-                    if (err.code === 4001) {
-                        updateStatus(`Transaction rejected in wallet.`);
-                    } else {
-                        updateStatus(`Error: ${err.message || err.reason || 'Unknown error'}`);
-                    }
-                    setTimeout(() => document.body.removeChild(statusElement), 3000);
-                    return false;
-                }
-            } catch (err) {
-                console.error("Error claiming COFFY tokens:", err);
-                alert('Failed to claim tokens: ' + (err.message || err.reason || err));
-                return false;
-            }
-        } catch (error) {
-            // ... existing error handling ...
-        }
-    }
-
-    /**
-     * Try to connect to alternative wallets when MetaMask is not available
-     */
-    async tryAlternativeWallets() {
-        const walletOptions = [
-            { name: 'MetaMask', provider: window.ethereum },
-            { name: 'Trust Wallet', provider: window.trustwallet?.ethereum || window.ethereum },
-            { name: 'Binance Wallet', provider: window.BinanceChain },
-            { name: 'OKX Wallet', provider: window.okxwallet }
-        ];
-
-        const availableWallets = walletOptions.filter(wallet => wallet.provider);
-
-        if (availableWallets.length === 0) {
-            alert('No supported wallet found. Please install MetaMask, Trust Wallet, BNB Wallet or OKX Wallet.');
-            return null;
-        }
-
-        let message = 'Please select a wallet to connect:';
-        for (let i = 0; i < availableWallets.length; i++) {
-            message += `\n${i + 1}. ${availableWallets[i].name}`;
-        }
-
-        const selection = prompt(message + '\n\nEnter the number of your choice:');
-        if (!selection) return null;
-
-        const index = parseInt(selection) - 1;
-        if (isNaN(index) || index < 0 || index >= availableWallets.length) {
-            alert('Invalid selection.');
-            return null;
-        }
-
-        const selectedWallet = availableWallets[index];
-        window.ethereum = selectedWallet.provider;
-
-        try {
-            await this.connectWallet(selectedWallet.name);
-            return selectedWallet.provider;
-        } catch (error) {
-            console.error(`Error connecting to ${selectedWallet.name}:`, error);
-            alert(`Failed to connect to ${selectedWallet.name}: ${error.message}`);
-            return null;
-        }
-    }
-
-    /**
-     * Get appropriate wallet provider
-     * @returns {Object} Ethers provider
-     */
-    async getWalletProvider() {
-        try {
-            // Ethers.js yüklü mü kontrol et
-            if (!window.ethers) {
-                console.log('Ethers.js not loaded, attempting to load...');
-
-                // Farklı CDN'lerden yüklemeyi dene
-                const cdnUrls = [
-                    'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js',
-                    'https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js',
-                    'https://cdn.ethers.io/lib/ethers-5.7.umd.min.js'
-                ];
-
-                // Her URL'yi sırayla dene
-                let loaded = false;
-                for (const url of cdnUrls) {
-                    try {
-                        await this.loadScript(url);
-                        console.log(`✅ Ethers.js loaded successfully from ${url}`);
-                        loaded = true;
-                        break;
-                    } catch (e) {
-                        console.log(`Failed to load ethers.js from ${url}`);
-                    }
-                }
-
-                // Yine de yüklenemezse
-                if (!loaded || !window.ethers) {
-                    console.error('Failed to load ethers.js from all sources');
-                    return null;
-                }
-            }
-
-            // Check available wallets in priority order
-            const provider = window.ethereum ||
-                window.trustwallet?.ethereum ||
-                window.BinanceChain ||
-                window.okxwallet;
-
-            if (!provider) {
-                return null;
-            }
-
-            return new window.ethers.providers.Web3Provider(provider);
-        } catch (error) {
-            console.error("Error getting wallet provider:", error);
-            return null;
-        }
-    }
-
-    /**
-     * Script yükleme yardımcı fonksiyonu
-     */
-    loadScript(url) {
-        return new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = url;
-            script.onload = resolve;
-            script.onerror = reject;
-            document.head.appendChild(script);
-
-            // 5 saniye sonra timeout
-            setTimeout(() => {
-                reject(new Error(`Timeout loading ethers.js from ${url}`));
-            }, 5000);
-        });
-    }
-
-    /**
-     * Connect to wallet
-     * @param {string} walletName - Name of the wallet being connected
-     */
-    async connectWallet(walletName = 'Wallet') {
-        // Prevent multiple simultaneous connection attempts
-        if (this.walletConnectionInProgress) {
-            console.log("Wallet connection already in progress");
-            return false;
-        }
-
-        // Clear any previous connection data to ensure a fresh connection request
-        localStorage.removeItem('walletConnected');
-        localStorage.removeItem('walletAddress');
-        window.gameState.walletConnected = false;
-
-        this.walletConnectionInProgress = true;
-
-        // Create status element for real-time feedback
-        const statusElement = document.createElement('div');
-        statusElement.style.position = 'fixed';
-        statusElement.style.top = '50%';
-        statusElement.style.left = '50%';
-        statusElement.style.transform = 'translate(-50%, -50%)';
-        statusElement.style.background = 'rgba(0, 0, 0, 0.8)';
-        statusElement.style.color = 'white';
-        statusElement.style.padding = '20px';
-        statusElement.style.borderRadius = '10px';
-        statusElement.style.zIndex = '10000';
-        statusElement.style.textAlign = 'center';
-        statusElement.innerHTML = `
-            <h3>Connecting Wallet</h3>
-            <div id="walletStatus">Loading Web3...</div>
-            <div style="margin-top: 10px; font-size: 12px; color: #aaa;">You can play without connecting a wallet</div>
-            <button id="cancelWalletConnection" style="margin-top: 15px; padding: 5px 10px; background: #333; border: none; color: white; border-radius: 5px; cursor: pointer;">Cancel</button>
-        `;
-        document.body.appendChild(statusElement);
-
-        // Add cancel button listener
-        document.getElementById('cancelWalletConnection').addEventListener('click', () => {
-            document.body.removeChild(statusElement);
-            this.walletConnectionInProgress = false;
-        });
-
-        const updateStatus = (message) => {
-            const statusDiv = document.getElementById('walletStatus');
-            if (statusDiv) statusDiv.textContent = message;
-        };
-
-        try {
-            // Check if ethers.js is loaded
-            if (!window.ethersLoaded) {
-                updateStatus("Waiting for ethers.js to load...");
-
-                try {
-                    await new Promise((resolve, reject) => {
-                        const checkEthers = () => {
-                            if (window.ethersLoaded) {
-                                resolve();
-                            } else if (window.ethersLoadFailed) {
-                                reject(new Error("Failed to load ethers.js"));
-                            } else {
-                                setTimeout(checkEthers, 100);
-                            }
-                        };
-
-                        // Set timeout to avoid infinite waiting
-                        setTimeout(() => {
-                            if (!window.ethersLoaded) {
-                                reject(new Error("Ethers.js loading timeout"));
-                            }
-                        }, 10000);
-
-                        checkEthers();
-                    });
-                } catch (ethersError) {
-                    updateStatus("Failed to load Web3 libraries. Please refresh the page and try again.");
-                    setTimeout(() => {
-                        document.body.removeChild(statusElement);
-                        this.walletConnectionInProgress = false;
-                    }, 3000);
-                    throw ethersError;
-                }
-            }
-
-            updateStatus("Detecting wallet...");
-            const provider = await this.getWalletProvider();
-            if (!provider) {
-                updateStatus("No wallet detected. Please install MetaMask, Trust Wallet, or another Web3 wallet.");
-                setTimeout(() => {
-                    document.body.removeChild(statusElement);
-                    this.walletConnectionInProgress = false;
-                }, 3000);
-                throw new Error('No supported wallet found');
-            }
-
-            updateStatus("Please approve the connection request in your wallet...");
-            try {
-                // Use a low-level ethereum send method to force a new approval popup
-                await provider.provider.request({ method: 'eth_requestAccounts' });
-
-                // Double-check that accounts were actually provided
-                const accounts = await provider.listAccounts();
-                if (!accounts || accounts.length === 0) {
-                    throw new Error("No accounts provided. Connection may have been rejected.");
-                }
-            } catch (requestError) {
-                updateStatus("Wallet connection rejected. Please approve the connection request in your wallet.");
-                setTimeout(() => {
-                    document.body.removeChild(statusElement);
-                    this.walletConnectionInProgress = false;
-                }, 3000);
-                throw requestError;
-            }
-
-            const signer = provider.getSigner();
-            const address = await signer.getAddress();
-
-            updateStatus(`Connected to address: ${address.substring(0, 6)}...${address.substring(address.length - 4)}`);
-
-            // Check if we're on BSC network
-            updateStatus("Checking network...");
-            const network = await provider.getNetwork();
-            if (network.chainId !== 56) { // BSC Mainnet
-                updateStatus("Switching to Binance Smart Chain network...");
-                // Try to switch to BSC
-                try {
-                    await provider.send('wallet_switchEthereumChain', [{ chainId: '0x2105' }]); // Base Mainnet
-                } catch (switchError) {
-                    // If BSC not added to wallet, add it
-                    if (switchError.code === 4902) {
-                        updateStatus("Adding Binance Smart Chain to your wallet...");
-                        try {
-                            await provider.send('wallet_addEthereumChain', [{
-                                chainId: '0x38',
-                                chainName: 'Binance Smart Chain',
-                                nativeCurrency: {
-                                    name: 'BNB',
-                                    symbol: 'BNB',
-                                    decimals: 18
-                                },
-                                rpcUrls: ['https://bsc-dataseed.binance.org/'],
-                                blockExplorerUrls: ['https://bscscan.com/']
-                            }]);
-                        } catch (addError) {
-                            updateStatus("Failed to add BSC network. Please add it manually in your wallet.");
-                            setTimeout(() => {
-                                document.body.removeChild(statusElement);
-                                this.walletConnectionInProgress = false;
-                            }, 3000);
-                            throw addError;
-                        }
-                    } else {
-                        updateStatus("Failed to switch network. Please switch to BSC manually.");
-                        setTimeout(() => {
-                            document.body.removeChild(statusElement);
-                            this.walletConnectionInProgress = false;
-                        }, 3000);
-                        throw switchError;
-                    }
-                }
-            }
-
-            // Update wallet address display in all UI elements
-            const walletAddressSpan = document.getElementById('wallet-address');
-            if (walletAddressSpan) {
-                // Format address for display
-                const formattedAddress = `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
-                walletAddressSpan.textContent = formattedAddress;
-                walletAddressSpan.classList.add('connected');
-            }
-
-            const connectedWalletAddress = document.getElementById('connected-wallet-address');
-            if (connectedWalletAddress) {
-                const formattedAddress = `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
-                connectedWalletAddress.textContent = formattedAddress;
-            }
-
-            // Show wallet info section
-            const walletInfo = document.getElementById('walletInfo');
-            if (walletInfo) {
-                walletInfo.style.display = 'block';
-            }
-
-            // Update wallet connection status
-            window.gameState.walletConnected = true;
-            window.gameState.walletAddress = address;
-            window.gameState.provider = provider;
-            window.gameState.signer = signer;
-
-            // Save wallet connection to localStorage to persist across sessions
-            localStorage.setItem('walletConnected', 'true');
-            localStorage.setItem('walletAddress', address);
-
-            // Token contract setup
-            updateStatus("Setting up token contract...");
-            const tokenAddress = '0x29248bA2420757bF50595Af6d8903E5d8Dcb9b41'; // Base Mainnet
-            const tokenABI = [{ "inputs": [{ "internalType": "address", "name": "_treasury", "type": "address" }, { "internalType": "address", "name": "_liquidity", "type": "address" }, { "internalType": "address", "name": "_community", "type": "address" }, { "internalType": "address", "name": "_team", "type": "address" }, { "internalType": "address", "name": "_marketing", "type": "address" }], "stateMutability": "nonpayable", "type": "constructor" }, { "inputs": [], "name": "AccessControlBadConfirmation", "type": "error" }, { "inputs": [{ "internalType": "address", "name": "account", "type": "address" }, { "internalType": "bytes32", "name": "neededRole", "type": "bytes32" }], "name": "AccessControlUnauthorizedAccount", "type": "error" }, { "inputs": [{ "internalType": "address", "name": "spender", "type": "address" }, { "internalType": "uint256", "name": "allowance", "type": "uint256" }, { "internalType": "uint256", "name": "needed", "type": "uint256" }], "name": "ERC20InsufficientAllowance", "type": "error" }, { "inputs": [{ "internalType": "address", "name": "sender", "type": "address" }, { "internalType": "uint256", "name": "balance", "type": "uint256" }, { "internalType": "uint256", "name": "needed", "type": "uint256" }], "name": "ERC20InsufficientBalance", "type": "error" }, { "inputs": [{ "internalType": "address", "name": "approver", "type": "address" }], "name": "ERC20InvalidApprover", "type": "error" }, { "inputs": [{ "internalType": "address", "name": "receiver", "type": "address" }], "name": "ERC20InvalidReceiver", "type": "error" }, { "inputs": [{ "internalType": "address", "name": "sender", "type": "address" }], "name": "ERC20InvalidSender", "type": "error" }, { "inputs": [{ "internalType": "address", "name": "spender", "type": "address" }], "name": "ERC20InvalidSpender", "type": "error" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "address", "name": "owner", "type": "address" }, { "indexed": true, "internalType": "address", "name": "spender", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "value", "type": "uint256" }], "name": "Approval", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "address", "name": "module", "type": "address" }], "name": "BridgeModuleSet", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "address", "name": "buyer", "type": "address" }, { "indexed": true, "internalType": "uint256", "name": "characterId", "type": "uint256" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "CharacterPurchased", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": false, "internalType": "bool", "name": "enabled", "type": "bool" }], "name": "CrossChainEnabled", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "address", "name": "module", "type": "address" }], "name": "CrossChainModuleSet", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "address", "name": "user", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }, { "indexed": false, "internalType": "uint256", "name": "penalty", "type": "uint256" }], "name": "EarlyUnstakePenalty", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "address", "name": "user", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "GameRewardsClaimed", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "address", "name": "module", "type": "address" }, { "indexed": true, "internalType": "address", "name": "from", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }, { "indexed": false, "internalType": "uint256", "name": "totalBurnedThisYear", "type": "uint256" }], "name": "GlobalModuleBurn", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "address", "name": "module", "type": "address" }, { "indexed": true, "internalType": "address", "name": "to", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }, { "indexed": false, "internalType": "uint256", "name": "totalMintedThisYear", "type": "uint256" }], "name": "GlobalModuleMint", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }, { "indexed": false, "internalType": "uint256", "name": "time", "type": "uint256" }], "name": "InflationMinted", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": false, "internalType": "string", "name": "moduleType", "type": "string" }], "name": "ModuleEnabled", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": false, "internalType": "string", "name": "moduleType", "type": "string" }, { "indexed": false, "internalType": "address", "name": "module", "type": "address" }], "name": "ModuleSet", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "address", "name": "user", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }, { "indexed": false, "internalType": "string", "name": "rewardType", "type": "string" }], "name": "PendingRewardAdded", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "address", "name": "user", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "totalAmount", "type": "uint256" }], "name": "PendingRewardsClaimed", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "bytes32", "name": "role", "type": "bytes32" }, { "indexed": true, "internalType": "bytes32", "name": "previousAdminRole", "type": "bytes32" }, { "indexed": true, "internalType": "bytes32", "name": "newAdminRole", "type": "bytes32" }], "name": "RoleAdminChanged", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "bytes32", "name": "role", "type": "bytes32" }, { "indexed": true, "internalType": "address", "name": "account", "type": "address" }, { "indexed": true, "internalType": "address", "name": "sender", "type": "address" }], "name": "RoleGranted", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "bytes32", "name": "role", "type": "bytes32" }, { "indexed": true, "internalType": "address", "name": "account", "type": "address" }, { "indexed": true, "internalType": "address", "name": "sender", "type": "address" }], "name": "RoleRevoked", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "address", "name": "user", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "Staked", "type": "event" }, { "anonymous": false, "inputs": [], "name": "TradingEnabled", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "address", "name": "from", "type": "address" }, { "indexed": true, "internalType": "address", "name": "to", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "value", "type": "uint256" }], "name": "Transfer", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "address", "name": "user", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "Unstaked", "type": "event" }, { "anonymous": false, "inputs": [{ "indexed": true, "internalType": "address", "name": "wallet", "type": "address" }, { "indexed": false, "internalType": "string", "name": "profileId", "type": "string" }], "name": "UserProfileLinked", "type": "event" }, { "inputs": [], "name": "ADMIN_ROLE", "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "ANNUAL_RATE", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "COMMUNITY_ALLOCATION", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "DAO_MEMBERSHIP_THRESHOLD", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "DEFAULT_ADMIN_ROLE", "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "DEX_TAX", "outputs": [{ "internalType": "uint16", "name": "", "type": "uint16" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "EARLY_UNSTAKE_PENALTY", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "FIXED_CHARACTERS_COUNT", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "LEGENDARY_CHARACTER_ID", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "LIQUIDITY_ALLOCATION", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "MARKETING_ALLOCATION", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "MAX_WEEKLY_CLAIM", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "MIN_ACTIVITY_DURATION", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "MIN_BALANCE_FOR_ACCUMULATION", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "MIN_CLAIM_BALANCE", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "MIN_WALLET_AGE", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "MODULE_ROLE", "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "PENDING_REWARD_EXPIRY", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "SEMIANNUAL_INFLATION_RATE", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "TEAM_ALLOCATION", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "TIMELOCK_ADMIN_ROLE", "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "TIMELOCK_DELAY", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "TOTAL_SUPPLY", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "TREASURY_ALLOCATION", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "owner", "type": "address" }, { "internalType": "address", "name": "spender", "type": "address" }], "name": "allowance", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "spender", "type": "address" }, { "internalType": "uint256", "name": "value", "type": "uint256" }], "name": "approve", "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "authorizedModules", "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "account", "type": "address" }], "name": "balanceOf", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "from", "type": "address" }, { "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "burnForCrossChain", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "from", "type": "address" }, { "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "burnFromModule", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "name": "characterNames", "outputs": [{ "internalType": "string", "name": "", "type": "string" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "name": "characters", "outputs": [{ "internalType": "uint128", "name": "price", "type": "uint128" }, { "internalType": "uint128", "name": "totalSupply", "type": "uint128" }, { "internalType": "uint128", "name": "maxSupply", "type": "uint128" }, { "internalType": "uint16", "name": "multiplier", "type": "uint16" }, { "internalType": "uint16", "name": "claimMultiplier", "type": "uint16" }, { "internalType": "bool", "name": "isActive", "type": "bool" }, { "internalType": "string", "name": "metadataURI", "type": "string" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "uint256", "name": "baseAmount", "type": "uint256" }], "name": "claimGameRewards", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "claimPendingRewards", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "claimedThisWeek", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "community", "outputs": [{ "internalType": "address", "name": "", "type": "address" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "daoEnabled", "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "daoModule", "outputs": [{ "internalType": "address", "name": "", "type": "address" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "decimals", "outputs": [{ "internalType": "uint8", "name": "", "type": "uint8" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "emergencyUnstake", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "enableDAO", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "enableNFT", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "enableSocial", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "enableTrading", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "module", "type": "address" }], "name": "executeModuleDeauthorization", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "gameStats", "outputs": [{ "internalType": "uint256", "name": "totalGamesPlayed", "type": "uint256" }, { "internalType": "uint256", "name": "totalRewardsClaimed", "type": "uint256" }, { "internalType": "uint256", "name": "lastGameTimestamp", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "user", "type": "address" }], "name": "getActivityStatus", "outputs": [{ "internalType": "uint256", "name": "gameStartTime", "type": "uint256" }, { "internalType": "uint256", "name": "stepStartTime", "type": "uint256" }, { "internalType": "bool", "name": "canClaimGame", "type": "bool" }, { "internalType": "bool", "name": "canClaimStep", "type": "bool" }, { "internalType": "uint256", "name": "remainingGameTime", "type": "uint256" }, { "internalType": "uint256", "name": "remainingStepTime", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "uint256", "name": "_characterId", "type": "uint256" }], "name": "getCharacter", "outputs": [{ "internalType": "string", "name": "name", "type": "string" }, { "internalType": "uint256", "name": "price", "type": "uint256" }, { "internalType": "uint256", "name": "totalSupply", "type": "uint256" }, { "internalType": "uint256", "name": "maxSupply", "type": "uint256" }, { "internalType": "uint256", "name": "multiplier", "type": "uint256" }, { "internalType": "uint256", "name": "claimMultiplier", "type": "uint256" }, { "internalType": "bool", "name": "isActive", "type": "bool" }, { "internalType": "string", "name": "metadataURI", "type": "string" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "getCharacterMultiplier", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "user", "type": "address" }], "name": "getGameStats", "outputs": [{ "internalType": "uint256", "name": "totalGamesPlayed", "type": "uint256" }, { "internalType": "uint256", "name": "totalRewardsClaimed", "type": "uint256" }, { "internalType": "uint256", "name": "lastGameTimestamp", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "getGlobalModuleLimits", "outputs": [{ "internalType": "uint256", "name": "maxAnnualMint", "type": "uint256" }, { "internalType": "uint256", "name": "maxAnnualBurn", "type": "uint256" }, { "internalType": "uint256", "name": "mintedThisYear", "type": "uint256" }, { "internalType": "uint256", "name": "burnedThisYear", "type": "uint256" }, { "internalType": "uint256", "name": "remainingMint", "type": "uint256" }, { "internalType": "uint256", "name": "remainingBurn", "type": "uint256" }], "stateMutability": "pure", "type": "function" }, { "inputs": [], "name": "getInflationInfo", "outputs": [{ "internalType": "uint256", "name": "lastTime", "type": "uint256" }, { "internalType": "uint256", "name": "nextTime", "type": "uint256" }, { "internalType": "bool", "name": "canTrigger", "type": "bool" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "getModuleStates", "outputs": [{ "internalType": "address", "name": "dao", "type": "address" }, { "internalType": "bool", "name": "daoActive", "type": "bool" }, { "internalType": "address", "name": "nft", "type": "address" }, { "internalType": "bool", "name": "nftActive", "type": "bool" }, { "internalType": "address", "name": "social", "type": "address" }, { "internalType": "bool", "name": "socialActive", "type": "bool" }, { "internalType": "address", "name": "crossChain", "type": "address" }, { "internalType": "bool", "name": "crossChainActive", "type": "bool" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "user", "type": "address" }], "name": "getPendingRewardsStatus", "outputs": [{ "internalType": "uint256", "name": "totalPending", "type": "uint256" }, { "internalType": "uint256", "name": "gameRewards", "type": "uint256" }, { "internalType": "uint256", "name": "stepRewards", "type": "uint256" }, { "internalType": "uint256", "name": "snapRewards", "type": "uint256" }, { "internalType": "bool", "name": "canClaim", "type": "bool" }, { "internalType": "bool", "name": "hasExpired", "type": "bool" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "_user", "type": "address" }], "name": "getRemainingDailyLimit", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "bytes32", "name": "role", "type": "bytes32" }], "name": "getRoleAdmin", "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "user", "type": "address" }], "name": "getStakeInfo", "outputs": [{ "internalType": "uint256", "name": "amount", "type": "uint256" }, { "internalType": "uint256", "name": "startTime", "type": "uint256" }, { "internalType": "uint256", "name": "pendingReward", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "getStakingAPY", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "user", "type": "address" }], "name": "getUnstakePenalty", "outputs": [{ "internalType": "uint256", "name": "penalty", "type": "uint256" }, { "internalType": "bool", "name": "hasPenalty", "type": "bool" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "_user", "type": "address" }, { "internalType": "uint256", "name": "_characterId", "type": "uint256" }], "name": "getUserCharacterBalance", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "user", "type": "address" }], "name": "getUserCharacterMultiplier", "outputs": [{ "internalType": "uint256", "name": "multiplier", "type": "uint256" }, { "internalType": "string", "name": "eligibleCharacter", "type": "string" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "wallet", "type": "address" }], "name": "getUserProfile", "outputs": [{ "internalType": "string", "name": "", "type": "string" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "string", "name": "profileId", "type": "string" }], "name": "getWalletByProfile", "outputs": [{ "internalType": "address", "name": "", "type": "address" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "bytes32", "name": "role", "type": "bytes32" }, { "internalType": "address", "name": "account", "type": "address" }], "name": "grantRole", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "bytes32", "name": "role", "type": "bytes32" }, { "internalType": "address", "name": "account", "type": "address" }], "name": "hasRole", "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "isConstWallet", "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "isDAOMember", "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "isDEXPair", "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "lastClaimWeek", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "lastGameStart", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "lastInflationTime", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "lastPendingUpdate", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "lastRewardWeek", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "lastStepStart", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "string", "name": "profileId", "type": "string" }], "name": "linkUserProfile", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "liquidity", "outputs": [{ "internalType": "address", "name": "", "type": "address" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "marketing", "outputs": [{ "internalType": "address", "name": "", "type": "address" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "uint256", "name": "_characterId", "type": "uint256" }, { "internalType": "uint256", "name": "_amount", "type": "uint256" }], "name": "migrateToNFT", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "to", "type": "address" }, { "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "mintForModule", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "to", "type": "address" }, { "internalType": "uint256", "name": "amount", "type": "uint256" }, { "internalType": "bytes32", "name": "", "type": "bytes32" }], "name": "mintFromCrossChain", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "mobileAppBackend", "outputs": [{ "internalType": "address", "name": "", "type": "address" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "moduleDeauthScheduled", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "moduleTrackingYear", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "name", "outputs": [{ "internalType": "string", "name": "", "type": "string" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "nextCharacterId", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "nftEnabled", "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "nftModule", "outputs": [{ "internalType": "address", "name": "", "type": "address" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "pendingGameRewards", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "pendingSnapRewards", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "pendingStepRewards", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "user", "type": "address" }, { "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "processSocialReward", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "string", "name": "", "type": "string" }], "name": "profileToWallet", "outputs": [{ "internalType": "address", "name": "", "type": "address" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "uint256", "name": "_characterId", "type": "uint256" }, { "internalType": "uint256", "name": "_amount", "type": "uint256" }], "name": "purchaseCharacter", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "bytes32", "name": "role", "type": "bytes32" }, { "internalType": "address", "name": "callerConfirmation", "type": "address" }], "name": "renounceRole", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "bytes32", "name": "role", "type": "bytes32" }, { "internalType": "address", "name": "account", "type": "address" }], "name": "revokeRole", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "module", "type": "address" }], "name": "scheduleModuleDeauthorization", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "_module", "type": "address" }], "name": "setCoffeeShopModule", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "_module", "type": "address" }], "name": "setDAOModule", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "_backend", "type": "address" }], "name": "setMobileBackend", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "_module", "type": "address" }], "name": "setNFTModule", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "_module", "type": "address" }], "name": "setSocialModule", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "socialEnabled", "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "socialModule", "outputs": [{ "internalType": "address", "name": "", "type": "address" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "stake", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "stakes", "outputs": [{ "internalType": "uint128", "name": "amount", "type": "uint128" }, { "internalType": "uint64", "name": "startTime", "type": "uint64" }, { "internalType": "uint64", "name": "lastClaim", "type": "uint64" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "startGame", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "startGameSession", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "startStep", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "bytes4", "name": "interfaceId", "type": "bytes4" }], "name": "supportsInterface", "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "symbol", "outputs": [{ "internalType": "string", "name": "", "type": "string" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "team", "outputs": [{ "internalType": "address", "name": "", "type": "address" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "totalStaked", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "totalSupply", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "to", "type": "address" }, { "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "transfer", "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "from", "type": "address" }, { "internalType": "address", "name": "to", "type": "address" }, { "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "transferForModule", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "from", "type": "address" }, { "internalType": "address", "name": "to", "type": "address" }, { "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "transferFrom", "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "treasury", "outputs": [{ "internalType": "address", "name": "", "type": "address" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "triggerInflation", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }, { "internalType": "uint256", "name": "", "type": "uint256" }], "name": "userCharacters", "outputs": [{ "internalType": "uint128", "name": "", "type": "uint128" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "userProfiles", "outputs": [{ "internalType": "string", "name": "", "type": "string" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "walletCreatedAt", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }, { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "weeklyRewards", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }];
-            window.gameState.tokenContract = new window.ethers.Contract(tokenAddress, tokenABI, signer);
-
-            // Display balance
-            try {
-                updateStatus("Fetching token balance...");
-                const balance = await window.gameState.tokenContract.balanceOf(address);
-                const decimals = 18;
-                const formattedBalance = window.ethers.utils.formatUnits(balance, decimals);
-
-                updateStatus(`✅ Connection successful!`);
-                setTimeout(() => {
-                    document.body.removeChild(statusElement);
-                    // Show success message
-                    alert(`${walletName} connected successfully!\nYour COFFY balance: ${formattedBalance}`);
-                    this.walletConnectionInProgress = false;
-                }, 2000);
-
-                // Update claimed vs pending tokens in UI
-                this.updateTokenBalance(formattedBalance);
-
-                // Enable claim rewards button
-                const claimRewardsButton = document.getElementById('claimRewardsButton');
-                if (claimRewardsButton) {
-                    claimRewardsButton.disabled = false;
-                    claimRewardsButton.title = "Claim your COFFY tokens to your wallet";
-                }
-
-                // Update connect wallet button
-                const connectWalletButton = document.getElementById('connectWalletButton');
-                if (connectWalletButton) {
-                    connectWalletButton.textContent = "Wallet Connected";
-                    connectWalletButton.disabled = true;
-                }
-
-                return true;
-            } catch (err) {
-                console.error("Error fetching balance:", err);
-                updateStatus("Connected successfully, but failed to fetch token balance.");
-                setTimeout(() => {
-                    document.body.removeChild(statusElement);
-                    this.walletConnectionInProgress = false;
-                }, 3000);
-                return true;
-            }
-        } catch (err) {
-            console.error("Wallet connection error:", err);
-            updateStatus(`Connection failed: ${err.message || "Unknown error"}`);
-            setTimeout(() => {
-                document.body.removeChild(statusElement);
-                this.walletConnectionInProgress = false;
-            }, 3000);
-
-            return false;
-        }
-    }
-
-    /**
-     * Update token balance in UI
-     * @param {String} balance - The formatted token balance to display
-     */
-    updateTokenBalance(balance) {
-        // Update the wallet balance in the UI
-        const balanceElement = document.getElementById('wallet-coffy-balance');
-        if (balanceElement) {
-            balanceElement.textContent = balance;
-        }
-    }
-
-    /**
      * Update pending COFFY rewards display
      */
     updatePendingRewards() {
-        // Update total COFFY tokens display
         const totalCoffyTokens = document.getElementById('totalCoffyTokens');
         if (totalCoffyTokens) {
-            totalCoffyTokens.textContent = this.coffyTokens;
+            totalCoffyTokens.textContent = Math.floor(this.coffyTokens);
         }
     }
+
 
     calculateRewards() {
         // Oyun sonunda ödül hesaplama işlemleri buraya eklenebilir.

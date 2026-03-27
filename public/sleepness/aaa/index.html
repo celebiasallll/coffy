@@ -3,6 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Open World AAA Prototype</title>
   <link rel="icon" href="data:;base64,iVBORw0KGgo=">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -32,6 +33,10 @@
       z-index: 10;
       color: #fff;
       font-size: 12px;
+      padding-top: env(safe-area-inset-top);
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
+      padding-bottom: env(safe-area-inset-bottom);
     }
 
     #stats {
@@ -596,6 +601,7 @@
       flex-direction: column;
       align-items: center;
       width: 100%;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     }
 
     /* Karakter rozeti */
@@ -1071,6 +1077,7 @@
       display: flex;
       flex-direction: column;
       align-items: center;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     }
 
     #char-select .cs-eyebrow {
@@ -1611,6 +1618,7 @@
     <div id="survival-warning"></div>
 
     <div id="survival-box">
+      <div id="hp-hearts"></div>
       <!-- Energy -->
       <div class="core-container">
         <div id="energy-fill" class="core-liquid" style="background: linear-gradient(to top, #f39c12, #f1c40f);"></div>
@@ -1662,11 +1670,219 @@
 
 
 
+    <!-- Mobile Controls -->
+    <div id="mobile-controls">
+      <div id="joystick-zone">
+        <div id="joystick-base">
+          <div id="joystick-handle"></div>
+        </div>
+      </div>
+      
+      <div id="action-zone">
+        <button id="btn-fire" class="mobile-btn">🔥</button>
+        <div class="action-sub-grid">
+          <button id="btn-jump" class="mobile-btn mini">JUMP</button>
+          <button id="btn-sprint" class="mobile-btn mini">RUN</button>
+          <button id="btn-interact" class="mobile-btn mini">USE</button>
+          <button id="btn-jet" class="mobile-btn mini">JET</button>
+        </div>
+      </div>
+    </div>
   </div>
 
+  <style>
+    /* Mobile HUD Styles */
+    #mobile-controls {
+      display: none;
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 20;
+    }
+
+    @media (pointer: coarse), (max-width: 1024px) {
+      body:not(.mobile-device) #mobile-controls { display: none; }
+      body.mobile-device #mobile-controls { display: block; }
+      #start-hint { display: none !important; }
+      .input-guides-wrapper { display: none !important; }
+      #hud { font-size: 14px; }
+      
+      #hp-hud { display: none !important; }
+      
+      #hp-hearts { 
+        display: flex !important; 
+        gap: 4px; 
+        margin-right: 10px;
+        align-items: center;
+      }
+      .heart { color: #ff3c3c; font-size: 16px; text-shadow: 0 0 10px rgba(255, 60, 60, 0.5); }
+      .heart.empty { color: rgba(255, 255, 255, 0.2); text-shadow: none; }
+      
+      #time-label {
+        left: 50% !important;
+        right: auto !important;
+        transform: translateX(-50%) scale(0.85) !important;
+        top: calc(10px + env(safe-area-inset-top)) !important;
+        background: rgba(0, 0, 0, 0.5) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 20px !important;
+      }
+      
+      #ammo-hud { 
+        right: calc(10px + env(safe-area-inset-right)); 
+        bottom: calc(260px + env(safe-area-inset-bottom)); 
+        scale: 0.6; 
+        transform-origin: bottom right;
+        padding: 8px 15px !important;
+      }
+      
+      #coin-box { 
+        top: calc(10px + env(safe-area-inset-top)); 
+        right: calc(10px + env(safe-area-inset-right)); 
+        scale: 0.6; 
+        transform-origin: top right;
+      }
+      
+      #mission-hud { 
+        top: calc(65px + env(safe-area-inset-top)); 
+        left: calc(10px + env(safe-area-inset-left)); 
+        right: auto;
+        scale: 0.5; 
+        transform-origin: top left;
+        background: rgba(0, 5, 15, 0.82);
+        width: 170px !important;
+        padding: 12px !important;
+      }
+      
+      #survival-box { 
+        top: calc(10px + env(safe-area-inset-top)); 
+        left: calc(10px + env(safe-area-inset-left)); 
+        bottom: auto; 
+        scale: 0.75; 
+        transform-origin: top left;
+        gap: 12px !important;
+        background: rgba(0,0,0,0.4);
+        padding: 6px 12px;
+        border-radius: 20px;
+        border: 1px solid rgba(255,255,255,0.05);
+      }
+
+      /* Character Select Final Zero-Scroll Fix */
+      #char-select { overflow: hidden !important; touch-action: none; }
+      #cs-inner { 
+        justify-content: center !important; 
+        padding: 10px !important; 
+        padding-top: calc(5px + env(safe-area-inset-top)) !important;
+        height: 100vh !important; 
+        min-height: 0 !important;
+      }
+      #char-select h1 { font-size: 18px !important; margin: 0 !important; letter-spacing: 2px !important; }
+      #char-select .cs-eyebrow { font-size: 7px !important; margin: 0 !important; }
+      #char-select .cs-tagline { display: none !important; }
+      #char-select .cs-divider { margin: 4px 0 !important; }
+      .char-btns { scale: 0.65; gap: 15px !important; margin: 0 !important; }
+      .char-btn { width: 170px !important; }
+      .char-btn-img { height: 90px !important; }
+      .cs-start-row { margin-top: 0 !important; padding-bottom: env(safe-area-inset-bottom) !important; position: relative; bottom: 5px; }
+      #cs-start { padding: 8px 40px !important; font-size: 14px !important; }
+    }
+
+    #joystick-zone {
+      position: fixed;
+      width: 120px;
+      height: 120px;
+      pointer-events: none; /* Pointer handled by window listener */
+      display: none; 
+      z-index: 1000;
+      transform: translate(-50%, -50%); /* Center on touch */
+    }
+
+    #joystick-base {
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.1);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      position: relative;
+      backdrop-filter: blur(5px);
+    }
+
+    #joystick-handle {
+      width: 50px;
+      height: 50px;
+      background: rgba(0, 255, 170, 0.6);
+      border: 2px solid #0fa;
+      border-radius: 50%;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 15px rgba(0, 255, 170, 0.4);
+    }
+
+    #action-zone {
+      position: absolute;
+      bottom: calc(40px + env(safe-area-inset-bottom));
+      right: calc(40px + env(safe-area-inset-right));
+      display: none; /* Hidden by default */
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 15px;
+      pointer-events: auto;
+    }
+    
+    /* Device Specific Display */
+    body.mobile-device #joystick-zone,
+    body.mobile-device #action-zone {
+      display: flex;
+    }
+
+    .mobile-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 700;
+      backdrop-filter: blur(10px);
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .mobile-btn:active {
+      transform: scale(0.9);
+      background: rgba(0, 255, 170, 0.2);
+      border-color: #0fa;
+    }
+
+    #btn-fire {
+      width: 85px;
+      height: 85px;
+      font-size: 32px;
+      box-shadow: 0 0 20px rgba(255, 60, 60, 0.2);
+    }
+
+    .action-sub-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .mobile-btn.mini {
+      width: 55px;
+      height: 55px;
+      font-size: 10px;
+      letter-spacing: 1px;
+    }
+    
+    #btn-jump { background: rgba(0, 150, 255, 0.2); }
+    #btn-sprint { background: rgba(255, 215, 0, 0.2); }
+  </style>
   <div id="char-select">
     <div id="cs-bg"></div>
-    
     <div id="cs-inner">
       <div class="cs-eyebrow">Open World AAA Prototype</div>
       <h1>CHOOSE YOUR WARRIOR</h1>

@@ -201,6 +201,26 @@ function syncDOM(): void {
     // Critical pulse for sleep bar is handled inside updateSleepEffects or via class on parent
     sFill.parentElement?.classList.toggle('critical-pulse', sPct < 15);
   }
+
+  // Heart Bar Sync (Mobile Only)
+  const heartsContainer = document.getElementById('hp-hearts');
+  if (heartsContainer && window.getComputedStyle(heartsContainer).display !== 'none') {
+    const totalHearts = 5;
+    const hpPerHeart = state.maxHealth / totalHearts;
+    const fullHearts = Math.floor(state.health / hpPerHeart);
+    
+    let heartsHtml = '';
+    for (let i = 0; i < totalHearts; i++) {
+      if (i < fullHearts) {
+        heartsHtml += '<span class="heart">❤️</span>';
+      } else {
+        heartsHtml += '<span class="heart empty">❤️</span>';
+      }
+    }
+    if (heartsContainer.innerHTML !== heartsHtml) {
+      heartsContainer.innerHTML = heartsHtml;
+    }
+  }
 }
 
 function updateDangerVignette(): void {

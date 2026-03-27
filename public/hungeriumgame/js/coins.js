@@ -410,17 +410,15 @@ class CoinManager {
     
     // Sync with global token storage
     syncWithGlobalStorage() {
-        // Get the global stored COFFY token value
-        const savedTokens = localStorage.getItem('coffyTokens');
-        if (savedTokens) {
-            // Calculate equivalent coin count
-            const tokenValue = parseFloat(savedTokens);
-            this.totalValue = tokenValue / this.coffyPerCoin;
-            this.collectedCount = Math.round(this.totalValue);
-            
-            // Update UI immediately
-            this.updateUI();
-        }
+        if (!window.web3Handler) return;
+        
+        // Get the wallet-isolated stored COFFY token value
+        const tokenValue = window.web3Handler.getStoredRewards();
+        this.totalValue = tokenValue / this.coffyPerCoin;
+        this.collectedCount = Math.round(this.totalValue);
+        
+        // Update UI immediately
+        this.updateUI();
     }
     
     setupAudio() {
@@ -663,9 +661,14 @@ class CoinManager {
         if (coffyText) {
             coffyText.textContent = `${coffyAmount} COFFY`;
         }
-        // HER ZAMAN localStorage ve event güncelle
-        localStorage.setItem('coffyTokens', coffyAmount.toString());
+        // HER ZAMAN wallet-isolated storage ve event güncelle
+        if (window.web3Handler) {
+            window.web3Handler.saveRewards(coffyAmount);
+        }
         window.dispatchEvent(new CustomEvent('coffy-tokens-updated', { detail: { coffyAmount } }));
+        if (typeof window.updateRewardsUI === 'function') {
+            window.updateRewardsUI();
+        }
     }
     
     playCollectionSound() {
@@ -737,8 +740,13 @@ class CoinManager {
         this.collectedCount = 0;
         this.totalValue = 0;
         this.updateUI();
-        localStorage.setItem('coffyTokens', '0');
+        if (window.web3Handler) {
+            window.web3Handler.saveRewards(0);
+        }
         window.dispatchEvent(new CustomEvent('coffy-tokens-updated', { detail: { coffyAmount: 0 } }));
+        if (typeof window.updateRewardsUI === 'function') {
+            window.updateRewardsUI();
+        }
     }
 }
 

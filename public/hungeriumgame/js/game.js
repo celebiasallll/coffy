@@ -197,10 +197,10 @@ window._healthPacks = window._healthPacks || [];
 
 class Game {
     constructor() {
-        // Add Web3 handler
-        this.web3Handler = new Web3Handler();
-        window.web3Handler = this.web3Handler; // Global erişim için
-        window.game = this; // Global game erişimi için
+        // Add Web3 manager
+        this.web3Handler = new Web3Manager();
+        window.web3Handler = this.web3Handler; // For global access
+        window.game = this; // For global game access
 
         // Add pause state
         this.isPaused = false;
@@ -553,6 +553,16 @@ class Game {
             this.web3Handler.showNotification("Please check your wallet for connection request", "info");
             try {
                 const connected = await this.web3Handler.connectWallet();
+                console.log('[Claim btn] connected:', connected, 'tokens:', this.web3Handler.getStoredRewards());
+
+                // Update reset button visibility
+                if (document.getElementById('reset-session-btn')) {
+                    const hasActive = !!this.web3Handler.activeGameId;
+                    const startedAt = this.web3Handler.activeSessionStartedAt;
+                    const now = Math.floor(Date.now() / 1000);
+                    const isStuck = hasActive && (now - startedAt > 4 * 3600); // 4 hours
+                    document.getElementById('reset-session-btn').style.display = isStuck ? 'block' : 'none';
+                }
                 if (connected) {
                     connectWalletBtn.textContent = 'Connected';
                     statusValue.textContent = 'Connected';
@@ -581,16 +591,24 @@ class Game {
         claimRewardBtn.textContent = 'Claim Rewards';
         claimRewardBtn.disabled = !this.web3Handler.currentAccount || this.web3Handler.totalEarnedTokens <= 0;
         claimRewardBtn.addEventListener('click', async () => {
+            const hasRewards = this.web3Handler.getStoredRewards();
+            if (hasRewards <= 0) {
+                this.web3Handler.showNotification("No rewards to claim", "warning");
+                return;
+            }
             claimRewardBtn.textContent = 'Claiming...';
             claimRewardBtn.disabled = true;
-            const claimed = await this.web3Handler.claimRewards();
+            const claimed = await this.web3Handler.claimRewards(hasRewards);
             if (claimed) {
                 claimRewardBtn.textContent = 'Claimed!';
+                if (typeof this.coinManager?.resetCoffyCounter === 'function') {
+                    this.coinManager.resetCoffyCounter();
+                }
                 setTimeout(() => {
                     claimRewardBtn.textContent = 'Claim Rewards';
                     claimRewardBtn.disabled = true;
                     if (earnedTokensInfo) {
-                        earnedTokensInfo.textContent = 'You have 0 COFFY tokens to claim!';
+                        updateCoffyPillText(0);
                     }
                     balanceValue.textContent = this.web3Handler.getDisplayBalance();
                 }, 2000);
@@ -605,6 +623,22 @@ class Game {
         // Add buttons to container
         web3ButtonsContainer.appendChild(connectWalletBtn);
         web3ButtonsContainer.appendChild(claimRewardBtn);
+
+        // Reset Session Button (Emergency Recovery)
+        const resetSessionBtn = document.createElement('button');
+        resetSessionBtn.id = 'reset-session-btn';
+        resetSessionBtn.className = 'web3-button';
+        resetSessionBtn.innerHTML = 'Reset Session';
+        resetSessionBtn.style.backgroundColor = '#f44336';
+        resetSessionBtn.style.color = 'white';
+        resetSessionBtn.style.marginTop = '10px';
+        resetSessionBtn.style.display = 'none'; // Hidden by default
+        resetSessionBtn.onclick = async () => {
+            if (confirm("Reset current session? Only use this if your game is stuck for >4 hours.")) {
+                await this.web3Handler.forceResetStuckSession();
+            }
+        };
+        web3ButtonsContainer.appendChild(resetSessionBtn);
         // Add all wallet elements to wallet section
         walletSection.appendChild(walletStatus);
         walletSection.appendChild(balanceRow);
@@ -792,11 +826,27 @@ class Game {
 
             // Update claim button
             if (document.getElementById('claim-reward-btn')) {
-                const hasTokens = this.web3Handler.totalEarnedTokens > 0;
+                const storedRewards = this.web3Handler.getStoredRewards();
                 const isConn = !!this.web3Handler.currentAccount;
-                document.getElementById('claim-reward-btn').disabled = !isConn || !hasTokens;
-                console.log('[Claim btn] connected:', isConn, 'tokens:', this.web3Handler.totalEarnedTokens);
+                const hasActiveSession = !!this.web3Handler.activeGameId;
+                document.getElementById('claim-reward-btn').disabled = !isConn || !hasActiveSession || storedRewards <= 0;
             }
+
+            // Global UI Update Hook for the new manager flow
+            window.updateRewardsUI = () => {
+                if (document.getElementById('coffy-balance')) {
+                    document.getElementById('coffy-balance').textContent = this.web3Handler.getDisplayBalance();
+                }
+                const rewards = this.web3Handler.getStoredRewards();
+                if (typeof updateCoffyPillText === 'function') {
+                    updateCoffyPillText(rewards);
+                }
+                if (document.getElementById('claim-reward-btn')) {
+                    const isConn = !!this.web3Handler.currentAccount;
+                    const hasActiveSession = !!this.web3Handler.activeGameId;
+                    document.getElementById('claim-reward-btn').disabled = !isConn || !hasActiveSession || rewards <= 0;
+                }
+            };
         });
 
         // Select first option by default

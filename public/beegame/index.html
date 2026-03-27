@@ -327,6 +327,26 @@
         padding: 10px 0;
       }
     }
+
+    /* Professional Web3 Button States */
+    .highlight-claim {
+      background: linear-gradient(135deg, #ffd700 0%, #ff8c00 100%) !important;
+      color: #000 !important;
+      animation: pulse-gold 2s infinite !important;
+      box-shadow: 0 0 20px rgba(255, 215, 0, 0.6) !important;
+    }
+
+    .resume-mode {
+      border: 2px solid #ffd700 !important;
+      background: linear-gradient(90deg, #4CAF50 0%, #45a049 100%) !important;
+      box-shadow: 0 0 15px rgba(255, 215, 0, 0.4) !important;
+    }
+
+    @keyframes pulse-gold {
+      0% { transform: scale(1); box-shadow: 0 0 10px rgba(255, 215, 0, 0.4); }
+      50% { transform: scale(1.03); box-shadow: 0 0 25px rgba(255, 215, 0, 0.8); }
+      100% { transform: scale(1); box-shadow: 0 0 10px rgba(255, 215, 0, 0.4); }
+    }
   </style>
 </head>
 
@@ -443,258 +463,210 @@
   <script src="js/mobileControls.js"></script>
   <script src="js/mobileConfig.js"></script>
   <script>
-    // Global web3Handler ve mobileHud erişimi
-    window.addEventListener('DOMContentLoaded', function () {
-      if (!window.web3Handler && typeof Web3Handler === 'function') {
-        window.web3Handler = new Web3Handler();
-      }
-      if (!window.mobileHud && typeof window.mobileHud !== 'undefined') {
-        window.mobileHud = window.mobileHud;
-      }
-    });
-  </script>
-  <script>
-    // Ana Menü ve Web3 entegrasyonu
-    const mainMenuOverlay = document.getElementById('mainMenuOverlay');
-    const mainMenuConnectWallet = document.getElementById('mainMenuConnectWallet');
-    const mainMenuClaimReward = document.getElementById('mainMenuClaimReward');
-    const mainMenuStartGame = document.getElementById('mainMenuStartGame');
-    const walletStatus = document.getElementById('walletStatus');
-    const scoreSection = document.getElementById('scoreSection');
-    const totalScore = document.getElementById('totalScore');
-    const claimableCoffy = document.getElementById('claimableCoffy');
-    let web3Handler = null;
-    let walletConnected = false;
-    let gameStarted = false;
-    function updateWalletStatus() {
-      if (!walletStatus || !mainMenuClaimReward || !scoreSection || !totalScore || !claimableCoffy) return;
-      if (web3Handler && web3Handler.currentAccount) {
-        walletStatus.textContent = 'Wallet Connected: ' + web3Handler.currentAccount.slice(0, 6) + '...' + web3Handler.currentAccount.slice(-4);
-        mainMenuClaimReward.disabled = false;
-        scoreSection.style.display = 'flex';
-        walletConnected = true;
-        if (typeof web3Handler.totalEarnedTokens !== 'undefined') {
-          totalScore.textContent = web3Handler.totalEarnedTokens;
-        }
-        // TUTARLI COFFY GÖSTERME
-        let coffy = 0;
-
-        // Önce localStorage'dan al
-        const localCoffy = parseInt(localStorage.getItem('coffyEarned') || '0', 10);
-
-        // Sonra oyuncu nesnesinden al
-        if (window.game && window.game.player) {
-          const playerCoffy = window.game.player.coffy || 0;
-          const playerLocalCoffy = typeof window.game.player.getLocalCoffy === 'function' ? window.game.player.getLocalCoffy() : 0;
-
-          // En yüksek değeri kullan (tutarlılık için)
-          coffy = Math.max(localCoffy, playerCoffy, playerLocalCoffy);
-        } else {
-          coffy = localCoffy;
-        }
-
-        claimableCoffy.textContent = coffy;
-      } else {
-        walletStatus.textContent = 'Wallet Not Connected';
-        mainMenuClaimReward.disabled = true;
-        scoreSection.style.display = 'none';
-        walletConnected = false;
-      }
-    }
-    // Canvas inputlarını yönetmek için yardımcı fonksiyon
-    function setCanvasInputEnabled(enabled) {
-      const canvas = document.getElementById('game-canvas');
-      if (canvas) {
-        canvas.style.pointerEvents = enabled ? 'auto' : 'none';
-      }
-    }
-    // Başlangıçta overlay açıkken canvas inputlarını kapat
-    setCanvasInputEnabled(false);
-
-    // Oyun başlatma fonksiyonunu sadece bir kez çağırmak için koruma
-    // let gameStarted = false; // Bu satır artık burada tanımlanmıyor
-
-    window.addEventListener('DOMContentLoaded', function () {
-      const mainMenuOverlay = document.getElementById('mainMenuOverlay');
-      const mainMenuConnectWallet = document.getElementById('mainMenuConnectWallet');
-      const mainMenuClaimReward = document.getElementById('mainMenuClaimReward');
-      const mainMenuStartGame = document.getElementById('mainMenuStartGame');
-      const walletStatus = document.getElementById('walletStatus');
-      const scoreSection = document.getElementById('scoreSection');
-      const totalScore = document.getElementById('totalScore');
-      const claimableCoffy = document.getElementById('claimableCoffy');
-      let web3Handler = null;
-      let walletConnected = false;
-      let gameStarted = false;
-      function updateWalletStatus() {
-        if (!walletStatus || !mainMenuClaimReward || !scoreSection || !totalScore || !claimableCoffy) return;
-        if (web3Handler && web3Handler.currentAccount) {
-          walletStatus.textContent = 'Wallet Connected: ' + web3Handler.currentAccount.slice(0, 6) + '...' + web3Handler.currentAccount.slice(-4);
-          mainMenuClaimReward.disabled = false;
-          scoreSection.style.display = 'flex';
-          walletConnected = true;
-          if (typeof web3Handler.totalEarnedTokens !== 'undefined') {
-            totalScore.textContent = web3Handler.totalEarnedTokens;
-          }
-          // TUTARLI COFFY GÖSTERME (2. KOPYA)
-          let coffy = 0;
-
-          // Önce localStorage'dan al
-          const localCoffy = parseInt(localStorage.getItem('coffyEarned') || '0', 10);
-
-          // Sonra oyuncu nesnesinden al
-          if (window.game && window.game.player) {
-            const playerCoffy = window.game.player.coffy || 0;
-            const playerLocalCoffy = typeof window.game.player.getLocalCoffy === 'function' ? window.game.player.getLocalCoffy() : 0;
-
-            // En yüksek değeri kullan (tutarlılık için)
-            coffy = Math.max(localCoffy, playerCoffy, playerLocalCoffy);
-          } else {
-            coffy = localCoffy;
-          }
-
-          claimableCoffy.textContent = coffy;
-        } else {
-          walletStatus.textContent = 'Wallet Not Connected';
-          mainMenuClaimReward.disabled = true;
-          scoreSection.style.display = 'none';
-          walletConnected = false;
-        }
-      }
-      function setCanvasInputEnabled(enabled) {
-        const canvas = document.getElementById('game-canvas');
-        if (canvas) {
-          canvas.style.pointerEvents = enabled ? 'auto' : 'none';
-        }
-      }
-      setCanvasInputEnabled(false);
-      if (window.Web3Handler) {
-        web3Handler = new window.Web3Handler();
-        document.addEventListener('wallet-update', function () {
-          updateWalletStatus();
-        });
-        updateWalletStatus();
-      }
-      if (mainMenuConnectWallet) mainMenuConnectWallet.onclick = async function () {
-        if (web3Handler && typeof web3Handler.connectWallet === 'function') {
-          showNotification('Connecting wallet...', 'info');
-          try {
-            await web3Handler.connectWallet();
-            showNotification('Wallet connected!', 'success');
-            updateWalletStatus();
-          } catch (e) {
-            showNotification('Failed to connect wallet!', 'error');
-          }
-        }
+    /**
+     * Bee Adventure UI & Web3 Integration
+     * Synchronizes the main menu with Web3Manager states
+     */
+    window.addEventListener('DOMContentLoaded', () => {
+      // Expose to global scope for game scripts
+      window.updateRewardsUI = async function() {
+          if (typeof updateRewardsUIInternal === 'function') await updateRewardsUIInternal();
       };
-      if (mainMenuClaimReward) mainMenuClaimReward.onclick = async function () {
-        // GÜÇLE DÜZELTME - Coffy miktarını tutarlı şekilde al
-        let coffy = 0;
 
-        // Önce oyuncu nesnesinden al
-        if (window.game && window.game.player && typeof window.game.player.getLocalCoffy === 'function') {
-          coffy = window.game.player.getLocalCoffy();
-          console.log('📊 Coffy from player:', coffy);
+      const el = {
+        overlay: document.getElementById('mainMenuOverlay'),
+        connectBtn: document.getElementById('mainMenuConnectWallet'),
+        claimBtn: document.getElementById('mainMenuClaimReward'),
+        startBtn: document.getElementById('mainMenuStartGame'),
+        walletStatus: document.getElementById('walletStatus'),
+        scoreSection: document.getElementById('scoreSection'),
+        totalScore: document.getElementById('totalScore'),
+        claimableCoffy: document.getElementById('claimableCoffy'),
+        canvas: document.getElementById('game-canvas')
+      };
+
+      let isGameRunning = false;
+
+      // 1. Wallet Updates
+      document.addEventListener('wallet-update', async (e) => {
+        const { connected, address } = e.detail;
+        
+        if (connected) {
+          el.walletStatus.textContent = `Wallet: ${address.slice(0,6)}...${address.slice(-4)}`;
+          el.connectBtn.style.display = 'none';
+          el.scoreSection.style.display = 'flex';
+          el.claimBtn.disabled = false;
+          
+          // Check for active session to update Start/Resume button
+          checkSession();
+        } else {
+          el.walletStatus.textContent = 'Wallet Not Connected';
+          el.connectBtn.style.display = 'block';
+          el.scoreSection.style.display = 'none';
+          el.claimBtn.disabled = true;
+          el.startBtn.innerHTML = 'Start Game';
         }
+      });
 
-        // Eğer oyuncu yoksa localStorage'dan al
-        if (coffy <= 0) {
-          coffy = parseInt(localStorage.getItem('coffyEarned') || '0', 10);
-          console.log('📊 Coffy from localStorage:', coffy);
-        }
+      // 2. Transaction Guards (UI Feedback)
+      document.addEventListener('tx-start', () => {
+        el.startBtn.disabled = true;
+        el.claimBtn.disabled = true;
+        el.startBtn.style.opacity = '0.5';
+      });
 
-        // Son kontrol - hem oyuncu hem localStorage'u senkronize et
-        if (window.game && window.game.player) {
-          const playerCoffy = window.game.player.coffy || 0;
-          const localCoffy = parseInt(localStorage.getItem('coffyEarned') || '0', 10);
-          coffy = Math.max(playerCoffy, localCoffy);
-          console.log('📊 Final coffy amount (max of both):', coffy, 'Player:', playerCoffy, 'Local:', localCoffy);
-        }
+      document.addEventListener('tx-end', () => {
+        el.startBtn.disabled = false;
+        el.claimBtn.disabled = false;
+        el.startBtn.style.opacity = '1';
+        checkSession();
+      });
 
-        if (coffy <= 0) {
-          showNotification('No Coffy to claim!', 'info');
-          return;
-        }
+      // 3. Smart Session Check
+      async function checkSession() {
+        if (!window.web3Manager || !window.web3Manager.connected) return;
+        
+        const session = await window.web3Manager.getActiveSession();
+        if (session) {
+          el.startBtn.innerHTML = '🔁 RESUME GAME';
+          el.startBtn.classList.add('resume-mode');
 
-        if (web3Handler && typeof web3Handler.claimRewards === 'function') {
-          showNotification(`${coffy} Coffy is being claimed...`, 'info');
-          try {
-            // DOĞRU ÇAĞRI - claimGameRewards kontrata gönderilecek
-            console.log('🌐 Calling claimRewards with amount:', coffy);
-            await web3Handler.claimRewards(coffy);
-            showNotification(`Successfully claimed ${coffy} Coffy!`, 'success');
+          const container = document.getElementById('stuck-session-container');
+          const stuckId = document.getElementById('stuck-id');
+          const resetBtn = document.getElementById('mainMenuResetSession');
 
-            // Hem player hem localStorage'u sıfırla
-            if (window.game && window.game.player && typeof window.game.player.resetLocalCoffy === 'function') {
-              window.game.player.resetLocalCoffy();
-              window.game.player.coffy = 0; // Player coffy'sini de sıfırla
+          if (container && stuckId && resetBtn) {
+            if (session.isExpired || session.unknownTime) {
+                container.style.display = 'block';
+                stuckId.textContent = session.id;
+                resetBtn.disabled = false;
+                resetBtn.textContent = 'Oturumu Sıfırla 🔄';
+                resetBtn.style.opacity = '1';
+            } else {
+                container.style.display = 'none';
             }
-            localStorage.setItem('coffyEarned', '0');
-
-            updateWalletStatus();
-            console.log('✅ Claim successful, all coffy reset to 0');
-          } catch (e) {
-            console.error('❌ Claim failed:', e);
-            showNotification('Failed to claim reward: ' + (e.message || e), 'error');
           }
+        } else {
+          el.startBtn.innerHTML = 'Start Game';
+          el.startBtn.classList.remove('resume-mode');
+          const container = document.getElementById('stuck-session-container');
+          if (container) container.style.display = 'none';
         }
-      };
-      if (mainMenuStartGame) mainMenuStartGame.onclick = async function () {
-        // Çoklu tıklama koruması
-        if (gameStarted) {
-          console.log('🎮 Game already started, ignoring additional clicks');
-          return;
+
+        // Initial update
+        await updateRewardsUIInternal();
+      }
+      window.checkSession = checkSession;
+
+      async function updateRewardsUIInternal() {
+        if (!window.web3Manager || !window.web3Manager.connected) return;
+
+        let coffy = 0;
+        const walletKey = `coffyEarned_${window.web3Manager.walletAddress}`;
+        const local = parseInt(localStorage.getItem(walletKey) || '0');
+        if (window.game && window.game.player) {
+          coffy = Math.max(local, window.game.player.coffy || 0);
+        } else {
+          coffy = local;
         }
-        if (window.game && window.game.isRunning) {
-          console.log('🎮 Game already running, ignoring additional clicks');
+        el.claimableCoffy.textContent = coffy;
+        
+        // Sync with Contract Session
+        const session = await window.web3Manager.getActiveSession();
+        
+        if (session && coffy > 0) {
+          const isReady = session.isReadyToClaim || session.unknownTime;
+          if (isReady) {
+            el.claimBtn.textContent = '💰 CLAIM REWARDS';
+            el.claimBtn.disabled = false;
+            el.claimBtn.classList.add('highlight-claim');
+          } else {
+            const waitTime = Math.max(0, 120 - (session.duration || 0));
+            el.claimBtn.textContent = `⏳ WAIT ${waitTime}s`;
+            el.claimBtn.disabled = true;
+            el.claimBtn.classList.remove('highlight-claim');
+          }
+        } else {
+          el.claimBtn.textContent = 'Claim Rewards';
+          el.claimBtn.disabled = true;
+          el.claimBtn.classList.remove('highlight-claim');
+        }
+      }
+      window.updateRewardsUI = updateRewardsUIInternal;
+
+      // Keep UI fresh every 3 seconds while menu is open
+      setInterval(async () => {
+        if (el.overlay.style.display !== 'none') {
+          await checkSession();
+        }
+      }, 3000);
+
+      // 4. Button Listeners
+      el.connectBtn.addEventListener('click', () => window.web3Manager?.connectWallet());
+
+      el.claimBtn.addEventListener('click', async () => {
+        const amount = parseInt(el.claimableCoffy.textContent);
+        if (amount <= 0) {
+          window.showNotification("No rewards to claim!", "info");
           return;
         }
 
-        // Butonu devre dışı bırak
-        mainMenuStartGame.disabled = true;
-        mainMenuStartGame.style.opacity = '0.5';
-        mainMenuStartGame.textContent = 'Starting...';
+        const success = await window.web3Manager.claimGameRewards(amount);
+        if (success) {
+          const walletKey = `coffyEarned_${window.web3Manager.walletAddress}`;
+          localStorage.setItem(walletKey, '0');
+          if (window.game && window.game.player) window.game.player.coffy = 0;
+          await updateRewardsUIInternal();
+        }
+      });
 
-        gameStarted = true;
-        console.log('🎮 Starting new game...');
+      // Emergency Reset Listener
+      const resetBtn = document.getElementById('mainMenuResetSession');
+      if (resetBtn) {
+        resetBtn.addEventListener('click', async () => {
+          const success = await window.web3Manager.forceResetStuckSession();
+          if (success) {
+            document.getElementById('stuck-session-container').style.display = 'none';
+            await checkSession();
+          }
+        });
+      }
+
+      el.startBtn.addEventListener('click', async () => {
+        if (isGameRunning) return;
+
+        el.startBtn.disabled = true;
+        el.startBtn.textContent = 'Initialising Web3...';
 
         try {
-          window.game = new BeeGame();
-
-          // Eğer ethereum varsa ama henüz bağlanmadıysa veya init olmadıysa bekle
-          if (window.ethereum && window.web3Handler) {
-            console.log('🎮 Waiting for wallet/contract initialization...');
-            try {
-              // initializationPromise'ın çözülmesini bekle (timeout ile)
-              if (window.web3Handler.initializationPromise) {
-                await Promise.race([
-                  window.web3Handler.initializationPromise,
-                  new Promise(resolve => setTimeout(resolve, 3000)) // 3 sn limit
-                ]);
-              }
-            } catch (e) {
-              console.warn("Web3 init bekleme hatası veya timeout:", e);
+          if (window.web3Manager) {
+            await window.web3Manager.initializationPromise;
+            const result = await window.web3Manager.startGameOnContract();
+            
+            if (result === false) {
+              el.startBtn.disabled = false;
+              el.startBtn.textContent = 'Start Game';
+              return;
             }
           }
 
-          if (window.web3Handler && typeof window.web3Handler.startGameOnContract === 'function') {
-            await window.web3Handler.startGameOnContract();
-          }
-          if (mainMenuOverlay) mainMenuOverlay.style.display = 'none';
-          setCanvasInputEnabled(true);
-          setTimeout(() => { window.focus(); }, 100);
-          console.log('✅ Game started successfully');
-        } catch (error) {
-          console.error('❌ Error starting game:', error);
-          // Hata durumunda butonu tekrar aktif et
-          gameStarted = false;
-          mainMenuStartGame.disabled = false;
-          mainMenuStartGame.style.opacity = '1';
-          mainMenuStartGame.textContent = 'Start Game';
+          el.startBtn.textContent = 'Loading Engine...';
+          window.game = new BeeGame();
+          
+          el.overlay.style.display = 'none';
+          el.canvas.style.pointerEvents = 'auto';
+          isGameRunning = true;
+          window.focus();
+        } catch (err) {
+          console.error("Game Start Error:", err);
+      el.startBtn.disabled = false;
+          el.startBtn.textContent = 'Start Game';
+          window.showNotification("Failed to start: " + err.message, "error");
         }
-      };
+      });
     });
   </script>
+
   <script>
     // Global notification fonksiyonu
     const notification = document.getElementById('notification');
@@ -835,6 +807,13 @@
       <button id="mainMenuStartGame" class="bee-btn"
         style="width:220px;padding:12px 0;border:none;border-radius:8px;background:#4CAF50;color:white;font-size:1.15em;font-weight:bold;cursor:pointer;transition:all 0.2s;box-shadow:0 2px 8px #0002;">Start
         Game</button>
+      
+      <!-- Emergency Reset Button -->
+      <div id="stuck-session-container" style="display:none; margin-top:15px; text-align:center;">
+        <p style="color:#ffeb3b; font-size:13px; margin-bottom:5px;">Session stuck? (ID: <span id="stuck-id">-</span>)</p>
+        <button id="mainMenuResetSession" class="bee-btn" 
+          style="width:220px; padding:10px 0; background:#f44336; font-size:1em; box-shadow:0 4px 15px rgba(244,67,54,0.4);">Reset My Session</button>
+      </div>
     </div>
   </div>
   <div id="notification" style="z-index:999999 !important;pointer-events:auto !important;"></div>

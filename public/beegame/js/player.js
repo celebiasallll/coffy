@@ -3041,13 +3041,19 @@ class BeePlayer {
         }
     }
 
+    getWalletCoffyKey() {
+        const address = (window.web3Manager && window.web3Manager.walletAddress) || 'default';
+        return `coffyEarned_${address}`;
+    }
+
     collectCoffy(amount = 10) {
         this.coffy += amount;
         
         // LocalStorage'a da kaydet - SENKRON TUTMA
-        let localCoffy = parseInt(localStorage.getItem('coffyEarned') || '0', 10);
+        const key = this.getWalletCoffyKey();
+        let localCoffy = parseInt(localStorage.getItem(key) || '0', 10);
         localCoffy += amount;
-        localStorage.setItem('coffyEarned', localCoffy.toString());
+        localStorage.setItem(key, localCoffy.toString());
         
         // Debug log for coffy collection
         console.log(`☕ SYNCED: Collected ${amount} coffy! Player total: ${Math.floor(this.coffy)}, Local total: ${localCoffy}`);
@@ -3062,8 +3068,8 @@ class BeePlayer {
         }
         
         // Wallet status'u güncelle (ana menüde görünsün)
-        if (typeof updateWalletStatus === 'function') {
-            updateWalletStatus();
+        if (typeof window.updateRewardsUI === 'function') {
+            window.updateRewardsUI();
         }
         
         return amount;
@@ -3071,12 +3077,12 @@ class BeePlayer {
 
     // Local coffy getter
     getLocalCoffy() {
-        return parseInt(localStorage.getItem('coffyEarned') || '0', 10);
+        return parseInt(localStorage.getItem(this.getWalletCoffyKey()) || '0', 10);
     }
 
     // Local coffy reset
     resetLocalCoffy() {
-        localStorage.setItem('coffyEarned', '0');
+        localStorage.setItem(this.getWalletCoffyKey(), '0');
     }
 
     // Bal sistemi fonksiyonları kaldırıldı

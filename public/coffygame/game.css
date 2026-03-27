@@ -788,6 +788,33 @@ button#claim-total-reward:disabled {
     cursor: not-allowed;
 }
 
+/* Button State Styles */
+.highlight-claim {
+    background: linear-gradient(90deg, #FFD700, #FFA500) !important;
+    animation: pulse-glow 2s infinite;
+    color: #000 !important;
+    font-weight: bold;
+    border: 2px solid #fff !important;
+}
+
+@keyframes pulse-glow {
+    0% { transform: scale(1); box-shadow: 0 0 5px rgba(255, 215, 0, 0.5); }
+    50% { transform: scale(1.02); box-shadow: 0 0 15px rgba(255, 215, 0, 0.8); }
+    100% { transform: scale(1); box-shadow: 0 0 5px rgba(255, 215, 0, 0.5); }
+}
+
+.disabled-mode {
+    background: linear-gradient(90deg, #333, #444) !important;
+    color: #888 !important;
+    cursor: not-allowed !important;
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.resume-mode {
+    background: linear-gradient(90deg, #3B82F6, #2563EB) !important; /* Blue for resume */
+}
+
 /* Migration Styles */
 .migration-section {
     margin-top: 10px;

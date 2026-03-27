@@ -45,7 +45,7 @@ class Web3Handler {
         this.initialize();
     }
 
-    initialize() {
+    async initialize() {
         // Check if Web3 is already available
         if (window.ethereum) {
             this.web3 = new Web3(window.ethereum);
@@ -74,16 +74,17 @@ class Web3Handler {
                 }
             });
 
-            // Check if already connected
-            window.ethereum.request({ method: 'eth_accounts' })
-                .then(accounts => {
-                    if (accounts.length > 0) {
-                        this.currentAccount = accounts[0];
-                        this.connectionStatus = 'connected';
-                        this.fetchTokenBalance();
-                    }
-                })
-                .catch(error => console.error("Error checking accounts:", error));
+            // Check if already connected - WAIT for this
+            try {
+                const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                if (accounts.length > 0) {
+                    this.currentAccount = accounts[0];
+                    this.connectionStatus = 'connected';
+                    await this.fetchTokenBalance();
+                }
+            } catch (error) {
+                console.error("Error checking accounts:", error);
+            }
         } else if (window.web3) {
             this.web3 = new Web3(window.web3.currentProvider);
             console.log("Legacy Web3 detected");
@@ -111,7 +112,12 @@ class Web3Handler {
                 }
             } catch (error) {
                 console.error("Failed to initialize token contract:", error);
+                // Even on error, resolve to unblock the game
+                if (this._resolveInit) this._resolveInit();
             }
+        } else {
+            // No web3, still resolve to unblock
+            if (this._resolveInit) this._resolveInit();
         }
     }
 

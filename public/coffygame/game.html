@@ -11,53 +11,12 @@
    <link rel="icon" href="favicon.ico" type="image/x-icon">
    <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
    
-   <!-- Ethers.js Loading Script -->
-   <script>
-     window.ethersLoaded = false;
-     
-     function loadEthers() {
-       const cdnUrls = [
-         "https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js",
-         "libs/ethers-5.7.2.min.js" // Local fallback
-       ];
-       
-       let currentIndex = 0;
-       
-       function attemptLoad() {
-         if (currentIndex >= cdnUrls.length) {
-           console.log("ethers.js could not be loaded, Web3 features will be disabled");
-           return;
-         }
-         
-         const script = document.createElement('script');
-         script.src = cdnUrls[currentIndex];
-         script.async = false;
-         
-         script.onload = function() {
-           console.log(`✅ Ethers.js loaded successfully`);
-           window.ethersLoaded = true;
-           window.dispatchEvent(new CustomEvent('ethersLoaded'));
-         };
-         
-         script.onerror = function() {
-           currentIndex++;
-           attemptLoad();
-         };
-         
-         document.head.appendChild(script);
-       }
-       
-       attemptLoad();
-     }
-     
-     loadEthers();
-     
-     setTimeout(function() {
-       if (!window.ethersLoaded && typeof window.ethers === 'undefined') {
-         console.log("Web3 functionality may be limited");
-       }
-     }, 2000);
-   </script>
+    <!-- Load Ethers.js from CDN for maximum reliability -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <script>
+      window.ethersLoaded = true;
+      console.log("✅ Ethers.js loaded from CDN");
+    </script>
    
    <!-- Stylesheets -->
    <link rel="stylesheet" href="game.css">
@@ -94,47 +53,9 @@
             <div class="start-screen-total-reward">Total Reward: <span id="total-reward">0</span> COFFY</div>
             <div class="start-screen-high-score">High Score: <span id="start-high-score">0</span></div>
             
-            <button id="claim-total-reward" class="game-button" data-tooltip="Daily claim limit: 1 per IP address">CLAIM REWARDS</button>
+            <button id="claim-total-reward" class="game-button claim-button">CLAIM REWARDS</button>
             <button id="connect-wallet" class="game-button touch-target">CONNECT WALLET</button>
             <button id="start-button" class="game-button touch-target">START GAME</button>
-            <h3 class="section-title">Characters</h3>
-            <div class="characters-container">
-                <div class="character-item">
-                    <i class="fas fa-coffee"></i>
-                    <span class="character-name">Genesis</span>
-                    <span class="character-price">1M COFFY</span>
-                    <span class="character-multiplier">1.5x rewards</span>
-                    <button id="character-1" class="buy-button">Buy</button>
-                </div>
-                <div class="character-item">
-                    <i class="fas fa-chess-knight"></i>
-                    <span class="character-name">Mocha Knight</span>
-                    <span class="character-price">3M COFFY</span>
-                    <span class="character-multiplier">2x rewards</span>
-                    <button id="character-2" class="buy-button">Buy</button>
-                </div>
-                <div class="character-item">
-                    <i class="fas fa-hat-wizard"></i>
-                    <span class="character-name">Arabica Archmage</span>
-                    <span class="character-price">5M COFFY</span>
-                    <span class="character-multiplier">3x rewards</span>
-                    <button id="character-3" class="buy-button">Buy</button>
-                </div>
-                <div class="character-item">
-                    <i class="fas fa-user-ninja"></i>
-                    <span class="character-name">Robusta Shadowblade</span>
-                    <span class="character-price">8M COFFY</span>
-                    <span class="character-multiplier">4x rewards</span>
-                    <button id="character-4" class="buy-button">Buy</button>
-                </div>
-                <div class="character-item legendary">
-                    <i class="fas fa-dragon"></i>
-                    <span class="character-name">Legendary Dragon</span>
-                    <span class="character-price">10M COFFY</span>
-                    <span class="character-multiplier">5x rewards + DAO</span>
-                    <button id="character-5" class="buy-button">Buy</button>
-                </div>
-            </div>
         </div>
 
         <!-- Game Over Screen -->

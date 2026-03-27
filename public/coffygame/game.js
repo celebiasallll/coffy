@@ -3,7 +3,7 @@ import * as Utils from './utils.js';
 import { ParticleSystem, TimingManager } from './utils.js';
 import TouchControls, { isMobileDevice } from './mobile-controls.js'; // Import isMobileDevice
 const { showNotification } = Utils; // Removed Skill Tree utils
-import * as Web3 from './web3Integration.js';
+// window.web3Manager is global, direct import not needed for calls
 import * as GameLogic from './gameLogic.js'; // Import Game Logic functions
 import PlayerBullet from './PlayerBullet.js';
 import { PLAYER_STATE } from './constants.js';
@@ -73,9 +73,6 @@ export const gameState = { // Export if needed, otherwise keep local
     keysPressed: {},
     walletConnected: false,
     walletAddress: null,
-    provider: null,
-    signer: null,
-    tokenContract: null,
     musicEnabled: true, // Consider loading from storage
     shieldActive: false,
     shieldTimer: 0,
@@ -1939,7 +1936,6 @@ function gameLoop(timestamp) {
         drawPlayerBullets(); // Draw player bullets
         drawShadowClones(); // Draw shadow clones
         drawPlayer();
-        drawParticles();
     }
 
     requestAnimationFrame(gameLoop);
@@ -1949,6 +1945,13 @@ function gameLoop(timestamp) {
 // --- Game State Management (Keep startGame, hideAllScreens, showScreen here) ---
 async function startGame() {
     console.log('startGame fonksiyonu ÇAĞRILDI');
+
+    // Check if start button is disabled (e.g. claim required)
+    const startBtn = document.getElementById('start-button');
+    if (startBtn && startBtn.disabled) {
+        showNotification("Please claim your pending rewards before starting a new game.", 'warning');
+        return;
+    }
 
     // Eğer ethereum varsa ama henüz bağlanmadıysa veya init olmadıysa bekle
     if (window.ethereum && window.web3Manager && !window.web3Manager.isConnected()) {
@@ -1964,13 +1967,28 @@ async function startGame() {
         }
     }
 
+    // Sync logic: walletAddress ve contracts'ları web3Manager'dan al (autoConnect sonrası için)
+    if (window.web3Manager && window.web3Manager.isConnected()) {
+        if (!gameState.walletAddress) gameState.walletAddress = window.web3Manager.walletAddress;
+        if (!gameState.tokenContract) gameState.tokenContract = window.web3Manager.tokenContract;
+        if (!gameState.gameModuleContract) gameState.gameModuleContract = window.web3Manager.gameModuleContract;
+    }
+
     if (gameState.tokenContract && gameState.walletAddress && window.web3Manager && window.web3Manager.isConnected()) {
         console.log("startGame: Zincir işlemi çağrılıyor...");
         try {
-            await window.web3Manager.startGameOnContract();
-            // Başarılı zincir işlemi, local fonksiyon çağrılmaz
+            const status = await window.web3Manager.startGameOnContract();
+            if (status === "CLAIM_REQUIRED") {
+                console.log("startGame: Claim required, redirecting to game-over screen.");
+                showScreen(gameOverScreen);
+                return;
+            } else if (status === "RESUMED") {
+                console.log("startGame: Session resumed.");
+                showNotification("Active session resumed!", 'info');
+            } else if (status === "STARTED") {
+                console.log("startGame: New session started on-chain.");
+            }
         } catch (err) {
-            // Sadece hata logla, local fallback çağrılmasın
             console.warn("Kontrat startGame çağrısı başarısız, oyun devam edecek:", err);
         }
     } else {
@@ -2077,17 +2095,79 @@ function hideAllScreens() {
 }
 
 function showScreen(screen) {
-    console.log("showScreen called for:", screen ? screen.id : 'null'); // Log which screen is being shown
+    if (!screen || typeof screen === 'string') {
+        const screenId = typeof screen === 'string' ? screen : 'unknown';
+        console.warn(`showScreen called with invalid argument: ${screenId}. Attempting lookup...`);
+        screen = document.getElementById(screenId) || startScreen;
+    }
+    console.log("showScreen called for:", screen ? screen.id : 'null');
     hideAllScreens();
     if (screen) {
         screen.style.display = 'flex';
-        // Ensure visibility class is added correctly
+        
+        // UI Güncelleme: Start butonunu duruma göre değiştir
+        if (screen.id === 'start-screen') {
+            updateStartButtonUI();
+        }
+
         setTimeout(() => {
             screen.classList.add('visible');
-            console.log(screen.id, "should now be visible.");
         }, 10);
-    } else {
-        console.warn("showScreen called with null or undefined screen");
+    }
+}
+
+/**
+ * Start butonunu Web3 durumuna göre günceller
+ */
+async function updateStartButtonUI() {
+    const startBtn = document.getElementById('start-button');
+    const claimBtn = document.getElementById('claim-total-reward');
+    
+    if (!startBtn || !window.web3Manager || !window.web3Manager.isConnected()) return;
+
+    try {
+        const session = await window.web3Manager.getActiveSession();
+        
+        if (session) {
+            if (session.isReadyToClaim) {
+                // Claim ready but don't block resume
+                startBtn.innerHTML = '🔁 RESUME GAME';
+                startBtn.disabled = false;
+                startBtn.classList.remove('disabled-mode', 'claim-mode');
+                startBtn.classList.add('resume-mode');
+                
+                if (claimBtn) {
+                    claimBtn.innerHTML = '💰 CLAIM REWARDS';
+                    claimBtn.classList.add('highlight-claim');
+                    claimBtn.disabled = false;
+                }
+            } else {
+                // Session active (resume)
+                startBtn.innerHTML = '🔁 RESUME GAME';
+                startBtn.disabled = false;
+                startBtn.classList.remove('disabled-mode', 'claim-mode');
+                startBtn.classList.add('resume-mode');
+                
+                if (claimBtn) {
+                    claimBtn.innerHTML = 'CLAIM REWARDS';
+                    claimBtn.disabled = true; 
+                    claimBtn.classList.remove('highlight-claim');
+                }
+            }
+        } else {
+            // No session
+            startBtn.innerHTML = '▶ START GAME';
+            startBtn.disabled = false;
+            startBtn.classList.remove('resume-mode', 'claim-mode', 'disabled-mode');
+            
+            if (claimBtn) {
+                claimBtn.innerHTML = 'CLAIM REWARDS';
+                claimBtn.classList.remove('highlight-claim');
+                claimBtn.disabled = gameState.pendingRewards <= 0;
+            }
+        }
+    } catch (e) {
+        console.warn("Buton UI güncelleme hatası:", e);
     }
 }
 
@@ -2158,42 +2238,9 @@ function init() {
     // applySkills call removed
     // updateSkillTreeUI call removed
 
-    // Setup character buttons listeners
-    Const.characters.forEach(character => {
-        const button = document.getElementById(`character-${character.id}`);
-        if (!button) {
-            console.warn(`Button not found for character ID: ${character.id}`);
-            return;
-        }
-        button.addEventListener('click', async () => {
-            const isOwned = character.key === 'basic-barista' || gameState.ownedCharacters.includes(character.key);
-            if (isOwned) {
-                if (gameState.currentCharacter !== character.key) {
-                    gameState.currentCharacter = character.key;
-                    Utils.updateCharacterButtons(gameState);
-                    console.log(`Selected character: ${character.name}`);
-                }
-            } else {
-                await Web3.buyCharacter(character.id, gameState, { tokenCountElement });
-            }
-        });
-    });
+    // Characters section removed from start screen
 
-    // Setup Skill Tree upgrade buttons
-    const upgradeSpeedButton = document.getElementById('upgrade-speed');
-    const upgradeRangeButton = document.getElementById('upgrade-range');
-
-    if (upgradeSpeedButton) {
-        upgradeSpeedButton.addEventListener('click', async () => {
-            await Web3.upgradeSkill('speed', gameState, gameObjects.player, { updateSkillTreeUI, applySkills, saveSkillTree, tokenCountElement });
-        });
-    }
-    if (upgradeRangeButton) {
-        upgradeRangeButton.addEventListener('click', async () => {
-            await Web3.upgradeSkill('range', gameState, gameObjects.player, { updateSkillTreeUI, applySkills, saveSkillTree, tokenCountElement });
-        });
-    }
-    // Skill Tree upgrade button listeners removed
+    // Skill Tree upgrade buttons listener removed
 
     // Preload images
     Utils.preloadImages(IMAGE_CACHE)
@@ -2238,12 +2285,16 @@ function init() {
     };
 
     // Setup main button listeners
-    connectWalletButton.addEventListener("click", () => Web3.connectWallet(gameState, web3UiElements));
+    connectWalletButton.addEventListener("click", () => window.web3Manager?.connectWallet());
     startButton.addEventListener('click', startGame);
     restartButton.addEventListener('click', startGame);
     // Use GameLogic functions for pause and end game
     resumeButton.addEventListener('click', () => GameLogic.togglePause(gameState, gameLoop, uiElements, soundElements)); // Pass elements
-    claimTotalRewardButton.addEventListener('click', () => Web3.claimTotalReward(gameState, web3UiElements));
+    claimTotalRewardButton.addEventListener('click', () => {
+        if (window.web3Manager) {
+            window.web3Manager.claimGameRewards(gameState.pendingRewards);
+        }
+    });
     mainMenuRewardButton.addEventListener('click', () => {
         // Re-enable endGame call
         GameLogic.endGame(gameState, gameObjects, soundElements); // Pass sound elements
@@ -2428,45 +2479,6 @@ function init() {
         // ... diğer mobil geliştirmeler ...
     }
 
-    // Set up the rewards claim button
-    const claimRewardsButton = document.getElementById('claim-total-reward');
-    if (claimRewardsButton) {
-        claimRewardsButton.addEventListener('click', async function () {
-            // Eğer cüzdan bağlı değilse önce bağlan
-            if (!gameState.walletConnected || !window.web3Manager || !window.web3Manager.connected) {
-                showNotification('Connecting wallet...', 'info');
-                const web3UiElements = {
-                    tokenCountElement, walletAddressElement, connectWalletButton,
-                    totalRewardElement, totalRewardsHudElement, claimTotalRewardButton
-                };
-                try {
-                    await Web3.connectWallet(gameState, web3UiElements);
-                } catch (err) {
-                    showNotification('Wallet connection failed', 'error');
-                    return;
-                }
-            }
-            // Bağlantıdan sonra tekrar claim işlemini dene
-            if (window.web3Manager && typeof window.web3Manager.claimGameRewards === 'function') {
-                const amount = gameState.pendingRewards;
-                if (amount > 0) {
-                    try {
-                        const result = await window.web3Manager.claimGameRewards(amount);
-                        if (result) {
-                            showNotification('Claim transaction sent! Please confirm in MetaMask.', 'info');
-                        }
-                    } catch (error) {
-                        alert(error?.reason || error?.data?.message || error?.message || 'Claim failed');
-                        console.error('Claim error:', error);
-                    }
-                } else {
-                    showNotification('No rewards to claim', 'warning');
-                }
-            } else {
-                alert('Web3 connection not found!');
-            }
-        });
-    }
 
     // Update the claim button status on startup
     try {
@@ -2600,6 +2612,49 @@ function updateStartButtonState() {
     }
 }
 // Cüzdan bağlantısı tamamlandığında ve kontrat yüklendiğinde updateStartButtonState() çağrılmalı
+document.addEventListener('wallet-update', (e) => {
+    const data = e.detail;
+    const startBtn = document.getElementById('start-button');
+    const claimBtn = document.getElementById('claim-total-reward');
+
+    if (data.connected) {
+        gameState.walletConnected = true;
+        gameState.walletAddress = data.address;
+        if (connectWalletButton) connectWalletButton.style.display = 'none';
+        if (startBtn) startBtn.style.display = 'block';
+        if (claimBtn) claimBtn.style.display = 'block';
+        // Balance sync
+        syncWalletData();
+    } else {
+        gameState.walletConnected = false;
+        gameState.walletAddress = null;
+        if (connectWalletButton) connectWalletButton.style.display = 'block';
+        if (startBtn) startBtn.style.display = 'none';
+        if (claimBtn) claimBtn.style.display = 'none';
+    }
+    updateStartButtonUI();
+});
+
+async function syncWalletData() {
+    if (!window.web3Manager || !window.web3Manager.isConnected()) return;
+    try {
+        const balance = await window.web3Manager.tokenContract.balanceOf(window.web3Manager.walletAddress);
+        const decimals = await window.web3Manager.tokenContract.decimals();
+        gameState.tokenCount = ethers.utils.formatUnits(balance, decimals);
+        if (tokenCountElement) tokenCountElement.textContent = parseFloat(gameState.tokenCount).toFixed(2);
+    } catch (e) { console.warn("Sync error:", e); }
+}
+
+document.addEventListener('gameStarted', () => {
+    updateStartButtonUI();
+});
+
+document.addEventListener('rewardsClaimed', () => {
+    gameState.pendingRewards = 0;
+    Utils.savePendingRewards(gameState);
+    updateRewardUI(0);
+    syncWalletData();
+});
 
 // startGameSession fonksiyonuna log ekle
 if (typeof window.startGameSession === 'function') {
@@ -2610,21 +2665,3 @@ if (typeof window.startGameSession === 'function') {
     };
 }
 
-// Claim Rewards butonuna tıklama fonksiyonu
-function onClaimRewardsClick() {
-    if (window.web3Manager && typeof window.web3Manager.claimRewards === 'function') {
-        window.web3Manager.claimRewards().catch(error => {
-            alert(error?.reason || error?.data?.message || error?.message || 'Claim failed');
-            console.error('Claim error:', error);
-        });
-    } else {
-        alert('Web3 connection not found!');
-    }
-}
-// ... existing code ...
-// Buton bağlama
-const claimButton = document.getElementById('claim-total-reward');
-if (claimButton) {
-    claimButton.onclick = onClaimRewardsClick;
-}
-// ... existing code ...

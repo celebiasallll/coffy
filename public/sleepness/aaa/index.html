@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Open World AAA Prototype</title>
   <link rel="icon" href="data:;base64,iVBORw0KGgo=">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,24 +14,12 @@
       margin: 0;
       padding: 0;
       box-sizing: border-box;
-      -webkit-touch-callout: none;
-      -webkit-user-select: none;
-      user-select: none;
-      touch-action: none;
-    }
-
-    input, textarea {
-      -webkit-user-select: text;
-      user-select: text;
     }
 
     body {
       background: #000;
       overflow: hidden;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      touch-action: none;
-      overscroll-behavior: none;
-      -webkit-overflow-scrolling: auto;
     }
 
     canvas {
@@ -52,7 +40,7 @@
     }
 
     #stats {
-      display: none; /* v24.1: FPS Deaktif (geçici) */
+      display: flex; /* Show by default on desktop */
       position: absolute;
       top: 16px;
       left: 16px;
@@ -61,7 +49,6 @@
       border-radius: 12px;
       border: 1px solid rgba(0, 255, 170, 0.3);
       backdrop-filter: blur(12px);
-      /* display: flex; REMOVED to hide HUD */
       flex-direction: column;
       gap: 2px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.5);
@@ -271,20 +258,7 @@
     }
 
     /* Ekran kenar kırmızı vignette (hasar) */
-    #popup {
-      position: absolute;
-      bottom: 25%;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 24px;
-      font-weight: 900;
-      pointer-events: none;
-      text-align: center;
-      text-shadow: 0 4px 15px rgba(0, 0, 0, 0.8);
-      z-index: 2000;
-      transition: opacity 0.2s, transform 0.2s;
-      opacity: 0;
-    }
+
 
     #dmg-flash {
       position: absolute;
@@ -442,7 +416,7 @@
 
     #popup {
       position: absolute;
-      top: 34%;
+      top: 34% !important;
       left: 50%;
       transform: translateX(-50%);
       color: #fff;
@@ -1047,7 +1021,7 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      z-index: 2000;
+      z-index: 5000; /* Prioritize over HUD */
       color: #fff;
       overflow: hidden;
     }
@@ -1411,13 +1385,12 @@
       animation: interact-pulse 2s infinite ease-in-out;
     }
 
-    /* Mission HUD Style */
     #mission-hud {
       position: fixed;
       top: 110px;
       left: 20px;
-      width: 180px;      /* v28.0: Perfect Modern Square */
-      height: 180px;     /* v28.0: Perfect Modern Square */
+      width: 180px;
+      height: 180px;
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -1425,7 +1398,7 @@
       text-align: center;
       padding: 20px;
       background: rgba(0, 10, 20, 0.55);
-      border-radius: 24px; /* Premium Rounded */
+      border-radius: 24px;
       color: #fff;
       font-family: 'Rajdhani', sans-serif;
       z-index: 900;
@@ -1436,6 +1409,7 @@
       transform: scale(0.7);
       transform-origin: top left;
       opacity: 0.6;
+      overflow: hidden; 
       animation: mission-slide-in 0.8s cubic-bezier(0.2, 1, 0.3, 1) both;
     }
 
@@ -1445,7 +1419,7 @@
     }
 
     #mission-score {
-      font-size: 42px; /* v28.0: Hero size for square */
+      font-size: 42px;
       font-weight: 900;
       color: #ffd700;
       margin-top: -10px;
@@ -1453,43 +1427,67 @@
       text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
       line-height: 1;
     }
-    #mission-title {
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 2px;
-      color: #0fa;
-      font-weight: 700;
-      margin-bottom: 6px;
-      opacity: 0.9;
-    }
 
-    #mission-desc {
-      font-size: 11.5px;
-      line-height: 1.4;
-      opacity: 0.85;
-      margin-bottom: 12px;
-      color: #eee;
-    }
-
-    #mission-progress {
-      font-size: 13px;
-      font-weight: 800;
-      letter-spacing: 1px;
-      color: #ffd700;
-      padding: 5px 12px;
-      background: rgba(255, 215, 0, 0.15);
-      border-radius: 8px;
-      display: inline-block;
-    }
-
-    #mission-progress span {
-      color: #0fa;
-      font-size: 14px;
-    }
-
-    /* Adjust popup (narrative) position higher */
+    /* Restored Popup & Pulse */
     #popup {
-      bottom: 40% !important;
+      position: absolute;
+      top: 34%;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #fff;
+      font-size: 22px;
+      font-weight: 700;
+      text-shadow: 0 0 20px #0fa, 0 0 40px rgba(0, 255, 180, 0.5), 0 2px 6px #000;
+      opacity: 0;
+      z-index: 2000;
+    }
+
+    /* Screen Shake & Damage Effects */
+    @keyframes shake {
+      0%, 100% { transform: translate(0, 0) rotate(0deg); }
+      10% { transform: translate(-8px, -8px) rotate(-1.5deg); }
+      20% { transform: translate(8px, 0px) rotate(1.5deg); }
+      30% { transform: translate(-8px, 8px) rotate(0deg); }
+      40% { transform: translate(8px, 8px) rotate(1.5deg); }
+      50% { transform: translate(-8px, -8px) rotate(-1.5deg); }
+      60% { transform: translate(8px, 0px) rotate(1.5deg); }
+      70% { transform: translate(-8px, 8px) rotate(0deg); }
+      80% { transform: translate(8px, 8px) rotate(-1.5deg); }
+      90% { transform: translate(-8px, -8px) rotate(1.5deg); }
+    }
+    .shake {
+      animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+    }
+
+    #dmg-flash {
+      position: fixed;
+      inset: 0;
+      /* Intense red vignette with a slight hot-center pulse possibility */
+      background: radial-gradient(circle, rgba(255,0,0,0) 30%, rgba(255,0,0,0.75) 100%);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 9998;
+      transition: opacity 0.05s ease-out;
+      mix-blend-mode: multiply; /* Makes it feel more like blood/internal damage */
+    }
+    #dmg-flash.active {
+      opacity: 1;
+      transition: none;
+      animation: dmg-flash-glow 0.3s ease-out forwards;
+    }
+    @keyframes dmg-flash-glow {
+      0% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.9; transform: scale(1.05); }
+      100% { opacity: 0; transform: scale(1); }
+    }
+
+    @keyframes hp-damaged-pulse {
+      0% { transform: scale(1); filter: brightness(1); }
+      50% { transform: scale(1.15); filter: brightness(1.5) drop-shadow(0 0 15px #f00); }
+      100% { transform: scale(1); filter: brightness(1); }
+    }
+    .hp-damaged {
+      animation: hp-damaged-pulse 0.4s ease-out;
     }
 
     @keyframes interact-pulse {
@@ -1497,14 +1495,6 @@
       50% { border-color: rgba(255, 215, 0, 0.6); box-shadow: 0 4px 25px rgba(255, 215, 0, 0.15); }
     }
 
-    .kbd {
-      color: #fff;
-      background: rgba(255, 255, 255, 0.15);
-      padding: 2px 8px;
-      border-radius: 4px;
-      margin-right: 12px;
-      border-bottom: 2px solid rgba(255, 255, 255, 0.3);
-    }
     #start-hint {
       position: fixed;
       bottom: 120px;
@@ -1524,25 +1514,12 @@
       transition: opacity 1s;
       pointer-events: none;
     }
-    @keyframes sleep-shake {
-      0%, 100% { transform: translate(0, 0); }
-      10%, 30%, 50%, 70%, 90% { transform: translate(-2px, -1px); }
-      20%, 40%, 60%, 80% { transform: translate(2px, 1.5px); }
-    }
-    .sleep-shake {
-      animation: sleep-shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
-    }
-    .critical-pulse {
-      animation: hp-pulse 0.6s ease-in-out infinite;
-      border-color: #cc44ff !important;
-      box-shadow: 0 0 15px rgba(204, 68, 255, 0.4) !important;
-    }
 
-    /* ─── Input Guide Panels (Absolute on Right) ───────────────────────── */
+    /* Restored Input Guides Base */
     .input-guides-wrapper {
       position: absolute;
-      right: 120px; /* Sola kaydırıldı (v18.0) */
-      top: 15%;   /* Daha yukarı taşındı */
+      right: 120px;
+      top: 15%;
       display: flex;
       flex-direction: column;
       gap: 12px;
@@ -1610,8 +1587,101 @@
     @media (max-width: 1500px) {
       .input-guides-wrapper { right: 20px; scale: 0.9; }
     }
-    @media (max-width: 1250px) {
-      .input-guides-wrapper { display: none; }
+
+    /* Mobile Overrides (Consolidated) */
+    @media (pointer: coarse), (max-width: 1024px) {
+      body.mobile-device #char-select { overflow: hidden !important; touch-action: none; }
+      body.mobile-device #cs-inner { 
+        justify-content: center !important; 
+        padding: 10px !important; 
+        padding-top: calc(5px + env(safe-area-inset-top)) !important;
+        height: 100vh !important; 
+        min-height: 0 !important;
+      }
+      body.mobile-device #char-select h1 { font-size: 22px !important; margin: 0 !important; letter-spacing: 2px !important; }
+      body.mobile-device #char-select .cs-eyebrow { font-size: 8px !important; margin: 0 !important; }
+      body.mobile-device #char-select .cs-tagline { display: none !important; }
+      body.mobile-device #char-select .cs-divider { margin: 6px 0 !important; }
+      body.mobile-device .char-btns { scale: 0.75; gap: 15px !important; margin: 10px 0 !important; }
+      body.mobile-device .char-btn { width: 160px !important; }
+      body.mobile-device .char-btn-img { height: 80px !important; }
+      body.mobile-device .cs-start-row { margin-top: 10px !important; padding-bottom: env(safe-area-inset-bottom) !important; }
+      body.mobile-device #cs-start { padding: 8px 30px !important; font-size: 14px !important; }
+      
+      /* Loading Screen Mobile Fix */
+      body.mobile-device #ld-title { font-size: 22px !important; letter-spacing: 3px !important; margin: 10px 0 !important; width: 90% !important; margin-left: auto !important; margin-right: auto !important; }
+      body.mobile-device #ld-tagline { font-size: 8px !important; letter-spacing: 1px !important; opacity: 0.6 !important; }
+      body.mobile-device #ld-inner { padding: 15px !important; justify-content: center !important; }
+      body.mobile-device #ld-progress-area { width: 85% !important; margin-top: 15px !important; }
+      body.mobile-device #ld-log { display: none !important; } 
+      body.mobile-device #ld-char-badge { scale: 0.8; margin-bottom: 5px !important; }
+      
+      body.mobile-device #char-select { background: #04080f !important; }
+      body.mobile-device #cs-inner { padding: 5px !important; }
+      body.mobile-device .cs-nav-row { display: none !important; }
+      body.mobile-device .char-btns { scale: 0.8 !important; margin: 5px 0 !important; }
+      body.mobile-device #cs-start { padding: 8px 25px !important; font-size: 13px !important; margin-top: 5px !important; }
+      
+      body:not(.mobile-device) #mobile-controls { display: none; }
+      body.mobile-device #mobile-controls { display: block; }
+      #start-hint { display: none !important; }
+      .input-guides-wrapper { display: none !important; }
+      #hud { font-size: 14px; }
+      
+      #hp-hud { display: none !important; }
+      
+      #time-label {
+        left: 50% !important;
+        right: auto !important;
+        transform: translateX(-50%) scale(0.85) !important;
+        top: calc(10px + env(safe-area-inset-top)) !important;
+        background: rgba(0, 0, 0, 0.5) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 20px !important;
+      }
+      
+      #ammo-hud { 
+        right: calc(10px + env(safe-area-inset-right)); 
+        bottom: calc(260px + env(safe-area-inset-bottom)); 
+        scale: 0.6; 
+        transform-origin: bottom right;
+        padding: 8px 15px !important;
+      }
+      
+      #coin-box { 
+        top: calc(10px + env(safe-area-inset-top)); 
+        right: calc(10px + env(safe-area-inset-right)); 
+        scale: 0.6; 
+        transform-origin: top right;
+      }
+      
+      #stats { display: none !important; }
+      
+      #mission-hud { 
+        top: calc(65px + env(safe-area-inset-top)); 
+        left: calc(10px + env(safe-area-inset-left)); 
+        right: auto;
+        scale: 0.5; 
+        transform-origin: top left;
+        background: rgba(0, 5, 15, 0.82);
+        width: 170px !important;
+        height: 170px !important;
+        padding: 12px !important;
+      }
+      
+      #survival-box { 
+        top: calc(10px + env(safe-area-inset-top)); 
+        left: calc(10px + env(safe-area-inset-left)); 
+        bottom: auto !important; 
+        right: auto !important;
+        scale: 0.75; 
+        transform-origin: top left;
+        gap: 12px !important;
+        background: rgba(0,0,0,0.4);
+        padding: 6px 12px;
+        border-radius: 20px;
+        border: 1px solid rgba(255,255,255,0.05);
+      }
     }
   </style>
 </head>
@@ -1630,7 +1700,11 @@
     <div id="survival-warning"></div>
 
     <div id="survival-box">
-      <div id="hp-hearts"></div>
+      <!-- Health (Single Heart) -->
+      <div class="core-container">
+        <div id="hp-icons" class="core-liquid" style="background: linear-gradient(to top, #c0392b, #e74c3c);"></div>
+        <div class="core-icon">❤️</div>
+      </div>
       <!-- Energy -->
       <div class="core-container">
         <div id="energy-fill" class="core-liquid" style="background: linear-gradient(to top, #f39c12, #f1c40f);"></div>
@@ -1651,8 +1725,8 @@
       <div id="mission-progress">PROGRESS: <span id="mission-val">0 / 10</span></div>
     </div>
 
-    <!-- Modern HP HUD -->
-    <div id="hp-hud">
+    <!-- Modern HP HUD (Hidden since we moved to soul-bar) -->
+    <div id="hp-hud" style="display: none;">
       <div id="hp-icon"></div>
       <div id="hp-bar-wrap">
         <div id="hp-label-row">
@@ -1690,140 +1764,70 @@
         </div>
       </div>
       
+      <!-- Yaw Controls (Mobile Only) - Moved to top-left for visibility -->
+      <div id="jet-yaw-controls" style="display:none; position:fixed; left:20px; top:120px; z-index:1000; flex-direction:column; gap:10px;">
+        <button id="btn-jet-yaw-l" class="mobile-btn mini" style="background:rgba(0,120,255,0.15); border-color:rgba(0,120,255,0.3); width:50px; height:50px; opacity:0.6;">Y-L</button>
+        <button id="btn-jet-yaw-r" class="mobile-btn mini" style="background:rgba(0,120,255,0.15); border-color:rgba(0,120,255,0.3); width:50px; height:50px; opacity:0.6;">Y-R</button>
+      </div>
+      
       <div id="action-zone">
-        <button id="btn-fire" class="mobile-btn">🔥</button>
-        <div class="action-sub-grid">
-          <button id="btn-jump" class="mobile-btn mini">JUMP</button>
-          <button id="btn-sprint" class="mobile-btn mini">RUN</button>
-          <button id="btn-interact" class="mobile-btn mini">USE</button>
-          <button id="btn-jet" class="mobile-btn mini">JET</button>
+        <!-- Character specific buttons -->
+        <div id="char-actions" style="display: flex; flex-direction: column; align-items: flex-end;">
+          <button id="btn-fire" class="mobile-btn">🔥</button>
+          <div class="action-sub-grid">
+            <button id="btn-jump" class="mobile-btn mini">JUMP</button>
+            <button id="btn-interact" class="mobile-btn mini">USE</button>
+            <button id="btn-reload" class="mobile-btn mini">RELOAD</button>
+            <button id="btn-jet" class="mobile-btn mini">JET</button>
+          </div>
+        </div>
+        
+        <!-- Jet Controls (Mobile Only) -->
+        <div id="jet-controls-mobile" style="display:none; flex-direction:column; gap:8px; align-items:flex-end; margin-top:5px;">
+          <div style="display:flex; gap:8px;">
+            <button id="btn-jet-thr-up" class="mobile-btn mini" style="background:rgba(0,255,100,0.25)">THR+</button>
+            <button id="btn-jet-thr-down" class="mobile-btn mini" style="background:rgba(255,50,50,0.25)">THR-</button>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button id="btn-jet-up" class="mobile-btn mini" style="width:70px">PITCH↑</button>
+            <button id="btn-jet-down" class="mobile-btn mini" style="width:70px">PITCH↓</button>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button id="btn-jet-boost" class="mobile-btn mini" style="background:rgba(255,100,0,0.3)">BOOST</button>
+            <button id="btn-jet-fire" class="mobile-btn mini" style="background:rgba(255,0,0,0.3)">FIRE</button>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
   <style>
-    /* Mobile HUD Styles */
-    #mobile-controls {
-      display: none;
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      z-index: 20;
-    }
-
-    @media (pointer: coarse), (max-width: 1024px) {
-      body:not(.mobile-device) #mobile-controls { display: none; }
-      body.mobile-device #mobile-controls { display: block; }
-      #start-hint { display: none !important; }
-      .input-guides-wrapper { display: none !important; }
-      #hud { font-size: 14px; }
-      
-      #hp-hud { display: none !important; }
-      
-      #hp-hearts { 
-        display: flex !important; 
-        gap: 4px; 
-        margin-right: 10px;
-        align-items: center;
-      }
-      .heart { color: #ff3c3c; font-size: 16px; text-shadow: 0 0 10px rgba(255, 60, 60, 0.5); }
-      .heart.empty { color: rgba(255, 255, 255, 0.2); text-shadow: none; }
-      
-      #time-label {
-        left: 50% !important;
-        right: auto !important;
-        transform: translateX(-50%) scale(0.85) !important;
-        top: calc(10px + env(safe-area-inset-top)) !important;
-        background: rgba(0, 0, 0, 0.5) !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        border-radius: 20px !important;
-      }
-      
-      #ammo-hud { 
-        right: calc(10px + env(safe-area-inset-right)); 
-        bottom: calc(260px + env(safe-area-inset-bottom)); 
-        scale: 0.6; 
-        transform-origin: bottom right;
-        padding: 8px 15px !important;
-      }
-      
-      #coin-box { 
-        top: calc(10px + env(safe-area-inset-top)); 
-        right: calc(10px + env(safe-area-inset-right)); 
-        scale: 0.6; 
-        transform-origin: top right;
-      }
-      
-      #mission-hud { 
-        top: calc(65px + env(safe-area-inset-top)); 
-        left: calc(10px + env(safe-area-inset-left)); 
-        right: auto;
-        scale: 0.5; 
-        transform-origin: top left;
-        background: rgba(0, 5, 15, 0.82);
-        width: 170px !important;
-        padding: 12px !important;
-      }
-      
-      #survival-box { 
-        top: calc(10px + env(safe-area-inset-top)); 
-        left: calc(10px + env(safe-area-inset-left)); 
-        bottom: auto; 
-        scale: 0.75; 
-        transform-origin: top left;
-        gap: 12px !important;
-        background: rgba(0,0,0,0.4);
-        padding: 6px 12px;
-        border-radius: 20px;
-        border: 1px solid rgba(255,255,255,0.05);
-      }
-
-      /* Character Select Final Zero-Scroll Fix */
-      #char-select { overflow: hidden !important; touch-action: none; }
-      #cs-inner { 
-        justify-content: center !important; 
-        padding: 10px !important; 
-        padding-top: calc(5px + env(safe-area-inset-top)) !important;
-        height: 100vh !important; 
-        min-height: 0 !important;
-      }
-      #char-select h1 { font-size: 18px !important; margin: 0 !important; letter-spacing: 2px !important; }
-      #char-select .cs-eyebrow { font-size: 7px !important; margin: 0 !important; }
-      #char-select .cs-tagline { display: none !important; }
-      #char-select .cs-divider { margin: 4px 0 !important; }
-      .char-btns { scale: 0.65; gap: 15px !important; margin: 0 !important; }
-      .char-btn { width: 170px !important; }
-      .char-btn-img { height: 90px !important; }
-      .cs-start-row { margin-top: 0 !important; padding-bottom: env(safe-area-inset-bottom) !important; position: relative; bottom: 5px; }
-      #cs-start { padding: 8px 40px !important; font-size: 14px !important; }
-    }
-
+    /* Joystick and Action Zone Layout */
     #joystick-zone {
       position: fixed;
       width: 120px;
       height: 120px;
-      pointer-events: none; /* Pointer handled by window listener */
+      pointer-events: none; /* Pointer handled by window listener in TouchControls.ts */
       display: none; 
       z-index: 1000;
-      transform: translate(-50%, -50%); /* Center on touch */
+      transform: translate(-50%, -50%);
     }
 
     #joystick-base {
       width: 100%;
       height: 100%;
-      background: rgba(255, 255, 255, 0.1);
-      border: 2px solid rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 50%;
       position: relative;
-      backdrop-filter: blur(5px);
+      backdrop-filter: blur(2px);
     }
 
     #joystick-handle {
       width: 50px;
       height: 50px;
-      background: rgba(0, 255, 170, 0.6);
-      border: 2px solid #0fa;
+      background: rgba(0, 255, 170, 0.25);
+      border: 1px solid rgba(0, 255, 170, 0.3);
       border-radius: 50%;
       position: absolute;
       top: 50%;
@@ -1836,14 +1840,13 @@
       position: absolute;
       bottom: calc(40px + env(safe-area-inset-bottom));
       right: calc(40px + env(safe-area-inset-right));
-      display: none; /* Hidden by default */
+      display: none; 
       flex-direction: column;
       align-items: flex-end;
       gap: 15px;
       pointer-events: auto;
     }
     
-    /* Device Specific Display */
     body.mobile-device #joystick-zone,
     body.mobile-device #action-zone {
       display: flex;
@@ -1871,10 +1874,12 @@
     }
 
     #btn-fire {
-      width: 85px;
-      height: 85px;
-      font-size: 32px;
+      width: 68px; /* -20% from 85px */
+      height: 68px;
+      font-size: 26px;
       box-shadow: 0 0 20px rgba(255, 60, 60, 0.2);
+      margin-right: 130px; /* Moved further left according to drawing */
+      margin-bottom: 10px; /* Moved slightly down */
     }
 
     .action-sub-grid {
@@ -1891,37 +1896,8 @@
     }
     
     #btn-jump { background: rgba(0, 150, 255, 0.2); }
-    #btn-sprint { background: rgba(255, 215, 0, 0.2); }
-
-    /* Persistent Fullscreen Prompt */
-    #fs-prompt {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.92);
-      backdrop-filter: blur(15px);
-      z-index: 9999;
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      color: #fff;
-      font-family: 'Rajdhani', sans-serif;
-      padding: 40px;
-    }
-    .fs-prompt-btn {
-      margin-top: 25px;
-      padding: 15px 40px;
-      background: #0fa;
-      color: #000;
-      border: none;
-      border-radius: 50px;
-      font-weight: 800;
-      font-size: 16px;
-      letter-spacing: 2px;
-      cursor: pointer;
-      box-shadow: 0 0 30px rgba(0, 255, 170, 0.4);
-    }
+    #btn-jet-up, #btn-jet-down { background: rgba(255, 255, 255, 0.15); }
+    #btn-reload { background: rgba(0, 255, 170, 0.15); }
   </style>
   <div id="char-select">
     <div id="cs-bg"></div>
@@ -2066,13 +2042,6 @@
       </div>
       <div id="go-hint">Press SPACE or ENTER to restart</div>
     </div>
-  </div>
-
-  <div id="fs-prompt">
-    <div style="font-size: 42px; margin-bottom: 10px;">📱</div>
-    <div style="font-size: 20px; font-weight: 700; letter-spacing: 2px; color: #0fa;">IMMERSIVE MODE REQUIRED</div>
-    <div style="font-size: 12px; margin-top: 8px; opacity: 0.7; letter-spacing: 1px;">PLEASE RE-ENTER FULLSCREEN FOR THE BEST EXPERIENCE</div>
-    <button class="fs-prompt-btn" id="fs-re-enter">CONTINUE</button>
   </div>
 
   <script type="module" src="./src/main.ts"></script>

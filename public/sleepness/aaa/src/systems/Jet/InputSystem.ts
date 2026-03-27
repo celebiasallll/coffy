@@ -108,13 +108,25 @@ class JetInputSystem {
         this.sRoll = THREE.MathUtils.lerp(this.sRoll, rawRoll, smoothRate);
         this.sYaw = THREE.MathUtils.lerp(this.sYaw, rawYaw, smoothRate);
 
+        const touch = (window as any).touchControls || {};
+        const isTouch = !!touch && touch.moveJoystick;
+
         return {
-            throttleUp: !!(this.keys['KeyW']),
-            throttleDown: !!(this.keys['KeyS']),
-            pitch: this.sPitch,
-            roll: this.sRoll,
-            yaw: this.sYaw,
-            afterburner: !!(this.keys['ShiftLeft'] || this.keys['ShiftRight']),
+            throttleUp: !!(this.keys['KeyW'] || (isTouch && touch.jetThrottleUp)),
+            throttleDown: !!(this.keys['KeyS'] || (isTouch && touch.jetThrottleDown)),
+            pitch: THREE.MathUtils.clamp(
+                this.sPitch + (isTouch ? (touch.jetPitchDown ? 1 : touch.jetPitchUp ? -1 : 0) - touch.moveJoystick.y : 0),
+                -1, 1
+            ),
+            roll: THREE.MathUtils.clamp(
+                this.sRoll + (isTouch ? touch.moveJoystick.x : 0),
+                -1, 1
+            ),
+            yaw: THREE.MathUtils.clamp(
+                this.sYaw + (isTouch ? (touch.jetYawRight ? 1 : touch.jetYawLeft ? -1 : 0) : 0),
+                -1, 1
+            ),
+            afterburner: !!(this.keys['ShiftLeft'] || this.keys['ShiftRight'] || (isTouch && touch.jetBoost)),
             descend: !!(this.keys['ControlLeft'] || this.keys['ControlRight']),
             gearToggle: !!(this.keys['KeyG']),
         };

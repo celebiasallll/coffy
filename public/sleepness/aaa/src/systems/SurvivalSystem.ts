@@ -145,18 +145,26 @@ export function takeDamage(amount: number): number {
   state.health = Math.max(0, state.health - amount);
   syncDOM();
 
-  // Damage feedback (Flash & Shake) - overlay elements may not exist in this project.
-  const overlay = document.getElementById('damage-overlay');
-  if (overlay) {
-    overlay.classList.remove('damage-pulse');
-    void (overlay as any).offsetWidth; // Trigger reflow
-    overlay.classList.add('damage-pulse');
+  // Damage feedback (Flash & Shake)
+  const flash = document.getElementById('dmg-flash');
+  if (flash) {
+    flash.classList.remove('active');
+    void (flash as any).offsetWidth; // Trigger reflow
+    flash.classList.add('active');
+    setTimeout(() => flash.classList.remove('active'), 400); // Increased for prominence
+  }
+
+  const hpIcons = document.getElementById('hp-icons');
+  if (hpIcons && hpIcons.parentElement) {
+    hpIcons.parentElement.classList.remove('hp-damaged');
+    void (hpIcons.parentElement as any).offsetWidth; // Trigger reflow
+    hpIcons.parentElement.classList.add('hp-damaged');
   }
 
   document.body.classList.remove('shake');
   void (document.body as any).offsetWidth; // Trigger reflow
   document.body.classList.add('shake');
-  setTimeout(() => document.body.classList.remove('shake'), 400);
+  setTimeout(() => document.body.classList.remove('shake'), 450);
 
   return state.health;
 }
@@ -202,24 +210,17 @@ function syncDOM(): void {
     sFill.parentElement?.classList.toggle('critical-pulse', sPct < 15);
   }
 
-  // Heart Bar Sync (Mobile Only)
-  const heartsContainer = document.getElementById('hp-hearts');
-  if (heartsContainer && window.getComputedStyle(heartsContainer).display !== 'none') {
-    const totalHearts = 5;
-    const hpPerHeart = state.maxHealth / totalHearts;
-    const fullHearts = Math.floor(state.health / hpPerHeart);
-    
-    let heartsHtml = '';
-    for (let i = 0; i < totalHearts; i++) {
-      if (i < fullHearts) {
-        heartsHtml += '<span class="heart">❤️</span>';
-      } else {
-        heartsHtml += '<span class="heart empty">❤️</span>';
-      }
+  // Health Liquid Sync (Single Heart)
+  const hpFill = document.getElementById('hp-icons');
+  if (hpFill) {
+    hpFill.style.clipPath = `inset(${100 - hpPct}% 0 0 0)`;
+    // Update color based on health remaining
+    if (hpPct > 35) {
+      hpFill.style.background = 'linear-gradient(to top, #c0392b, #e74c3c)';
+    } else {
+      hpFill.style.background = 'linear-gradient(to top, #8b0000, #c0392b)';
     }
-    if (heartsContainer.innerHTML !== heartsHtml) {
-      heartsContainer.innerHTML = heartsHtml;
-    }
+    hpFill.parentElement?.classList.toggle('critical', hpPct < 25);
   }
 }
 

@@ -103,7 +103,7 @@ export const inputSystem = defineSystem((world: IWorld) => {
         // Shoot / Aim
         InputIntents.shootRequest[id] = (keys['Mouse0'] || touchControls.isFiring) ? 1 : 0;
         InputIntents.aimRequest[id] = (keys['Mouse2']) ? 1 : 0;
-        InputIntents.reloadRequest[id] = (reloadPressed) ? 1 : 0;
+        InputIntents.reloadRequest[id] = (reloadPressed || touchControls.isReloading) ? 1 : 0;
         InputIntents.aimYaw[id] = mouseX;
         InputIntents.aimPitch[id] = mouseY;
         InputIntents.crouch[id] = (keys['KeyC']) ? 1 : 0;

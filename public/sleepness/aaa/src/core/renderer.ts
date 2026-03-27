@@ -4,13 +4,13 @@ export function createRenderer(): THREE.WebGLRenderer {
   const renderer = new THREE.WebGLRenderer({
     antialias: false,
     powerPreference: 'high-performance',
-    precision: 'mediump', // Better for mobile GPUs
+    precision: 'highp', // Upgrade to highp for Ultra quality
     stencil: false,
     depth: true,
   });
 
-  // Use a lower starting DPR for mobile to ensure stability
-  const initialDPR = Math.min(window.devicePixelRatio, 1.2);
+  // Use full DPR for Ultra quality
+  const initialDPR = window.devicePixelRatio;
   renderer.setPixelRatio(initialDPR);
   renderer.setSize(window.innerWidth, window.innerHeight);
   
@@ -62,8 +62,8 @@ export function setupLights(scene: THREE.Scene): {
   sun.position.set(50, 80, 30);
   sun.castShadow = true;
   
-  // Reduced shadow resolution for mobile
-  const shadowRes = window.innerWidth < 768 ? 512 : 1024;
+  // High shadow resolution for Ultra quality
+  const shadowRes = window.innerWidth < 768 ? 1024 : 1024;
   sun.shadow.mapSize.set(shadowRes, shadowRes);
   
   sun.shadow.camera.near = 1.0;

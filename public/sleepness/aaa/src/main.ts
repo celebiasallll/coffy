@@ -26,22 +26,7 @@ console.error = (...args) => {
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 0);
 if (isMobile) {
   document.body.classList.add('mobile-device');
-
-  const fsPrompt = document.getElementById('fs-prompt');
-  const fsReEnterBtn = document.getElementById('fs-re-enter');
-
   const triggerImmersive = () => {
-    // Expert Fix: Disable touch action on root
-    document.documentElement.style.setProperty('touch-action', 'none');
-    
-    // iOS Safari Fix: Dynamic viewport update
-    const viewport = document.querySelector('meta[name=viewport]');
-    if (viewport) {
-      viewport.setAttribute('content', 
-        'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover'
-      );
-    }
-
     try {
       const docEl = document.documentElement as any;
       const requestFS = docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.mozRequestFullScreen || docEl.msRequestFullscreen;
@@ -53,43 +38,11 @@ if (isMobile) {
         }).catch(() => {});
       }
     } catch (e) {}
-    
-    // Hide prompt if open
-    if (fsPrompt) fsPrompt.style.display = 'none';
-
     document.removeEventListener('touchstart', triggerImmersive);
     document.removeEventListener('click', triggerImmersive);
   };
-
   document.addEventListener('touchstart', triggerImmersive);
   document.addEventListener('click', triggerImmersive);
-
-  // Persistent Fullscreen Check
-  document.addEventListener('fullscreenchange', () => {
-    if (!document.fullscreenElement && isMobile) {
-      if (fsPrompt) fsPrompt.style.display = 'flex';
-    }
-  });
-
-  if (fsReEnterBtn) {
-    fsReEnterBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        triggerImmersive();
-    });
-    fsReEnterBtn.addEventListener('touchstart', (e) => {
-        e.stopPropagation();
-        triggerImmersive();
-    });
-  }
-
-  // Expert Fix: iOS Safari Pinch-to-zoom & Multi-touch prevention
-  document.addEventListener('gesturestart', e => e.preventDefault(), { passive: false });
-  document.addEventListener('gesturechange', e => e.preventDefault(), { passive: false });
-  document.addEventListener('gestureend', e => e.preventDefault(), { passive: false });
-
-  document.addEventListener('touchmove', (e: TouchEvent) => {
-    if (e.touches.length > 1) e.preventDefault(); 
-  }, { passive: false });
 }
 
 import { createRenderer, createSceneAndCamera, setupResize, setupLights } from './core/renderer.js';
@@ -151,7 +104,7 @@ import { initSurvival, updateSurvival, canSprint, onDeath, isInputBlocked } from
 
 const CAM_DIST_MIN = 5;
 const CAM_DIST_MAX = 60;
-let camDist = 9.5;
+let camDist = isMobile ? 5 : 9.5; // Starts at closest zoom on mobile per user request
 
 const CAM_LERP = 1.0;
 
@@ -163,9 +116,8 @@ const CAM_GROUND_MARGIN = 0.6;
 const CAM_MIN_ABOVE_PLAYER = 1.6;
 
 window.addEventListener('wheel', (e) => {
-  e.preventDefault(); 
   camDist = Math.max(CAM_DIST_MIN, Math.min(CAM_DIST_MAX, camDist + e.deltaY * 0.02));
-}, { passive: false });
+}, { passive: true });
 
 const vehicleKeys: Record<string, boolean> = {};
 window.addEventListener('keydown', (e) => { vehicleKeys[e.code] = true; });
@@ -452,7 +404,6 @@ async function init(playerType: number) {
   const aimPoint = new THREE.Vector3();
   const fallbackCamPos = new THREE.Vector3();
 
-  let cumulativeWolfDamage = 0;
   let playerDead = false; 
   let fpsWindow: number[] = [];
   const clock = new THREE.Clock();
@@ -489,7 +440,9 @@ async function init(playerType: number) {
       wolfDmgThisFrame = Math.max(0, hpBeforeAI - Health.current[playerId]);
     }
 
-    cumulativeWolfDamage += wolfDmgThisFrame;
+    if (wolfDmgThisFrame > 0) {
+      import('./systems/SurvivalSystem.js').then(sys => sys.takeDamage(wolfDmgThisFrame));
+    }
 
     physicsSystem(world);
     animationSystem(world);
@@ -514,7 +467,7 @@ async function init(playerType: number) {
     const interactPressed = InputState.interact[playerId] === 1;
     const jetPressed = InputIntents.jetRequest[playerId] === 1;
 
-    if ((interactPressed || jetPressed) && getNearestNPC() === null) {
+    if (exitVehicleTimer <= 0 && (interactPressed || jetPressed) && getNearestNPC() === null) {
       if (inJet) {
         if (jetPressed) {
           const exitAlt = getJetAltitude();
@@ -563,6 +516,7 @@ async function init(playerType: number) {
             }
             if (playerMesh) playerMesh.visible = false;
             showJetHUD(true);
+            exitVehicleTimer = 0.5;
             audioManager.playSFX('assets/sounds/freesound_community-f16-fighter-jet-start-upaif-14690.mp3', 0.06);
           } else if (interactPressed) {
             occupiedVehicle = tryEnterVehicle(playerMesh.position);
@@ -599,8 +553,7 @@ async function init(playerType: number) {
     const sprintAllowed = sprintWanted && canSprint();
     InputState.sprint[playerId] = sprintAllowed ? 1 : 0;
     const surv = updateSurvival(dt, sprintAllowed);
-    cumulativeWolfDamage = Math.min(cumulativeWolfDamage, surv.health);
-    Health.current[playerId] = Math.max(0, surv.health - cumulativeWolfDamage);
+    Health.current[playerId] = surv.health;
 
     if (Health.current[playerId] <= 0 && !playerDead) {
       playerDead = true;
@@ -728,11 +681,12 @@ async function init(playerType: number) {
     fpsWindow.push(1 / dt);
     if (fpsWindow.length > 60) fpsWindow.shift();
 
+    // Quality Auto-Adjust (Prioritize ULTRA)
     // @ts-ignore
-    if (world._frameCount % 60 === 0) {
+    if (world._frameCount % 120 === 0) {
       const avgFps = fpsWindow.reduce((a, b) => a + b, 0) / Math.max(1, fpsWindow.length);
       if (avgFps > 55 && currentSMAA !== 'ULTRA') { setSMAAPreset(SMAAPreset.ULTRA); currentSMAA = 'ULTRA'; }
-      else if (avgFps < 48 && currentSMAA !== 'HIGH') { setSMAAPreset(SMAAPreset.HIGH); currentSMAA = 'HIGH'; }
+      else if (avgFps < 40 && currentSMAA !== 'HIGH') { setSMAAPreset(SMAAPreset.HIGH); currentSMAA = 'HIGH'; } // Only degrade if below 40 FPS
     }
 
     touchControls.update();
@@ -834,34 +788,17 @@ async function init(playerType: number) {
       if (footstepDistCounter >= stepDist) { audioManager.playSFX('assets/sounds/footstep.mp3', 0.06, 0.1); footstepDistCounter = 0; }
     } else footstepDistCounter = 0;
 
-    // HUD
+    // HUD (Speed, FPS, Quality)
     let speedLabel = 0;
     if (occupiedVehicle) { const vv = occupiedVehicle.controller.rigidBody.linvel(); speedLabel = Math.hypot(vv.x, vv.z); }
     else speedLabel = speed2D;
     
     updateHUD(dt, { pos: camFollowPos, speed: speedLabel, fps: Math.round(1/dt), quality: currentSMAA });
 
-    const hp = Health.current[playerId] ?? 100;
-    const hpPct = Math.max(0, (hp / (Health.max[playerId] ?? 100)) * 100);
-    const hpFill = document.getElementById('hp-fill');
-    const hpText = document.getElementById('hp-text');
+    // Internal HP sync (SurvivalSystem handles visual HUD sync automatically)
+    const hpValue = Health.current[playerId] ?? 100;
     const hpHud = document.getElementById('hp-hud');
-    const dmgFlashEl = document.getElementById('dmg-flash');
-
-    if (hpFill) {
-      hpFill.style.width = `${hpPct.toFixed(1)}%`;
-      if (hpPct > 30) hpFill.style.background = 'linear-gradient(90deg, #c0392b, #e74c3c)';
-      else hpFill.style.background = 'linear-gradient(90deg, #8b0000, #c0392b)'; 
-    }
-    if (hpText) hpText.textContent = `${Math.round(hp)}`;
-    if (hpHud) hpHud.classList.toggle('hp-critical', hpPct <= 25);
-    
-    if (wolfDmgThisFrame > 0) {
-      if (dmgFlashEl) dmgFlashEl.style.background = 'rgba(220,20,20,0.45)';
-      if (hpHud) { hpHud.classList.add('hp-damaged'); setTimeout(() => hpHud?.classList.remove('hp-damaged'), 500); }
-    } else {
-      if (dmgFlashEl) dmgFlashEl.style.background = 'rgba(255,0,0,0)';
-    }
+    if (hpHud) hpHud.classList.toggle('hp-critical', hpValue <= 25);
 
     updateTimeHUD();
     renderComposer();

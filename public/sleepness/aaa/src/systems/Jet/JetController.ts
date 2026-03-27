@@ -458,6 +458,14 @@ export function initJetHUD(): void {
 
 export function showJetHUD(visible: boolean): void {
     if (jetHudEl) jetHudEl.style.display = visible ? 'flex' : 'none';
+    const mobileJetPanel = document.getElementById('jet-controls-mobile');
+    if (mobileJetPanel) mobileJetPanel.style.display = visible ? 'flex' : 'none';
+    
+    const mobileYawPanel = document.getElementById('jet-yaw-controls');
+    if (mobileYawPanel) mobileYawPanel.style.display = visible ? 'flex' : 'none';
+
+    const charActions = document.getElementById('char-actions');
+    if (charActions) charActions.style.display = visible ? 'none' : 'flex';
 }
 
 function updateJetHUD(s: number, a: number, ab: boolean, thr: number): void {

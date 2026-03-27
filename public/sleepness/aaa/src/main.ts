@@ -27,6 +27,17 @@ const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/
 if (isMobile) {
   document.body.classList.add('mobile-device');
   const triggerImmersive = () => {
+    // Expert Fix: Disable touch action on root
+    document.documentElement.style.setProperty('touch-action', 'none');
+    
+    // iOS Safari Fix: Dynamic viewport update
+    const viewport = document.querySelector('meta[name=viewport]');
+    if (viewport) {
+      viewport.setAttribute('content', 
+        'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover'
+      );
+    }
+
     try {
       const docEl = document.documentElement as any;
       const requestFS = docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.mozRequestFullScreen || docEl.msRequestFullscreen;
@@ -43,6 +54,15 @@ if (isMobile) {
   };
   document.addEventListener('touchstart', triggerImmersive);
   document.addEventListener('click', triggerImmersive);
+
+  // Expert Fix: iOS Safari Pinch-to-zoom & Multi-touch prevention
+  document.addEventListener('gesturestart', e => e.preventDefault(), { passive: false });
+  document.addEventListener('gesturechange', e => e.preventDefault(), { passive: false });
+  document.addEventListener('gestureend', e => e.preventDefault(), { passive: false });
+
+  document.addEventListener('touchmove', (e: TouchEvent) => {
+    if (e.touches.length > 1) e.preventDefault(); 
+  }, { passive: false });
 }
 
 import { createRenderer, createSceneAndCamera, setupResize, setupLights } from './core/renderer.js';
@@ -116,8 +136,9 @@ const CAM_GROUND_MARGIN = 0.6;
 const CAM_MIN_ABOVE_PLAYER = 1.6;
 
 window.addEventListener('wheel', (e) => {
+  e.preventDefault(); 
   camDist = Math.max(CAM_DIST_MIN, Math.min(CAM_DIST_MAX, camDist + e.deltaY * 0.02));
-}, { passive: true });
+}, { passive: false });
 
 const vehicleKeys: Record<string, boolean> = {};
 window.addEventListener('keydown', (e) => { vehicleKeys[e.code] = true; });

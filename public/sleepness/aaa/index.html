@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Open World AAA Prototype</title>
   <link rel="icon" href="data:;base64,iVBORw0KGgo=">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,12 +14,24 @@
       margin: 0;
       padding: 0;
       box-sizing: border-box;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+      touch-action: none;
+    }
+
+    input, textarea {
+      -webkit-user-select: text;
+      user-select: text;
     }
 
     body {
       background: #000;
       overflow: hidden;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      touch-action: none;
+      overscroll-behavior: none;
+      -webkit-overflow-scrolling: auto;
     }
 
     canvas {

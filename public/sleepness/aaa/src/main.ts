@@ -26,6 +26,10 @@ console.error = (...args) => {
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 0);
 if (isMobile) {
   document.body.classList.add('mobile-device');
+
+  const fsPrompt = document.getElementById('fs-prompt');
+  const fsReEnterBtn = document.getElementById('fs-re-enter');
+
   const triggerImmersive = () => {
     // Expert Fix: Disable touch action on root
     document.documentElement.style.setProperty('touch-action', 'none');
@@ -49,11 +53,34 @@ if (isMobile) {
         }).catch(() => {});
       }
     } catch (e) {}
+    
+    // Hide prompt if open
+    if (fsPrompt) fsPrompt.style.display = 'none';
+
     document.removeEventListener('touchstart', triggerImmersive);
     document.removeEventListener('click', triggerImmersive);
   };
+
   document.addEventListener('touchstart', triggerImmersive);
   document.addEventListener('click', triggerImmersive);
+
+  // Persistent Fullscreen Check
+  document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement && isMobile) {
+      if (fsPrompt) fsPrompt.style.display = 'flex';
+    }
+  });
+
+  if (fsReEnterBtn) {
+    fsReEnterBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        triggerImmersive();
+    });
+    fsReEnterBtn.addEventListener('touchstart', (e) => {
+        e.stopPropagation();
+        triggerImmersive();
+    });
+  }
 
   // Expert Fix: iOS Safari Pinch-to-zoom & Multi-touch prevention
   document.addEventListener('gesturestart', e => e.preventDefault(), { passive: false });

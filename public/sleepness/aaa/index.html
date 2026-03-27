@@ -1892,6 +1892,36 @@
     
     #btn-jump { background: rgba(0, 150, 255, 0.2); }
     #btn-sprint { background: rgba(255, 215, 0, 0.2); }
+
+    /* Persistent Fullscreen Prompt */
+    #fs-prompt {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.92);
+      backdrop-filter: blur(15px);
+      z-index: 9999;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: #fff;
+      font-family: 'Rajdhani', sans-serif;
+      padding: 40px;
+    }
+    .fs-prompt-btn {
+      margin-top: 25px;
+      padding: 15px 40px;
+      background: #0fa;
+      color: #000;
+      border: none;
+      border-radius: 50px;
+      font-weight: 800;
+      font-size: 16px;
+      letter-spacing: 2px;
+      cursor: pointer;
+      box-shadow: 0 0 30px rgba(0, 255, 170, 0.4);
+    }
   </style>
   <div id="char-select">
     <div id="cs-bg"></div>
@@ -2036,6 +2066,13 @@
       </div>
       <div id="go-hint">Press SPACE or ENTER to restart</div>
     </div>
+  </div>
+
+  <div id="fs-prompt">
+    <div style="font-size: 42px; margin-bottom: 10px;">📱</div>
+    <div style="font-size: 20px; font-weight: 700; letter-spacing: 2px; color: #0fa;">IMMERSIVE MODE REQUIRED</div>
+    <div style="font-size: 12px; margin-top: 8px; opacity: 0.7; letter-spacing: 1px;">PLEASE RE-ENTER FULLSCREEN FOR THE BEST EXPERIENCE</div>
+    <button class="fs-prompt-btn" id="fs-re-enter">CONTINUE</button>
   </div>
 
   <script type="module" src="./src/main.ts"></script>

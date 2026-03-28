@@ -38,10 +38,8 @@ if (isMobile) {
         }).catch(() => {});
       }
     } catch (e) {}
-    document.removeEventListener('touchstart', triggerImmersive);
     document.removeEventListener('click', triggerImmersive);
   };
-  document.addEventListener('touchstart', triggerImmersive);
   document.addEventListener('click', triggerImmersive);
 }
 

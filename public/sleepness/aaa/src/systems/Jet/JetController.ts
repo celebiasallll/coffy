@@ -435,10 +435,11 @@ export function initJetHUD(): void {
     const hud = document.createElement('div');
     hud.id = 'jet-hud';
     hud.style.cssText = `
-        position:fixed; top:65px; left:50%; transform:translateX(-50%);
+        position:fixed; top:45px; left:50%; transform:translateX(-50%) scale(0.7); transform-origin:top center;
         display:none; gap:20px; padding:10px 20px;
         background:rgba(0,10,20,0.82); border-radius:10px;
         color:#00e5ff; font-family:monospace; pointer-events:none; z-index:100;
+        opacity:0.7;
     `;
     hud.innerHTML = `
         <div style="text-align:center">SPEED<br><span id="jet-speed" style="font-size:24px">0</span> <small>kts</small></div>

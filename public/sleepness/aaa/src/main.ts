@@ -4,7 +4,7 @@ import * as THREE from 'three';
 const _warn = console.warn;
 console.warn = (...args) => {
   const msg = args[0]?.toString?.() || '';
-  if (msg.includes('THREE.FBXLoader') || msg.includes('rapier.mjs') || msg.includes('ShininessExponent') || msg.includes('deprecated parameters')) return;
+  if (msg.includes('THREE.FBXLoader') || msg.includes('rapier.mjs') || msg.includes('ShininessExponent') || msg.includes('deprecated parameters') || msg.includes('requestFullscreen') || msg.includes('Orientation lock') || msg.includes('SMAA CRITICAL')) return;
   _warn.apply(console, args);
 };
 
@@ -18,7 +18,7 @@ console.log = (...args) => {
 const _error = console.error;
 console.error = (...args) => {
   const msg = args[0]?.toString?.() || '';
-  if (msg.includes('SES Removing unpermitted intrinsics') || msg.includes('coin_collect.mp3')) return;
+  if (msg.includes('SES Removing unpermitted intrinsics') || msg.includes('coin_collect.mp3') || msg.includes('requestFullscreen') || msg.includes('Orientation lock') || msg.includes('SMAA CRITICAL')) return;
   _error.apply(console, args);
 };
 
@@ -133,7 +133,7 @@ function updateTimeHUD(): void {
     el.id = 'time-label';
     el.style.cssText = `
       position: fixed;
-      top: 14px;
+      top: 4px;
       right: 16px;
       color: #fff;
       font-size: 13px;

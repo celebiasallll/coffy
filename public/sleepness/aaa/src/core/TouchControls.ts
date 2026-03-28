@@ -90,6 +90,7 @@ export class TouchControls {
         this.bindButton('btn-jet-thr-down', 'jetThrottleDown');
         this.bindButton('btn-jet-boost', 'jetBoost');
         this.bindButton('btn-jet-fire', 'jetFire');
+        this.bindButton('btn-jet-exit', 'isJetting');
     }
 
     private bindEvents() {

@@ -186,8 +186,8 @@ function updateFX(j: NonNullable<typeof jet>, dt: number): void {
             }
         });
 
-        if (Math.random() > 0.8) spawnBurst(j.mesh.position, 0xff8800, 3, 2);
-        if (Math.random() > 0.94) spawnBurst(j.mesh.position, 0xffddaa, 1, 1);
+        // Kırmızı boost alev efektleri kalsın, sarılar silindi
+        if (Math.random() > 0.8) spawnBurst(j.mesh.position, 0xff3300, 3, 2);
     } else {
         j.flameMesh.visible = false;
     }
@@ -435,7 +435,7 @@ export function initJetHUD(): void {
     const hud = document.createElement('div');
     hud.id = 'jet-hud';
     hud.style.cssText = `
-        position:fixed; top:20px; left:50%; transform:translateX(-50%);
+        position:fixed; top:65px; left:50%; transform:translateX(-50%);
         display:none; gap:20px; padding:10px 20px;
         background:rgba(0,10,20,0.82); border-radius:10px;
         color:#00e5ff; font-family:monospace; pointer-events:none; z-index:100;
@@ -542,7 +542,7 @@ function handleJetCrash(j: NonNullable<typeof jet>, scene: THREE.Scene): void {
     j.mesh.visible = false;
 
     // 4. Game Over Trigger
-    import('../score').then(({ triggerGameOver }) => {
+    import('../score.js').then(({ triggerGameOver }) => {
         setTimeout(() => triggerGameOver(), 1500);
     });
 }

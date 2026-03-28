@@ -210,6 +210,12 @@ export const aiSystem = defineSystem((world: IWorld) => {
 
                         // WeaponVisualSystem benzeri: kamera sarsıntısı için world'e sinyal
                         (gameWorld as any).playerHitTimer = 0.3;
+
+                        // Kan efekti: Zombi ve Kurt saldırısında oyuncuda kan çıkması (User Request)
+                        import('./ImpactSystem.js').then(({ spawnImpact }) => {
+                            const sc = (gameWorld as any).scene as THREE.Scene;
+                            if (sc) spawnImpact(sc, _playerPos, 1 /* ImpactType.FLESH */);
+                        });
                     }
                 }
             }

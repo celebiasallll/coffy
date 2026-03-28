@@ -1414,27 +1414,30 @@
     #mission-hud {
       position: fixed;
       top: 110px;
-      left: 20px;
-      width: 180px;
-      height: 180px;
+      left: 15px;
+      width: auto;
+      max-width: 220px;
       display: flex;
       flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      text-align: center;
-      padding: 20px;
-      background: rgba(0, 10, 20, 0.55);
-      border-radius: 24px;
+      justify-content: flex-start;
+      align-items: flex-start;
+      text-align: left;
+      padding: 16px 20px;
+      background: linear-gradient(135deg, rgba(5, 15, 30, 0.7) 0%, rgba(0, 5, 10, 0.85) 100%);
+      border-radius: 12px;
+      border-left: 4px solid #0fa;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      border-right: 1px solid rgba(255, 255, 255, 0.05);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
       color: #fff;
       font-family: 'Rajdhani', sans-serif;
       z-index: 900;
       pointer-events: none;
-      backdrop-filter: blur(14px);
-      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      transform: scale(0.7);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+      transform: scale(0.85);
       transform-origin: top left;
-      opacity: 0.6;
+      opacity: 0.9;
       overflow: hidden;
       animation: mission-slide-in 0.8s cubic-bezier(0.2, 1, 0.3, 1) both;
     }
@@ -1452,13 +1455,36 @@
     }
 
     #mission-score {
-      font-size: 42px;
+      font-size: 32px;
       font-weight: 900;
-      color: #ffd700;
-      margin-top: -10px;
-      margin-bottom: 4px;
-      text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+      color: #0fa;
+      margin-top: 0;
+      margin-bottom: 8px;
+      text-shadow: 0 0 15px rgba(0, 255, 170, 0.4);
       line-height: 1;
+    }
+    
+    #mission-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.9);
+      letter-spacing: 2px;
+      margin-bottom: 6px;
+    }
+    
+    #mission-desc {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.6);
+      line-height: 1.3;
+      margin-bottom: 12px;
+    }
+    
+    #mission-progress {
+      font-size: 12px;
+      font-weight: 600;
+      color: #ffd700;
+      letter-spacing: 1px;
+      text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
     }
 
     /* Restored Popup & Pulse */
@@ -2003,7 +2029,7 @@
 
       <!-- Yaw Controls (Mobile Only) - Moved to top-left for visibility -->
       <div id="jet-yaw-controls"
-        style="display:none; position:fixed; left:20px; top:120px; z-index:1000; flex-direction:column; gap:10px;">
+        style="display:none; position:fixed; left:20px; top:120px; z-index:1000; flex-direction:row; gap:10px;">
         <button id="btn-jet-yaw-l" class="mobile-btn mini"
           style="background:rgba(0,120,255,0.15); border-color:rgba(0,120,255,0.3); width:50px; height:50px; opacity:0.6;">Y-L</button>
         <button id="btn-jet-yaw-r" class="mobile-btn mini"
@@ -2035,7 +2061,7 @@
           </div>
           <div style="display:flex; gap:8px;">
             <button id="btn-jet-boost" class="mobile-btn mini" style="background:rgba(255,100,0,0.3)">BOOST</button>
-            <button id="btn-jet-fire" class="mobile-btn mini" style="background:rgba(255,0,0,0.3)">FIRE</button>
+            <button id="btn-jet-exit" class="mobile-btn mini" style="background:rgba(255,165,0,0.4); border-color:orange;">EXIT</button>
           </div>
         </div>
       </div>
@@ -2127,14 +2153,19 @@
       box-shadow: 0 0 20px rgba(255, 60, 60, 0.2);
       margin-right: 130px;
       /* Moved further left according to drawing */
-      margin-bottom: 10px;
-      /* Moved slightly down */
+      margin-bottom: 0px;
+      transform: translateY(15px);
+      /* Moved slighty down (10%) */
     }
 
     .action-sub-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
+    }
+
+    .action-sub-grid .mobile-btn {
+      opacity: 0.5;
     }
 
     .mobile-btn.mini {

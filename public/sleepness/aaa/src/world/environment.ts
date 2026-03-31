@@ -51,57 +51,7 @@ const leafMats = [
 const gltfLoader = new GLTFLoader();
 const birdGltfLoader = new GLTFLoader(new THREE.LoadingManager());
 
-// ── Kamp ateşleri ────────────────────────────────────────────────────────────
 
-const campfires: { flame: THREE.Mesh; light: THREE.PointLight; baseIntensity: number }[] = [];
-
-
-function addCampfires(scene: THREE.Scene): void {
-  const positions: [number, number][] = [
-    [-32, 42], [62, -52], [-82, 82], [102, -32],
-    [4, 125], [-122, 44], [155, -92],
-  ];
-  const physicsWorld = getPhysicsWorld();
-  positions.forEach(([x, z]) => {
-    const h = getHeight(x, z);
-    if (h < WATER_LEVEL + 0.5) return;
-    const g       = new THREE.Group();
-    const logMat  = new THREE.MeshStandardMaterial({ color: 0x503010, roughness: 0.95 });
-    for (let i = 0; i < 4; i++) {
-      const a   = (i / 4) * Math.PI * 2;
-      const log = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 1, 6), logMat);
-      log.position.set(Math.cos(a) * 0.3, 0.1, Math.sin(a) * 0.3);
-      log.rotation.z = Math.PI / 2.5;
-      log.rotation.y = a;
-      log.castShadow = true;
-      g.add(log);
-    }
-    const light = new THREE.PointLight(0xff6600, 4, 12);
-    light.position.y = 1;
-    g.add(light);
-    const flame = new THREE.Mesh(
-      new THREE.ConeGeometry(0.3, 1.0, 8),
-      new THREE.MeshStandardMaterial({ color: 0xffaa00, emissive: 0xff4400, emissiveIntensity: 2, transparent: true, opacity: 0.9 })
-    );
-    flame.position.y = 0.6;
-    g.add(flame);
-    g.position.set(x, h, z);
-    scene.add(g);
-    campfires.push({ flame, light, baseIntensity: 4 });
-    occupiedSpaces.push({ x, z, radius: 1.5 });
-    physicsWorld.createCollider(
-      RAPIER.ColliderDesc.cylinder(0.5, 0.4).setTranslation(x, h + 0.5, z)
-    );
-  });
-}
-
-export function updateCampfires(time: number): void {
-  campfires.forEach(cf => {
-    const pulse = 0.85 + Math.sin(time * 10) * 0.15;
-    cf.flame.scale.set(pulse, 0.9 + Math.sin(time * 8) * 0.1, pulse);
-    cf.light.intensity = cf.baseIntensity * pulse;
-  });
-}
 
 // ── Procedural ağaçlar (InstancedMesh — mevcut sistem korundu) ───────────────
 
@@ -147,7 +97,8 @@ function addTreesInstanced(scene: THREE.Scene): void {
 
   const trunkMesh = optimizer.registerInstancedType('pine_trunk', trunkGeo, trunkMat, treeData.length);
   const leafMeshes = leafGeometries.map((geo, i) =>
-    optimizer!.registerInstancedType(`pine_leaf_${i}`, geo, leafMats[i], treeData.filter(d => !d.isRound).length, true, false)
+    // Only the largest/base leaf (i=0) casts shadows to save 66% draw calls per tree
+    optimizer!.registerInstancedType(`pine_leaf_${i}`, geo, leafMats[i], treeData.filter(d => !d.isRound).length, i === 0, false)
   );
   const roundGeo  = new THREE.SphereGeometry(1.8, 8, 6);
   roundGeo.scale(1.15, 1.3, 1.15);
@@ -359,7 +310,6 @@ export function populateEnvironment(scene: THREE.Scene): void {
   initBuildingSystem(scene, registerOccupiedSpace);
 
   // Senkron sistemler
-  addCampfires(scene);
   addTreesInstanced(scene);    // procedurel ağaçlar (instanced, hızlı)
   addRocksInstanced(scene);
   addMushrooms(scene);
@@ -368,6 +318,5 @@ export function populateEnvironment(scene: THREE.Scene): void {
 }
 
 export function updateEnvironment(dt: number, time: number): void {
-  updateCampfires(time);
   updateBirds(dt, time);
 }

@@ -65,13 +65,17 @@ export const renderSystem = defineSystem((world: IWorld) => {
             const distSq = dx * dx + dz * dz;
 
             const shouldBeVisible = distSq <= 62500; // 250m cutoff
-            if (mesh.visible !== shouldBeVisible) {
+            const shouldCastShadow = distSq <= 4900; // 70m shadow cutoff (Optimized)
+
+            if (mesh.visible !== shouldBeVisible || (mesh as any)._lastShadowState !== shouldCastShadow) {
                 mesh.visible = shouldBeVisible;
+                (mesh as any)._lastShadowState = shouldCastShadow;
+
                 // Only traverse when state CHANGES
                 mesh.traverse(c => {
                     if ((c as any).isMesh) {
-                        c.castShadow = shouldBeVisible;
-                        c.receiveShadow = shouldBeVisible;
+                        c.castShadow = shouldCastShadow;
+                        c.receiveShadow = shouldBeVisible; // Still receive to maintain depth
                     }
                 });
             }

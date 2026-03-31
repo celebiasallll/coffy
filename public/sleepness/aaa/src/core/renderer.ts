@@ -9,8 +9,8 @@ export function createRenderer(): THREE.WebGLRenderer {
     depth: true,
   });
 
-  // Use full DPR for Ultra quality
-  const initialDPR = window.devicePixelRatio;
+  // Use capped DPR for initial load to prevent Retina/4K performance kills
+  const initialDPR = Math.min(window.devicePixelRatio, 1.35);
   renderer.setPixelRatio(initialDPR);
   renderer.setSize(window.innerWidth, window.innerHeight);
   

@@ -43,28 +43,28 @@ export class PerformanceOptimizer {
         this.altitude = alt;
     }
 
+    private lastFrustumPos = new THREE.Vector3();
+    private frustumUpdateTimer = 0;
+
     update(camera: THREE.PerspectiveCamera) {
         const cameraPos = camera.position;
+        this.frustumUpdateTimer++;
         
-        // --- FRUSTUM CULLING WITH PADDING (v10.1) ---
-        // We use a slightly wider FOV matrix for the frustum to avoid edge pop-in
-        const originalFov = camera.fov;
-        camera.fov += 15; // Temporarily expand for frustum calculation
-        camera.updateProjectionMatrix();
-        
-        this.projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
-        this.frustum.setFromProjectionMatrix(this.projScreenMatrix);
-        
-        camera.fov = originalFov; // Restore
-        camera.updateProjectionMatrix();
+        // --- PERFORMANCE: ONLY UPDATE FRUSTUM & LOD EVERY 3 FRAMES IF CAMERA DIDN'T MOVE MUCH ---
+        const distMovedSq = cameraPos.distanceToSquared(this.lastFrustumPos);
+        if (this.frustumUpdateTimer % 3 === 0 || distMovedSq > 0.1) {
+            this.projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+            this.frustum.setFromProjectionMatrix(this.projScreenMatrix);
+            this.lastFrustumPos.copy(cameraPos);
 
-        // LOD Check
-        for (const obj of this.lodObjects) {
-            const distSq = cameraPos.distanceToSquared(obj.mesh.position);
-            const shouldBeVisible = distSq < obj.distance * obj.distance;
-            if (shouldBeVisible !== obj.visible) {
-                obj.mesh.visible = shouldBeVisible;
-                obj.visible = shouldBeVisible;
+            // LOD Check (Only when frustum updates)
+            for (const obj of this.lodObjects) {
+                const distSq = cameraPos.distanceToSquared(obj.mesh.position);
+                const shouldBeVisible = distSq < obj.distance * obj.distance;
+                if (shouldBeVisible !== obj.visible) {
+                    obj.mesh.visible = shouldBeVisible;
+                    obj.visible = shouldBeVisible;
+                }
             }
         }
 
@@ -91,30 +91,44 @@ export class PerformanceOptimizer {
         });
     }
 
+    private lastShadowSize: number = -1;
+
     /**
-     * Dynamic shadow range and quality adjustment.
+     * Dynamic shadow range and quality adjustment with Texel Snapping (v12.0)
      */
-    optimizeShadows(light: THREE.DirectionalLight, camera: THREE.Camera) {
-        // --- DYNAMIC SHADOW SCALE (v10.1) ---
-        // If high in jet, we don't need sharp shadows on small objects. 
-        // [v11.5 (MAX PERF)]: Lower shadow frustum sizes (35 -> 25 on land)
-        let shadowSize = this.jetMode ? 80 : 25; 
+    optimizeShadows(light: THREE.DirectionalLight, camera: THREE.PerspectiveCamera) {
+        // [v11.5 (MAX PERF)]: Optimized shadow frustum size (70m total width)
+        let shadowSize = this.jetMode ? 80 : 35; 
         if (this.altitude > 400) shadowSize = 150; 
         
-        light.shadow.camera.left = -shadowSize;
-        light.shadow.camera.right = shadowSize;
-        light.shadow.camera.top = shadowSize;
-        light.shadow.camera.bottom = -shadowSize;
-        light.shadow.camera.far = this.jetMode ? 600 : 200;
+        if (this.lastShadowSize !== shadowSize) {
+            light.shadow.camera.left = -shadowSize;
+            light.shadow.camera.right = shadowSize;
+            light.shadow.camera.top = shadowSize;
+            light.shadow.camera.bottom = -shadowSize;
+            light.shadow.camera.far = this.jetMode ? 600 : 200;
+            light.shadow.camera.updateProjectionMatrix();
+            this.lastShadowSize = shadowSize;
+        }
         
         const targetPos = camera.position;
-        light.target.position.copy(targetPos);
-        light.position.set(
-            targetPos.x + 100,
-            targetPos.y + 150,
-            targetPos.z + 50
-        );
         
-        light.shadow.camera.updateProjectionMatrix();
+        // --- ELITE SHADOW STABILITY: TEXEL SNAPPING ---
+        // Prevents "Shadow Crawling" (shimmering edges) by snapping camera to shadow map pixels
+        const worldSize = shadowSize * 2;
+        const texelSize = worldSize / 1024; // mapSize is 1024
+
+        const snapX = Math.round(targetPos.x / texelSize) * texelSize;
+        const snapZ = Math.round(targetPos.z / texelSize) * texelSize;
+
+        light.target.position.set(snapX, targetPos.y, snapZ);
+        light.position.set(
+            snapX + 100,
+            targetPos.y + 150,
+            snapZ + 50
+        );
+
+        // Dynamic Bias for better water/ground transition
+        light.shadow.bias = this.jetMode ? -0.001 : -0.0004;
     }
 }

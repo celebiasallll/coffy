@@ -20,23 +20,29 @@ export function createWater(scene: THREE.Scene): Water {
   geo.scale(1.3, 1.0, 1.0);
 
   water = new Water(geo, {
-    textureWidth: IS_MOBILE ? 512 : 1024,
-    textureHeight: IS_MOBILE ? 512 : 1024,
+    textureWidth: IS_MOBILE ? 384 : 768,
+    textureHeight: IS_MOBILE ? 384 : 768,
     waterNormals: new THREE.TextureLoader().load(
       'https://threejs.org/examples/textures/waternormals.jpg',
       (tex) => { tex.wrapS = tex.wrapT = THREE.RepeatWrapping; }
     ),
-    sunDirection: new THREE.Vector3(0.70707, 0.70707, 0).normalize(), // Güneşin açısını daha iyi yansıma yapacak hale getirdik
+    sunDirection: new THREE.Vector3(0.70707, 0.70707, 0).normalize(), 
     sunColor: 0xffffff,
-    waterColor: 0x003355, // Daha doğal, koyu ve yansıtıcı bir göl/okyanus mavisi
-    distortionScale: 3.7, // Gerçekçi küçük dalga kırılmaları
+    waterColor: 0x003355, 
+    distortionScale: 3.7, 
     fog: scene.fog !== undefined,
-    alpha: 1.0 // ÖNEMLİ: Şeffaflık iptal, böylece alttaki kahverengi kum suyu boyamıyor!
+    alpha: 1.0 
   });
 
   // Size = 150 devasa buzullar gibi görünmesine yol açar, normal akıntı için ~2.0 iyidir.
   // Yansıma bozulmasının çözümü yukarıdaki geo.scale() işlemiyle yapılmıştır.
   water.material.uniforms['size'] = { value: 3.0 };
+
+  // --- Z-FIGHTING FIX (v90.0): Prevent water from clipping through ground ---
+  water.material.polygonOffset = true;
+  water.material.polygonOffsetFactor = 2; // Pushes water slightly "behind" ground
+  water.material.polygonOffsetUnits = 2;
+  water.material.transparent = false; // Keep opaque to ensure depth write
 
   // ── SADE, NET VE KESKİN YANSIMA YAPAN SU ────────────────────────────────
   // Köpük ve Yağmur Shader'ları "Tertemiz Su Yüzeyi" istendiği için kaldırıldı.
@@ -44,6 +50,11 @@ export function createWater(scene: THREE.Scene): Water {
   water.rotation.x = -Math.PI / 2;
   water.position.set(LAKE_CENTER_X, WATER_LEVEL, LAKE_CENTER_Z);
   water.frustumCulled = true;
+
+  // [v100.0] ELITE STABLE REFLECTIONS (60 FPS Motion-Sync)
+  // Reframe skipping removed to prevent flickering during movement.
+  // 768px resolution used for optimal Quality-to-Performance ratio.
+  
   scene.add(water);
 
   // Kıyı şeridi — su kenarını yumuşatır, kum/toprak görünümü verir

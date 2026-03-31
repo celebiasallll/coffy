@@ -279,58 +279,35 @@ export function createTerrain(scene: THREE.Scene): { terrain: THREE.Mesh; size: 
       '#include <map_fragment>',
       `#include <map_fragment>
 
-      // ── ROCK — iki ölçek blend (tiling artefaktını azaltır) ───────────────
-      vec3 rockA = texture2D(uTexRock, vTerrainUV * 40.0).rgb;
-      vec3 rockB = texture2D(uTexRock, vTerrainUV * 10.0).rgb;
-      vec3 rockColor = mix(rockA, rockB, 0.4);
+      // ── ROCK — Single-scale sampling for perf (v31.0) ───────────────
+      vec3 rockColor = texture2D(uTexRock, vTerrainUV * 25.0).rgb;
 
-      // ── SAND — göl kıyısı kum rengi ───────────────────────────────────────
-      vec3 sandA = texture2D(uTexSand, vTerrainUV * 35.0).rgb;
-      vec3 sandB = texture2D(uTexSand, vTerrainUV * 8.0).rgb;
-      vec3 sandColor = mix(sandA, sandB, 0.35);
+      // ── SAND — Single-scale sampling for perf (v31.0) ───────────────
+      vec3 sandColor = texture2D(uTexSand, vTerrainUV * 18.0).rgb;
 
       // ── ÇİMEN VARYASYONU: açık/koyu lekeler ─────────────────────────────────
-      // Noise yerine UV tabanlı sin/cos dalgalanması — iki frekansta çakıştır
-      float gVar = sin(vTerrainUV.x * 180.0) * cos(vTerrainUV.y * 220.0) * 0.5
-                 + sin(vTerrainUV.x * 55.0  + 1.3) * sin(vTerrainUV.y * 70.0) * 0.5;
-      // -1..1 → 0.82..1.10 parlaklık aralığı (çok belirgin değil, hafif)
-      float grassVar = 0.96 + gVar * 0.14;
+      // Simplified sinus variation for better fragment throughput
+      float gVar = sin(vTerrainUV.x * 120.0) * cos(vTerrainUV.y * 150.0) * 0.12;
+      float grassVar = 0.98 + gVar;
       diffuseColor.rgb *= grassVar;
 
-      // ── ROCK: yüksek tepeler + dik yamaçlar ──────────────────────────────
-      // Yükseklik: 5m'den itibaren karışmaya başlar, 9m'de tam kaya
-      float wRockAlt   = smoothstep(5.0, 9.0, vWorldY);
-      // Eğim: 0.07'den itibaren kaya, 0.25'te tam
-      float wRockSlope = smoothstep(0.07, 0.25, vSlope);
+      // ── ROCK / SAND Blend Weights ──────────────────────────────
+      float wRockAlt   = smoothstep(5.5, 9.5, vWorldY);
+      float wRockSlope = smoothstep(0.08, 0.28, vSlope);
       float wRock = clamp(max(wRockAlt, wRockSlope), 0.0, 1.0);
 
-      // ── SAND: SADECE su kenarı çok dar bant ──────────────────────────────
-      // lakeNorm = 1.0 → tam kenar, 1.0'dan büyük → kara
-      float lakeDist = distance(vWorldXZ, uLakeCenter);
-      float lakeNorm = lakeDist / uLakeRadius;
-      // Çok dar: gölün tam kenarında ~8m şerit
-      float inShore = smoothstep(1.02, 0.995, lakeNorm);
-      // Yükseklik: su seviyesi + 0-1.5m
-      float isLow   = smoothstep(3.0, 1.7, vWorldY);
-      float wSand   = clamp(inShore * isLow, 0.0, 1.0);
+      float lakeNorm = distance(vWorldXZ, uLakeCenter) / uLakeRadius;
+      float wSand    = clamp(smoothstep(1.025, 1.002, lakeNorm) * smoothstep(2.8, 1.8, vWorldY), 0.0, 1.0);
 
-      // Öncelik: sand > rock > grass
       wRock = wRock * (1.0 - wSand);
 
-      // Blend
+      // Blend — PBR Simplified
       diffuseColor.rgb = mix(diffuseColor.rgb, rockColor, wRock);
       diffuseColor.rgb = mix(diffuseColor.rgb, sandColor, wSand);
 
-      if (wRock > 0.1) {
-        // PBR Kayalık "Pseudo-Normal" efekti (Dağların detayını güneşe bağlarız)
-        vec3 detNorm = texture2D(uTexDetailNormal, vTerrainUV * 40.0).rgb * 2.0 - 1.0;
-        float detVal = dot(detNorm, vec3(0.5, 0.7, 1.0));
-        diffuseColor.rgb *= (0.8 + detVal * 0.35); // PBR Rock normaliyle bump mapping
-      }
-
-      // Saturation: Removed boost to avoid whitish overlit terrain
+      // ── SATURATION ADJUST — Neutral ──────────────────────────────
       float luma = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
-      diffuseColor.rgb = mix(vec3(luma), diffuseColor.rgb, 1.0); // neutral, no saturation push
+      diffuseColor.rgb = mix(vec3(luma), diffuseColor.rgb, 1.0);
       `
     );
 

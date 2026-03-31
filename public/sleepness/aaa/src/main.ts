@@ -59,7 +59,7 @@ import { animationSystem } from './ecs/systems/AnimationSystem.js';
 import { npcSystem, getNearestNPC } from './ecs/systems/NPCSystem.js';
 import { updateImpacts } from './ecs/systems/ImpactSystem.js';
 import { updateParticles, initParticles } from './systems/particles.js';
-import { updateHUD, initScoreSystem, triggerGameOver, isGameOver, showPopup } from './systems/score.js';
+import { updateHUD, initScoreSystem, triggerGameOver, isGameOver, showPopup, addScore } from './systems/score.js';
 import { spawnVehicles, updateVehicles, tryEnterVehicle, exitVehicle, Vehicle, getNearestVehicleInfo } from './systems/VehicleSystem.js';
 import { weaponSystem } from './ecs/systems/WeaponSystem.js';
 import { weaponVisualSystem } from './ecs/systems/WeaponVisualSystem.js';
@@ -97,6 +97,13 @@ import {
 } from './world/WeatherSystem.js';
 
 import { initSurvival, updateSurvival, canSprint, onDeath, isInputBlocked } from './systems/SurvivalSystem.js';
+import { PortalSystem } from './systems/PortalSystem.js';
+import { PuzzleGame } from './minigames/PuzzleGame.js';
+
+enum GameState { EXPLORING, MINIGAME }
+let currentGameState: GameState = GameState.EXPLORING;
+let activeMiniGame: PuzzleGame | null = null;
+let portalSystem: PortalSystem | null = null;
 
 
 // ── Kamera sabitleri ──────────────────────────────────────────────────────────
@@ -303,6 +310,10 @@ async function init(playerType: number) {
 
   initItemSpawner(scene, world);
 
+  // [v80.0]: Portal System (OFF)
+  // portalSystem = new PortalSystem(scene);
+  // portalSystem.createPortal('p1', 460, 460, 'puzzle');
+
   // Spawn 10 NPC Quest Givers
   const npcPromises = [];
   for (let i = 0; i < 6; i++) {
@@ -349,11 +360,10 @@ async function init(playerType: number) {
   // Log satırlarını sırayla "done" yap
   const logLines = ['ld-log-3', 'ld-log-4', 'ld-log-5'];
   const logTexts = ['Character assets loaded', 'Enemies spawned', 'World ready'];
+  // [v65.0]: Instant Loading (Removed artificial delays)
   logLines.forEach((id, i) => {
-    setTimeout(() => {
-      const el = document.getElementById(id);
-      if (el) { el.classList.add('done'); el.textContent = logTexts[i]; }
-    }, 900 + i * 400);
+    const el = document.getElementById(id);
+    if (el) { el.classList.add('done'); el.textContent = logTexts[i]; }
   });
 
   const pctEl = document.getElementById('ld-pct');
@@ -423,7 +433,18 @@ async function init(playerType: number) {
     checkLoading();
 
     inputSystem(world);
-    if (isInputBlocked() || inJet) {
+    // if (portalSystem) portalSystem.update(dt, clock.getElapsedTime());
+
+    // [v65.1]: LOADING STASIS (Freeze world while loading screen is visible)
+    if (!loadingHidden) {
+      if (renderer && scene && camera) {
+        // Limited render for background atmosphere if needed, otherwise just wait
+        renderer.render(scene, camera); 
+      }
+      return; // Skip all AI/Physics/Survival
+    }
+
+    if (isInputBlocked() || inJet || currentGameState === GameState.MINIGAME) {
       InputState.moveX[playerId] = 0;
       InputState.moveZ[playerId] = 0;
       InputState.jump[playerId] = 0;
@@ -432,10 +453,23 @@ async function init(playerType: number) {
       InputIntents.shootRequest[playerId] = 0;
     }
 
+    if (currentGameState === GameState.MINIGAME && activeMiniGame) {
+      activeMiniGame.update(dt);
+      activeMiniGame.render();
+
+      // [v50.0]: EXIT PORTAL WITH 'E' (Vehicle-style)
+      if (vehicleKeys['KeyE']) {
+          (activeMiniGame as any).dispose?.();
+          activeMiniGame = null;
+          currentGameState = GameState.EXPLORING;
+      }
+      return; // Stop world rendering/update while in minigame
+    }
+
     const hpBeforeAI = Health.current[playerId];
     let wolfDmgThisFrame = 0;
 
-    if (clock.elapsedTime > 3.0) {
+    if (clock.elapsedTime > 3.0 && (world as any)._frameCount % 2 === 0) {
       aiSystem(world);
       wolfDmgThisFrame = Math.max(0, hpBeforeAI - Health.current[playerId]);
     }
@@ -450,6 +484,7 @@ async function init(playerType: number) {
     weaponSystem(world);
     updateImpacts(scene, dt);
     updateParticles(dt);
+    if (portalSystem) portalSystem.update(dt, clock.getElapsedTime());
     
 
     const hpAfterWeapon = Health.current[playerId];
@@ -539,6 +574,48 @@ async function init(playerType: number) {
       InputIntents.jetRequest[playerId] = 0;
     }
 
+    // -- Portal Interaction --
+    if (portalSystem && currentGameState === GameState.EXPLORING) {
+      const pMesh = entityMeshes.get(playerId);
+      if (pMesh) {
+        const nearPortal = portalSystem.checkProximity(pMesh.position);
+        if (nearPortal) {
+          const interactEl = document.getElementById('interact');
+          if (interactEl) {
+            interactEl.innerHTML = `<span class="kbd">E</span> <b style="color:#00e5ff">PORTAL</b> · Enter Dimension`;
+            interactEl.style.display = 'block';
+          }
+          if (InputState.interact[playerId] === 1) {
+            InputState.interact[playerId] = 0;
+            currentGameState = GameState.MINIGAME;
+            activeMiniGame = new PuzzleGame(
+              renderer,
+              () => { // Win
+                console.log("PUZZLE WIN");
+                currentGameState = GameState.EXPLORING;
+                activeMiniGame?.dispose();
+                activeMiniGame = null;
+                showPopup("DIMENSION CLEARED", "#00ff00");
+              },
+              () => { // Lose
+                console.log("PUZZLE LOSE");
+                currentGameState = GameState.EXPLORING;
+                activeMiniGame?.dispose();
+                activeMiniGame = null;
+                showPopup("SYSTEM FAILURE", "#ff0000");
+              },
+              () => { // Exit
+                 currentGameState = GameState.EXPLORING;
+                 activeMiniGame?.dispose();
+                 activeMiniGame = null;
+              }
+            );
+            activeMiniGame.start();
+          }
+        }
+      }
+    }
+
     const vInput = occupiedVehicle ? {
       forward: InputState.moveZ[playerId] < -0.1,
       back: InputState.moveZ[playerId] > 0.1,
@@ -576,14 +653,58 @@ async function init(playerType: number) {
       setTimeout(() => triggerGameOver(), 2000);
     }
 
-    npcSystem(world);
+    if ((world as any)._frameCount % 2 !== 0) {
+      npcSystem(world);
+    }
+
+    function startMiniGame(destination: string) {
+      if (destination === 'puzzle') {
+        currentGameState = GameState.MINIGAME;
+        // [v60.0]: RELEASE POINTER LOCK (Fix for "unplayable" bug)
+        if (document.pointerLockElement) document.exitPointerLock();
+
+        // Wait 300ms to clear the 'E' key press used to enter
+        setTimeout(() => {
+          activeMiniGame = new PuzzleGame(
+            renderer, 
+            () => { // Win
+                currentGameState = GameState.EXPLORING;
+                if (activeMiniGame) (activeMiniGame as any).dispose?.();
+                activeMiniGame = null;
+                showPopup("PUZZLE SOLVED!", "#00ff00");
+                addScore(500, "PUZZLE", playerId);
+            },
+            () => { // Lose
+                currentGameState = GameState.EXPLORING;
+                if (activeMiniGame) (activeMiniGame as any).dispose?.();
+                activeMiniGame = null;
+                showPopup("PUZZLE FAILED", "#ff0000");
+            },
+            () => { // Exit
+                currentGameState = GameState.EXPLORING;
+                if (activeMiniGame) (activeMiniGame as any).dispose?.();
+                activeMiniGame = null;
+            }
+          );
+          activeMiniGame.start();
+        }, 300);
+      }
+    }
 
     const interactEl = document.getElementById('interact');
     if (interactEl) {
+      const pMesh = entityMeshes.get(playerId);
+      const pPos = pMesh?.position || tempVec1.set(0,0,0);
+      const activePortal = portalSystem?.checkProximity(pPos);
       const nearestNPC = getNearestNPC();
-      if (nearestNPC === null || isDialogueOpen()) {
-        const pMesh = entityMeshes.get(playerId);
-        const pPos = pMesh?.position || tempVec1.set(0,0,0);
+
+      if (activePortal && !isDialogueOpen() && !inJet && !occupiedVehicle) {
+        interactEl.innerHTML = `<span class="kbd">E</span> <b style="color:#00e5ff">${activePortal.destination.toUpperCase()}</b> · Enter Portal`;
+        interactEl.style.display = 'block';
+        if (vehicleKeys['KeyE']) {
+            startMiniGame(activePortal.destination);
+        }
+      } else if (nearestNPC === null || isDialogueOpen()) {
         const vNear = getNearestVehicleInfo(pPos);
         const jNear = pMesh ? getJetNearInfo(pMesh.position) : null;
 
@@ -682,12 +803,41 @@ async function init(playerType: number) {
     fpsWindow.push(1 / dt);
     if (fpsWindow.length > 60) fpsWindow.shift();
 
-    // Quality Auto-Adjust (Prioritize ULTRA)
+    // [v38.0]: Smooth Hysteresis-based Quality Adjust
     // @ts-ignore
-    if (world._frameCount % 120 === 0) {
+    if (world._qualityConfidence === undefined) world._qualityConfidence = 0;
+    // @ts-ignore
+    if (world._frameCount % 60 === 0) {
       const avgFps = fpsWindow.reduce((a, b) => a + b, 0) / Math.max(1, fpsWindow.length);
-      if (avgFps > 55 && currentSMAA !== 'ULTRA') { setSMAAPreset(SMAAPreset.ULTRA); currentSMAA = 'ULTRA'; }
-      else if (avgFps < 40 && currentSMAA !== 'HIGH') { setSMAAPreset(SMAAPreset.HIGH); currentSMAA = 'HIGH'; } // Only degrade if below 40 FPS
+      
+      if (avgFps >= 55) {
+          // @ts-ignore
+          world._qualityConfidence++;
+          // @ts-ignore
+          if (world._qualityConfidence >= 2 && currentSMAA !== 'ULTRA') {
+              setSMAAPreset(SMAAPreset.ULTRA);
+              currentSMAA = 'ULTRA';
+          }
+      } else if (avgFps < 44) {
+          // @ts-ignore
+          world._qualityConfidence--;
+          // @ts-ignore
+          if (world._qualityConfidence <= -2) {
+              if (currentSMAA === 'ULTRA') {
+                  setSMAAPreset(SMAAPreset.HIGH);
+                  currentSMAA = 'HIGH';
+              } else if (currentSMAA === 'HIGH' && avgFps < 32) {
+                  setSMAAPreset(SMAAPreset.MEDIUM);
+                  currentSMAA = 'MEDIUM';
+              }
+              // @ts-ignore
+              world._qualityConfidence = 0;
+          }
+      } else {
+        // Stabilizing in range
+        // @ts-ignore
+        world._qualityConfidence = 0;
+      }
     }
 
     touchControls.update();

@@ -16,6 +16,9 @@ let _heightData: Float32Array | null = null;
 let _segs = TERRAIN_SEGS;
 let _size = TERRAIN_SIZE;
 
+// Mobil Cihaz Tespiti
+const IS_MOBILE = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 0);
+
 function smoothstep(x: number): number {
   const t = Math.max(0, Math.min(1, x));
   return t * t * (3 - 2 * t);
@@ -153,15 +156,23 @@ export function createTerrain(scene: THREE.Scene): { terrain: THREE.Mesh; size: 
     return t;
   }
 
-  // Grass — CDN (mat.map olarak kullanılır, USE_MAP flag'ini garantiler)
-  const grassTex = loadTex('https://threejs.org/examples/textures/terrain/grasslight-big.jpg');
-  grassTex.repeat.set(24, 24); // terrain genelinde 24 tekrar
+  // --- AŞAMA 3: PBR YÜKSEK KALİTE KAPLAMALAR (ambientCG / PolyHaven) ---
+  // Geniş arazi çim kaplaması (Albedo)
+  const grassTex = loadTex('https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/aerial_grass_rock/aerial_grass_rock_diff_2k.jpg');
+  grassTex.repeat.set(40, 40);
 
-  // Rock — local
-  const rockTex = loadTex('/textures/gray_rocks_diff.jpg');
-  const rockNormal = loadTex('assets/textures/waternormals.png'); // Use local water normal as fallback
-  const detailNormal = loadTex('https://threejs.org/examples/textures/waternormals.jpg'); // Reusing water normal as a detailed noise/grain
-  detailNormal.repeat.set(128, 128);
+  // Mobil cihazlarda PBR Derinlik/Pürüzlülük hesaplamasını iptal edip muazzam FPS kazancı sağlıyoruz
+  const grassNorm = IS_MOBILE ? undefined : loadTex('https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/aerial_grass_rock/aerial_grass_rock_nor_gl_2k.jpg');
+  if (grassNorm) grassNorm.repeat.set(40, 40);
+
+  const grassRough = IS_MOBILE ? undefined : loadTex('https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/aerial_grass_rock/aerial_grass_rock_rough_2k.jpg');
+  if (grassRough) grassRough.repeat.set(40, 40);
+
+  // Dik Dağlık/Kayalık Alanların Kaplaması (PBR)
+  const rockTex = loadTex('https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rock_boulder_cracked/rock_boulder_cracked_diff_2k.jpg');
+  const rockNormal = loadTex('https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rock_boulder_cracked/rock_boulder_cracked_nor_gl_2k.jpg'); 
+  const detailNormal = rockNormal; // Kayalık detaylarını doğrudan PBR normalinden çekelim
+  detailNormal.repeat.set(40, 40);
 
   // Sand — canvas ile üretilir (dosya bağımlılığı yok, her zaman çalışır)
   function makeSandCanvasTex(): THREE.CanvasTexture {
@@ -206,11 +217,15 @@ export function createTerrain(scene: THREE.Scene): { terrain: THREE.Mesh; size: 
     uRainIntensity: { value: 0 },
   };
 
+  // AŞAMA 3: Three.js PBR Standart Fiziksel Materyali
   const mat = new THREE.MeshStandardMaterial({
-    map:       grassTex,
-    color:     0x5a7a35,   // referans koda uygun — grassTex ile çarpılır
-    roughness: 0.95,
-    metalness: 0.0,
+    map:          grassTex,
+    normalMap:    grassNorm,      // Eğer undefined gelirse (Mobil), Three.js normal shaderlarını komple atlar (Dev optimizasyon)
+    roughnessMap: grassRough,     // Eğer undefined gelirse, roughness düz pürüzlülük olarak çalışır
+    color:        0xffffff,
+    roughness:    1.0,
+    metalness:    0.0,
+    normalScale:  new THREE.Vector2(1.5, 1.5)
   });
 
   mat.onBeforeCompile = (shader) => {
@@ -307,9 +322,10 @@ export function createTerrain(scene: THREE.Scene): { terrain: THREE.Mesh; size: 
       diffuseColor.rgb = mix(diffuseColor.rgb, sandColor, wSand);
 
       if (wRock > 0.1) {
-        vec3 detNorm = texture2D(uTexDetailNormal, vTerrainUV * 250.0).rgb * 2.0 - 1.0;
-        float detVal = dot(detNorm, vec3(0.5, 0.5, 1.0));
-        diffuseColor.rgb *= (0.9 + detVal * 0.15);
+        // PBR Kayalık "Pseudo-Normal" efekti (Dağların detayını güneşe bağlarız)
+        vec3 detNorm = texture2D(uTexDetailNormal, vTerrainUV * 40.0).rgb * 2.0 - 1.0;
+        float detVal = dot(detNorm, vec3(0.5, 0.7, 1.0));
+        diffuseColor.rgb *= (0.8 + detVal * 0.35); // PBR Rock normaliyle bump mapping
       }
 
       // Saturation: Removed boost to avoid whitish overlit terrain

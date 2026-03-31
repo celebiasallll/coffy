@@ -9,37 +9,50 @@ import {
 
 export { WATER_LEVEL };
 export let water: Water;
+export let reflector: any = null; // Removed external reflector to restore stability
+
+// Mobil Cihaz Tespiti
+const IS_MOBILE = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 0);
 
 export function createWater(scene: THREE.Scene): Water {
-  // CircleGeometry — yuvarlak göl, 128 segment pürüzsüz kenar
-  const geo = new THREE.CircleGeometry(LAKE_RADIUS * 0.98, 64);
+  const geo = new THREE.CircleGeometry(LAKE_RADIUS * 0.98, 128);
+  // Mesh'i esnetmek yansıma Matrix'ini bozar! Bu yüzden sadece geometriyi esnetiyoruz.
+  geo.scale(1.3, 1.0, 1.0);
 
   water = new Water(geo, {
-    textureWidth: 256,
-    textureHeight: 256,
+    textureWidth: IS_MOBILE ? 512 : 1024,
+    textureHeight: IS_MOBILE ? 512 : 1024,
     waterNormals: new THREE.TextureLoader().load(
-      'assets/textures/waternormals.png',
+      'https://threejs.org/examples/textures/waternormals.jpg',
       (tex) => { tex.wrapS = tex.wrapT = THREE.RepeatWrapping; }
     ),
-    sunDirection: new THREE.Vector3(0.5, 1, 0.5).normalize(),
-    sunColor: 0xbbbbbb, // Dimmed from 0xcccccc
-    waterColor: 0x0077bb,
-    distortionScale: 1.0,
-    fog: false,
-    alpha: 0.92,
+    sunDirection: new THREE.Vector3(0.70707, 0.70707, 0).normalize(), // Güneşin açısını daha iyi yansıma yapacak hale getirdik
+    sunColor: 0xffffff,
+    waterColor: 0x003355, // Daha doğal, koyu ve yansıtıcı bir göl/okyanus mavisi
+    distortionScale: 3.7, // Gerçekçi küçük dalga kırılmaları
+    fog: scene.fog !== undefined,
+    alpha: 1.0 // ÖNEMLİ: Şeffaflık iptal, böylece alttaki kahverengi kum suyu boyamıyor!
   });
 
+  // Size = 150 devasa buzullar gibi görünmesine yol açar, normal akıntı için ~2.0 iyidir.
+  // Yansıma bozulmasının çözümü yukarıdaki geo.scale() işlemiyle yapılmıştır.
+  water.material.uniforms['size'] = { value: 3.0 };
+
+  // ── SADE, NET VE KESKİN YANSIMA YAPAN SU ────────────────────────────────
+  // Köpük ve Yağmur Shader'ları "Tertemiz Su Yüzeyi" istendiği için kaldırıldı.
+
   water.rotation.x = -Math.PI / 2;
-  water.scale.set(1.3, 1.0, 1.0);
   water.position.set(LAKE_CENTER_X, WATER_LEVEL, LAKE_CENTER_Z);
   water.frustumCulled = true;
   scene.add(water);
 
   // Kıyı şeridi — su kenarını yumuşatır, kum/toprak görünümü verir
   const shoreGeo = new THREE.RingGeometry(
+    LAKE_RADIUS * 0.98,
     LAKE_RADIUS * 1.12,
-    64
+    128
   );
+  shoreGeo.scale(1.3, 1.0, 1.0); // Kıyı geometrisini de esnet
   const shoreMat = new THREE.MeshStandardMaterial({
     color: 0x8b7355,   // kum/toprak rengi
     roughness: 1.0,
@@ -49,7 +62,6 @@ export function createWater(scene: THREE.Scene): Water {
   });
   const shore = new THREE.Mesh(shoreGeo, shoreMat);
   shore.rotation.x = -Math.PI / 2;
-  shore.scale.set(1.3, 1.0, 1.0);
   shore.position.set(LAKE_CENTER_X, WATER_LEVEL + 0.02, LAKE_CENTER_Z);
   shore.receiveShadow = true;
   scene.add(shore);
@@ -57,14 +69,17 @@ export function createWater(scene: THREE.Scene): Water {
   return water;
 }
 
-export function updateWater(dt: number, sunDirection: THREE.Vector3, cameraPos: THREE.Vector3): void {
+export function updateWater(dt: number, sunDirection: THREE.Vector3, cameraPos?: THREE.Vector3): void {
   if (!water) return;
-  water.material.uniforms['time'].value += dt * 0.4;
+  water.material.uniforms['time'].value += dt * 0.8; // Animasyon hızı artırıldı
+  if (water.material.uniforms['uTime']) water.material.uniforms['uTime'].value += dt * 0.8;
   water.material.uniforms['sunDirection'].value.copy(sunDirection).normalize();
+
+  if (!cameraPos) return;
 
   // Smart LOD Logic
   const dist = cameraPos.distanceTo(water.position);
-  
+
   // Target values based on distance
   let targetDistortion = 1.0;
   let targetAlpha = 0.92;
@@ -93,9 +108,9 @@ export function updateWater(dt: number, sunDirection: THREE.Vector3, cameraPos: 
 
   // Visibility Toggle (Huge FPS gain when far)
   if (dist > 2200) {
-      water.visible = false;
+    water.visible = false;
   } else {
-      water.visible = true;
+    water.visible = true;
   }
 }
 

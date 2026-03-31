@@ -98,6 +98,7 @@ import {
 
 import { initSurvival, updateSurvival, canSprint, onDeath, isInputBlocked } from './systems/SurvivalSystem.js';
 
+
 // ── Kamera sabitleri ──────────────────────────────────────────────────────────
 
 const CAM_DIST_MIN = 5;
@@ -246,6 +247,7 @@ async function init(playerType: number) {
   // @ts-ignore
   world.scene = scene;
   const playerId = await spawnPlayer(scene, 480, 10, 480, playerType);
+
 
   // Spawning enemies distributed - with exclusion zone around player (480,480)
   const px = 480, pz = 480;
@@ -448,6 +450,7 @@ async function init(playerType: number) {
     weaponSystem(world);
     updateImpacts(scene, dt);
     updateParticles(dt);
+    
 
     const hpAfterWeapon = Health.current[playerId];
     if (hpAfterWeapon < hpBeforeAI && !playerDead) {

@@ -25,6 +25,7 @@
     "@types/howler": "^2.2.11",
     "@types/node": "^25.5.0",
     "@types/three": "^0.170.0",
+    "free-tex-packer-core": "^0.3.5",
     "typescript": "^5.4.0",
     "vite": "^6.0.0"
   }

@@ -27,7 +27,10 @@ class AudioManager {
           resolve(buffer);
         },
         undefined,
-        (err) => reject(err)
+        (err) => {
+           // Prevent double-logging by just passing the error
+           reject(err);
+        }
       );
     });
   }
@@ -158,7 +161,14 @@ class AudioManager {
       sound.setBuffer(buffer);
       sound.setLoop(true); // Loop for continuous engine sound
       sound.setVolume(volume);
-    }).catch((err) => console.error(`EngineSound Load Fail [${url}]:`, err));
+    }).catch((err) => {
+        // Only log once per asset URL to prevent console flood
+        if (!(this as any)._loggedErrors) (this as any)._loggedErrors = new Set();
+        if (!(this as any)._loggedErrors.has(url)) {
+            console.warn(`[Audio] Asset failed to load: ${url}. Performance may be affected by multiple fetch attempts.`, err);
+            (this as any)._loggedErrors.add(url);
+        }
+    });
     return sound;
   }
 

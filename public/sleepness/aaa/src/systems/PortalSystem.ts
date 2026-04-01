@@ -7,6 +7,9 @@ export interface Portal {
     mesh: THREE.Group;
     radius: number;
     destination: string;
+    // Cached refs for performance
+    vortexMat: THREE.ShaderMaterial;
+    light: THREE.PointLight;
 }
 
 // ── Lightweight shader ───────────────────────────────────────────────────────
@@ -48,8 +51,8 @@ void main() {
 let _diskGeo: THREE.CircleGeometry    | null = null;
 let _ringGeo: THREE.TorusGeometry     | null = null;
 
-function getDiskGeo()  { return (_diskGeo ??= new THREE.CircleGeometry(4.8, 48));         }
-function getRingGeo()  { return (_ringGeo ??= new THREE.TorusGeometry(5.04, 0.12, 6, 48)); }
+function getDiskGeo()  { return (_diskGeo ??= new THREE.CircleGeometry(4.8, 32));         }
+function getRingGeo()  { return (_ringGeo ??= new THREE.TorusGeometry(5.04, 0.12, 4, 32)); }
 
 // ════════════════════════════════════════════════════════════════════════════
 export class PortalSystem {
@@ -77,7 +80,7 @@ export class PortalSystem {
             fragmentShader: FRAG,
             transparent:    true,
             depthWrite:     false,
-            side:           THREE.DoubleSide,
+            side:           THREE.FrontSide, // FrontSide only to halve fragment work
         });
         const disk = new THREE.Mesh(getDiskGeo(), vortexMat);
         group.add(disk);
@@ -92,8 +95,9 @@ export class PortalSystem {
         group.add(ring);
 
         // ── Single low-range point light ─────────────────────────────────────
-        const light = new THREE.PointLight(color, 12, 28); // Boosted range/intensity for size
+        const light = new THREE.PointLight(color, 9, 18); // Reduced range/intensity for FPS
         light.position.set(0, 0, 0.5);
+        light.castShadow = false; // Ensure no shadow casting for portal lights
         group.add(light);
 
         // ── Floating label sprite ─────────────────────────────────────────────
@@ -103,7 +107,15 @@ export class PortalSystem {
 
         this.scene.add(group);
 
-        const portal: Portal = { id, position, mesh: group, radius: 7.0, destination };
+        const portal: Portal = { 
+            id, 
+            position, 
+            mesh: group, 
+            radius: 7.0, 
+            destination,
+            vortexMat,
+            light
+        };
         this.portals.push(portal);
         return portal;
     }
@@ -135,22 +147,16 @@ export class PortalSystem {
             // Gentle bob
             portal.mesh.position.y = portal.position.y + Math.sin(time * 1.4) * 0.08;
 
-            for (const child of portal.mesh.children) {
-                if (child instanceof THREE.Mesh) {
-                    const mat = child.material as THREE.ShaderMaterial;
-                    if (mat?.uniforms?.uTime) {
-                        mat.uniforms.uTime.value = time;
-                    }
-                }
-                // Slow ring spin only
+            // Direct material and light update (no traverse/find needed)
+            portal.vortexMat.uniforms.uTime.value = time;
+            portal.mesh.children.forEach(child => {
                 if (child instanceof THREE.Mesh && child.geometry === getRingGeo()) {
                     child.rotation.z += dt * 0.35;
                 }
-            }
+            });
 
-            // Pulse light
-            const light = portal.mesh.children.find(c => c instanceof THREE.PointLight) as THREE.PointLight | undefined;
-            if (light) light.intensity = 7 + Math.sin(time * 3.5) * 2;
+            // Pulse light directly via cached ref
+            portal.light.intensity = 7 + Math.sin(time * 3.5) * 2;
         }
     }
 

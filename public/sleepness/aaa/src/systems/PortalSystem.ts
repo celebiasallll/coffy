@@ -6,137 +6,176 @@ export interface Portal {
     position: THREE.Vector3;
     mesh: THREE.Group;
     radius: number;
-    destination: string; // "puzzle", "shooting", etc.
+    destination: string;
 }
 
+// ── Lightweight shader ───────────────────────────────────────────────────────
+const VERT = /* glsl */`
+varying vec2 vUv;
+void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`;
+
+const FRAG = /* glsl */`
+uniform float uTime;
+uniform vec3  uColor;
+varying vec2  vUv;
+void main() {
+    vec2  uv    = vUv * 2.0 - 1.0;
+    float r     = length(uv);
+    float theta = atan(uv.y, uv.x);
+
+    // Thin rotating ring bands — cheap
+    float swirl   = theta + uTime * 1.8 + r * 4.0;
+    float bands   = sin(swirl * 5.0) * 0.5 + 0.5;
+
+    // Rim glow
+    float rim     = smoothstep(1.0, 0.6, r) * smoothstep(0.4, 0.8, r);
+    // Core fade
+    float core    = smoothstep(0.0, 0.35, r);
+    float mask    = smoothstep(1.05, 0.85, r);
+
+    vec3 col = uColor * (bands * rim * 0.7 + rim * 0.4);
+    col += vec3(0.6, 1.0, 1.0) * pow(rim, 3.0) * 1.5;
+
+    // Reduced opacity to 50% max (mask * core * 0.5)
+    float alpha = mask * core * 0.5;
+    gl_FragColor = vec4(col, alpha);
+}`;
+
+// ── Reuse geometry across all portals ────────────────────────────────────────
+let _diskGeo: THREE.CircleGeometry    | null = null;
+let _ringGeo: THREE.TorusGeometry     | null = null;
+
+function getDiskGeo()  { return (_diskGeo ??= new THREE.CircleGeometry(4.8, 48));         }
+function getRingGeo()  { return (_ringGeo ??= new THREE.TorusGeometry(5.04, 0.12, 6, 48)); }
+
+// ════════════════════════════════════════════════════════════════════════════
 export class PortalSystem {
     private portals: Portal[] = [];
-    private scene: THREE.Scene;
-    private clock: THREE.Clock = new THREE.Clock();
+    private scene:   THREE.Scene;
 
     constructor(scene: THREE.Scene) {
         this.scene = scene;
     }
 
-    createPortal(id: string, x: number, z: number, destination: string = 'puzzle'): Portal {
-        const y = getHeight(x, z);
-        const position = new THREE.Vector3(x, y + 1.5, z);
-        
+    createPortal(id: string, x: number, z: number, destination = 'puzzle', color = 0x00d4ff): Portal {
+        const y        = getHeight(x, z);
+        const position = new THREE.Vector3(x, y + 4.0, z); // Floating higher for 2x size
+
         const group = new THREE.Group();
         group.position.copy(position);
 
-        // -- Portal Visuals: [v55.0] Swirling Vortex (Raw Performance Shader) --
-        const vortexGeo = new THREE.CircleGeometry(3.0, 32);
+        // ── Vortex disc (single draw call, shared geometry) ──────────────────
         const vortexMat = new THREE.ShaderMaterial({
             uniforms: {
-                uTime: { value: 0 },
-                uColor: { value: new THREE.Color(0x00e5ff) }
+                uTime:  { value: 0 },
+                uColor: { value: new THREE.Color(color) },
             },
-            vertexShader: `
-                varying vec2 vUv;
-                void main() {
-                    vUv = uv;
-                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-                }
-            `,
-            fragmentShader: `
-                uniform float uTime;
-                uniform vec3 uColor;
-                varying vec2 vUv;
-                void main() {
-                    vec2 uv = vUv * 2.0 - 1.0;
-                    float r = length(uv);
-                    float angle = atan(uv.y, uv.x);
-                    
-                    // Swirling Motion (Polar Coordinates)
-                    float swirl = angle + uTime * 2.5 + (1.0 / (r + 0.15)) * 1.5;
-                    float pattern = sin(swirl * 6.0) * 0.5 + 0.5;
-                    
-                    // Edge Fade & Outer Glow
-                    float mask = smoothstep(1.0, 0.2, r);
-                    float edge = smoothstep(0.75, 0.95, r);
-                    
-                    // Central "Black Hole" effect
-                    float core = smoothstep(0.25, 0.0, r);
-                    
-                    vec3 col = uColor * (pattern * mask + edge * 2.0);
-                    col += vec3(0.5, 0.9, 1.0) * edge * 3.0; // Outer white-blue edge
-                    
-                    gl_FragColor = vec4(col * (1.0 - core), mask + edge);
-                }
-            `,
+            vertexShader:   VERT,
+            fragmentShader: FRAG,
+            transparent:    true,
+            depthWrite:     false,
+            side:           THREE.DoubleSide,
+        });
+        const disk = new THREE.Mesh(getDiskGeo(), vortexMat);
+        group.add(disk);
+
+        // ── Thin frame ring (shared geometry, minimal poly) ──────────────────
+        const frameMat = new THREE.MeshBasicMaterial({
+            color:       color,
             transparent: true,
-            side: THREE.DoubleSide
+            opacity:     0.5,
         });
-        
-        const vortex = new THREE.Mesh(vortexGeo, vortexMat);
-        group.add(vortex);
+        const ring = new THREE.Mesh(getRingGeo(), frameMat);
+        group.add(ring);
 
-        // Vortex Frame (High Glow)
-        const frameGeo = new THREE.TorusGeometry(3.1, 0.1, 8, 32);
-        const frameMat = new THREE.MeshStandardMaterial({
-            color: 0x00e5ff,
-            emissive: 0x00e5ff,
-            emissiveIntensity: 8,
-        });
-        const frame = new THREE.Mesh(frameGeo, frameMat);
-        group.add(frame);
-
-        // Light
-        const light = new THREE.PointLight(0x00e5ff, 15, 20);
-        light.position.set(0, 0, 1.5);
+        // ── Single low-range point light ─────────────────────────────────────
+        const light = new THREE.PointLight(color, 12, 28); // Boosted range/intensity for size
+        light.position.set(0, 0, 0.5);
         group.add(light);
+
+        // ── Floating label sprite ─────────────────────────────────────────────
+        const label = this._makeLabel('ENIGMA', color);
+        label.position.set(0, 6.4, 0); // Label higher up for 2x size
+        group.add(label);
 
         this.scene.add(group);
 
-        const portal: Portal = {
-            id,
-            position,
-            mesh: group,
-            radius: 4.0,
-            destination
-        };
-
+        const portal: Portal = { id, position, mesh: group, radius: 7.0, destination };
         this.portals.push(portal);
         return portal;
     }
 
+    // ── Label sprite (canvas texture, created once per portal) ───────────────
+    private _makeLabel(text: string, color: number): THREE.Sprite {
+        const canvas = document.createElement('canvas');
+        canvas.width  = 512; // High-res for 2x size
+        canvas.height = 128;
+        const ctx = canvas.getContext('2d')!;
+        ctx.clearRect(0, 0, 512, 128);
+        ctx.font         = 'bold 44px "Bebas Neue", monospace';
+        ctx.letterSpacing = '12px';
+        ctx.fillStyle    = '#' + new THREE.Color(color).getHexString();
+        ctx.textAlign    = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.globalAlpha  = 0.5; // 50% Transparent label
+        ctx.fillText(text, 256, 64);
+
+        const tex = new THREE.CanvasTexture(canvas);
+        const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
+        const spr = new THREE.Sprite(mat);
+        spr.scale.set(5.6, 1.4, 1); // Double label scale
+        return spr;
+    }
+
     update(dt: number, time: number) {
-        this.portals.forEach(portal => {
-            // Update Shader Uniforms and Animate Frame
-            portal.mesh.children.forEach((child: any) => {
-                if (child.isMesh) {
-                    if (child.material instanceof THREE.ShaderMaterial) {
-                        child.material.uniforms.uTime.value = time;
-                    } else if (child.geometry.type === 'TorusGeometry') {
-                        child.rotation.z += dt * 0.4;
-                        child.rotation.y += dt * 0.2;
+        for (const portal of this.portals) {
+            // Gentle bob
+            portal.mesh.position.y = portal.position.y + Math.sin(time * 1.4) * 0.08;
+
+            for (const child of portal.mesh.children) {
+                if (child instanceof THREE.Mesh) {
+                    const mat = child.material as THREE.ShaderMaterial;
+                    if (mat?.uniforms?.uTime) {
+                        mat.uniforms.uTime.value = time;
                     }
                 }
-            });
-
-            // Pulse the point light for "living" effect
-            const light = portal.mesh.children.find(c => c instanceof THREE.PointLight) as THREE.PointLight;
-            if (light) {
-                light.intensity = 12 + Math.sin(time * 4) * 4;
+                // Slow ring spin only
+                if (child instanceof THREE.Mesh && child.geometry === getRingGeo()) {
+                    child.rotation.z += dt * 0.35;
+                }
             }
 
-            // Gentle float effect
-            portal.mesh.position.y = portal.position.y + Math.sin(time * 2) * 0.1;
-        });
+            // Pulse light
+            const light = portal.mesh.children.find(c => c instanceof THREE.PointLight) as THREE.PointLight | undefined;
+            if (light) light.intensity = 7 + Math.sin(time * 3.5) * 2;
+        }
     }
 
     checkProximity(playerPos: THREE.Vector3): Portal | null {
         for (const portal of this.portals) {
-            const dist = playerPos.distanceTo(portal.position);
-            if (dist < portal.radius) {
-                return portal;
-            }
+            if (playerPos.distanceTo(portal.position) < portal.radius) return portal;
         }
         return null;
     }
 
-    getPortals(): Portal[] {
-        return this.portals;
+    getPortals(): Portal[] { return this.portals; }
+
+    dispose() {
+        for (const portal of this.portals) {
+            this.scene.remove(portal.mesh);
+            portal.mesh.traverse(obj => {
+                if (obj instanceof THREE.Mesh) {
+                    (obj.material as THREE.Material).dispose();
+                }
+                if (obj instanceof THREE.Sprite) {
+                    (obj.material as THREE.SpriteMaterial).map?.dispose();
+                    (obj.material as THREE.Material).dispose();
+                }
+            });
+        }
+        this.portals = [];
     }
 }

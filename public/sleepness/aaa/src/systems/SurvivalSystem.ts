@@ -141,6 +141,12 @@ export function heal(amount: number): void {
   syncDOM();
 }
 
+/** Uyku barını belirtilen miktarda doldurur (max: maxSleep). Bulmaca kazanıldığında çağrılır. */
+export function fillSleep(amount: number): void {
+  state.sleep = Math.min(state.maxSleep, state.sleep + amount);
+  syncDOM();
+}
+
 export function takeDamage(amount: number): number {
   state.health = Math.max(0, state.health - amount);
   syncDOM();

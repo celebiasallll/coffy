@@ -8,6 +8,7 @@ const playerQuery = defineQuery([InputState, PlayerTag, InputIntents]);
 const keys: Record<string, boolean> = {};
 let jumpPressed = false;
 let interactPressed = false;
+let touchInteractPressed = false;  // rising-edge for mobile USE button
 let jetPressed = false;
 let reloadPressed = false;
 let punchPressed = false;
@@ -39,7 +40,9 @@ document.addEventListener('pointerlockchange', () => {
 });
 
 window.addEventListener('mousedown', (e: MouseEvent) => {
-    if (!document.pointerLockElement && window.innerWidth > 1024) {
+    // Never request pointer lock when a minigame overlay is active
+    const minigameOpen = !!document.getElementById('pg-overlay');
+    if (!document.pointerLockElement && window.innerWidth > 1024 && !minigameOpen) {
         document.body.requestPointerLock();
     } else {
         if (e.button === 0) keys['Mouse0'] = true;
@@ -61,6 +64,9 @@ export const inputSystem = defineSystem((world: IWorld) => {
     mouseX -= touchLook.x;
     mouseY += touchLook.y; // Match mouse direction logic
     mouseY = Math.max(-0.6, Math.min(0.85, mouseY));
+
+    // Mobile Interact Rising Edge
+    if (touchControls.isInteracting) touchInteractPressed = true;
 
     for (let i = 0; i < entities.length; i++) {
         const id = entities[i] as EntityId;
@@ -110,11 +116,13 @@ export const inputSystem = defineSystem((world: IWorld) => {
 
         // Jump / Interact
         InputState.jump[id] = (jumpPressed || touchControls.isJumping) ? 1 : 0;
-        InputState.interact[id] = (interactPressed || touchControls.isInteracting) ? 1 : 0;
+        // Mobile: rising edge only (touchInteractPressed resets after use)
+        InputState.interact[id] = (interactPressed || touchInteractPressed) ? 1 : 0;
         InputIntents.jetRequest[id] = (jetPressed || touchControls.isJetting) ? 1 : 0;
     }
     jumpPressed = false;
     interactPressed = false;
+    touchInteractPressed = false;   // reset after one frame
     jetPressed = false;
     reloadPressed = false;
     punchPressed = false;

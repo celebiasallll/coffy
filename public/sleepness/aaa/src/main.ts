@@ -96,7 +96,7 @@ import {
   isRaining,
 } from './world/WeatherSystem.js';
 
-import { initSurvival, updateSurvival, canSprint, onDeath, isInputBlocked } from './systems/SurvivalSystem.js';
+import { initSurvival, updateSurvival, canSprint, onDeath, isInputBlocked, fillSleep } from './systems/SurvivalSystem.js';
 import { PortalSystem } from './systems/PortalSystem.js';
 import { PuzzleGame } from './minigames/PuzzleGame.js';
 
@@ -106,11 +106,18 @@ let activeMiniGame: PuzzleGame | null = null;
 let portalSystem: PortalSystem | null = null;
 
 
+// Robust mobile detection helper
+function isMobileDevice() {
+  return window.innerWidth <= 1024 || 
+         navigator.maxTouchPoints > 0 || 
+         /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
 // ── Kamera sabitleri ──────────────────────────────────────────────────────────
 
 const CAM_DIST_MIN = 5;
 const CAM_DIST_MAX = 60;
-let camDist = isMobile ? 5 : 9.5; // Starts at closest zoom on mobile per user request
+let camDist = isMobileDevice() ? 5 : 9.5; // Starts at closest zoom on mobile per user request
 
 const CAM_LERP = 1.0;
 
@@ -310,9 +317,11 @@ async function init(playerType: number) {
 
   initItemSpawner(scene, world);
 
-  // [v80.0]: Portal System (OFF)
-  // portalSystem = new PortalSystem(scene);
-  // portalSystem.createPortal('p1', 460, 460, 'puzzle');
+  // [v80.1]: Portal System — 3 ENIGMA portals with unique colors
+  portalSystem = new PortalSystem(scene);
+  portalSystem.createPortal('p_enigma_1', 475, 470, 'puzzle', 0x00d4ff); // Cyan
+  portalSystem.createPortal('p_enigma_2', -420, 310, 'puzzle', 0xff00ff); // Magenta
+  portalSystem.createPortal('p_enigma_3', 120, -550, 'puzzle', 0x33ff00); // Lime
 
   // Spawn 10 NPC Quest Givers
   const npcPromises = [];
@@ -457,13 +466,9 @@ async function init(playerType: number) {
       activeMiniGame.update(dt);
       activeMiniGame.render();
 
-      // [v50.0]: EXIT PORTAL WITH 'E' (Vehicle-style)
-      if (vehicleKeys['KeyE']) {
-          (activeMiniGame as any).dispose?.();
-          activeMiniGame = null;
-          currentGameState = GameState.EXPLORING;
-      }
-      return; // Stop world rendering/update while in minigame
+      // PuzzleGame kendi E tuşunu dinliyor (onExit callback'i üzerinden).
+      // Bu blok sadece beklenmedik durumlarda fallback olarak çalışır.
+      return; // Minigame aktifken dünya güncellemesi durur
     }
 
     const hpBeforeAI = Health.current[playerId];
@@ -570,7 +575,14 @@ async function init(playerType: number) {
           }
         }
       }
-      InputState.interact[playerId] = 0;
+      // Only clear interact if NOT near a portal (portal handles it separately)
+      const _pMeshForClear = entityMeshes.get(playerId);
+      const _nearPortalNow = _pMeshForClear && portalSystem
+        ? portalSystem.checkProximity(_pMeshForClear.position)
+        : null;
+      if (!_nearPortalNow) {
+        InputState.interact[playerId] = 0;
+      }
       InputIntents.jetRequest[playerId] = 0;
     }
 
@@ -580,37 +592,18 @@ async function init(playerType: number) {
       if (pMesh) {
         const nearPortal = portalSystem.checkProximity(pMesh.position);
         if (nearPortal) {
+          const mobile = isMobileDevice();
           const interactEl = document.getElementById('interact');
           if (interactEl) {
-            interactEl.innerHTML = `<span class="kbd">E</span> <b style="color:#00e5ff">PORTAL</b> · Enter Dimension`;
+            const key = mobile ? '<span class="kbd">USE</span>' : '<span class="kbd">E</span>';
+            interactEl.innerHTML = `${key} <b style="color:#00e5ff">PORTAL</b> · Enter Dimension`;
             interactEl.style.display = 'block';
           }
+          // Accept both keyboard (InputState.interact from KeyE) and mobile (touchControls.isInteracting)
           if (InputState.interact[playerId] === 1) {
             InputState.interact[playerId] = 0;
             currentGameState = GameState.MINIGAME;
-            activeMiniGame = new PuzzleGame(
-              renderer,
-              () => { // Win
-                console.log("PUZZLE WIN");
-                currentGameState = GameState.EXPLORING;
-                activeMiniGame?.dispose();
-                activeMiniGame = null;
-                showPopup("DIMENSION CLEARED", "#00ff00");
-              },
-              () => { // Lose
-                console.log("PUZZLE LOSE");
-                currentGameState = GameState.EXPLORING;
-                activeMiniGame?.dispose();
-                activeMiniGame = null;
-                showPopup("SYSTEM FAILURE", "#ff0000");
-              },
-              () => { // Exit
-                 currentGameState = GameState.EXPLORING;
-                 activeMiniGame?.dispose();
-                 activeMiniGame = null;
-              }
-            );
-            activeMiniGame.start();
+            launchPuzzleGame();
           }
         }
       }
@@ -657,37 +650,59 @@ async function init(playerType: number) {
       npcSystem(world);
     }
 
+    // ── Helper: launches PuzzleGame after pointer lock is confirmed released ──
+    // Uses pointerlockchange event (reliable) + 600ms fallback (safety net).
+    function launchPuzzleGame() {
+      // Release pointer lock if active
+      if (document.pointerLockElement) {
+        document.exitPointerLock();
+      }
+
+      let launched = false;
+      const doLaunch = () => {
+        if (launched) return;
+        launched = true;
+        document.removeEventListener('pointerlockchange', doLaunch);
+
+        activeMiniGame = new PuzzleGame(
+          renderer,
+          () => { // WIN
+            currentGameState = GameState.EXPLORING;
+            activeMiniGame?.dispose();
+            activeMiniGame = null;
+            addScore(500, null, playerId);
+            fillSleep(100);
+            showPopup('💤 SLEEP RESTORED  +500 XP', '#47ffb2');
+          },
+          () => { // LOSE
+            currentGameState = GameState.EXPLORING;
+            activeMiniGame?.dispose();
+            activeMiniGame = null;
+            showPopup('ENIGMA FAILED', '#ff4466');
+          },
+          () => { // EXIT [E]
+            currentGameState = GameState.EXPLORING;
+            activeMiniGame?.dispose();
+            activeMiniGame = null;
+          }
+        );
+        activeMiniGame.start();
+      };
+
+      if (!document.pointerLockElement) {
+        // No lock active — start immediately (mobile, or game without lock)
+        setTimeout(doLaunch, 60);
+      } else {
+        // Wait for lock release event, with 600ms fallback
+        document.addEventListener('pointerlockchange', doLaunch);
+        setTimeout(doLaunch, 600);
+      }
+    }
+
     function startMiniGame(destination: string) {
       if (destination === 'puzzle') {
         currentGameState = GameState.MINIGAME;
-        // [v60.0]: RELEASE POINTER LOCK (Fix for "unplayable" bug)
-        if (document.pointerLockElement) document.exitPointerLock();
-
-        // Wait 300ms to clear the 'E' key press used to enter
-        setTimeout(() => {
-          activeMiniGame = new PuzzleGame(
-            renderer, 
-            () => { // Win
-                currentGameState = GameState.EXPLORING;
-                if (activeMiniGame) (activeMiniGame as any).dispose?.();
-                activeMiniGame = null;
-                showPopup("PUZZLE SOLVED!", "#00ff00");
-                addScore(500, "PUZZLE", playerId);
-            },
-            () => { // Lose
-                currentGameState = GameState.EXPLORING;
-                if (activeMiniGame) (activeMiniGame as any).dispose?.();
-                activeMiniGame = null;
-                showPopup("PUZZLE FAILED", "#ff0000");
-            },
-            () => { // Exit
-                currentGameState = GameState.EXPLORING;
-                if (activeMiniGame) (activeMiniGame as any).dispose?.();
-                activeMiniGame = null;
-            }
-          );
-          activeMiniGame.start();
-        }, 300);
+        launchPuzzleGame();
       }
     }
 
@@ -699,21 +714,21 @@ async function init(playerType: number) {
       const nearestNPC = getNearestNPC();
 
       if (activePortal && !isDialogueOpen() && !inJet && !occupiedVehicle) {
-        interactEl.innerHTML = `<span class="kbd">E</span> <b style="color:#00e5ff">${activePortal.destination.toUpperCase()}</b> · Enter Portal`;
-        interactEl.style.display = 'block';
-        if (vehicleKeys['KeyE']) {
-            startMiniGame(activePortal.destination);
-        }
+        // Portal hint is shown by the portal block above — don't duplicate
+        // (handled in the portal interaction section)
       } else if (nearestNPC === null || isDialogueOpen()) {
         const vNear = getNearestVehicleInfo(pPos);
         const jNear = pMesh ? getJetNearInfo(pMesh.position) : null;
+        const mobile = isMobileDevice();
+        const eKey = mobile ? '<span class="kbd">USE</span>' : '<span class="kbd">E</span>';
+        const tKey = mobile ? '<span class="kbd">USE</span>' : '<span class="kbd">T</span>';
 
         if (inJet || occupiedVehicle) interactEl.style.display = 'none';
         else if (jNear && !isDialogueOpen()) {
-          interactEl.innerHTML = `<span class="kbd">T</span> <b style="color:#00e5ff">F-16 FIGHTER JET</b> · Enter`;
+          interactEl.innerHTML = `${tKey} <b style="color:#00e5ff">F-16 FIGHTER JET</b> · Enter`;
           interactEl.style.display = 'block';
         } else if (vNear && !isDialogueOpen()) {
-          interactEl.innerHTML = `<span class="kbd">E</span> ${vNear.type.toUpperCase()} · Enter`;
+          interactEl.innerHTML = `${eKey} ${vNear.type.toUpperCase()} · Enter`;
           interactEl.style.display = 'block';
         } else interactEl.style.display = 'none';
       }
@@ -1008,7 +1023,10 @@ async function init(playerType: number) {
                 }
                 // Wait a tiny bit for fullscreen transition then lock pointer (desktop)
                 setTimeout(() => {
-                    try { document.body.requestPointerLock(); } catch(e) {}
+                    const minigameOpen = !!document.getElementById('pg-overlay');
+                    if (!minigameOpen) {
+                        try { document.body.requestPointerLock(); } catch(e) {}
+                    }
                 }, 200);
             }).catch(() => {});
         }

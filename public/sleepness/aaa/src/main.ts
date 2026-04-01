@@ -317,11 +317,9 @@ async function init(playerType: number) {
 
   initItemSpawner(scene, world);
 
-  // [v80.1]: Portal System — 3 ENIGMA portals with unique colors
+  // [v80.1]: Portal System — Single ENIGMA portal (optimized)
   portalSystem = new PortalSystem(scene);
-  portalSystem.createPortal('p_enigma_1', 475, 470, 'puzzle', 0x00d4ff); // Cyan
-  portalSystem.createPortal('p_enigma_2', -420, 310, 'puzzle', 0xff00ff); // Magenta
-  portalSystem.createPortal('p_enigma_3', 120, -550, 'puzzle', 0x33ff00); // Lime
+  portalSystem.createPortal('p_enigma', 475, 470, 'puzzle', 0x00d4ff); // Cyan only
 
   // Spawn 10 NPC Quest Givers
   const npcPromises = [];
@@ -489,7 +487,10 @@ async function init(playerType: number) {
     weaponSystem(world);
     updateImpacts(scene, dt);
     updateParticles(dt);
-    if (portalSystem) portalSystem.update(dt, clock.getElapsedTime());
+    if (portalSystem) {
+      const playerMesh = entityMeshes.get(playerId);
+      if (playerMesh) portalSystem.update(dt, clock.getElapsedTime(), playerMesh.position);
+    }
     
 
     const hpAfterWeapon = Health.current[playerId];

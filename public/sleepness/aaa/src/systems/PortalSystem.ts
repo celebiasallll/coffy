@@ -9,7 +9,7 @@ export interface Portal {
     destination: string;
     // Cached refs for performance
     vortexMat: THREE.ShaderMaterial;
-    light: THREE.PointLight;
+    rotatingMeshes: THREE.Mesh[];
 }
 
 // ── Lightweight shader ───────────────────────────────────────────────────────
@@ -29,35 +29,44 @@ void main() {
     float r     = length(uv);
     float theta = atan(uv.y, uv.x);
 
-    // Thin rotating ring bands — cheap
-    float swirl   = theta + uTime * 1.8 + r * 4.0;
-    float bands   = sin(swirl * 5.0) * 0.5 + 0.5;
+    // Optimized swirl (single sin call, no pow/exp)
+    float swirl = theta + uTime * 1.5;
+    float bands = sin(swirl * 3.0) * 0.5 + 0.5;
 
-    // Rim glow
-    float rim     = smoothstep(1.0, 0.6, r) * smoothstep(0.4, 0.8, r);
-    // Core fade
-    float core    = smoothstep(0.0, 0.35, r);
-    float mask    = smoothstep(1.05, 0.85, r);
+    // Rim glow & mask
+    float rim   = smoothstep(1.0, 0.5, r) * smoothstep(0.4, 0.9, r);
+    float alpha = rim * 0.45;
 
-    vec3 col = uColor * (bands * rim * 0.7 + rim * 0.4);
-    col += vec3(0.6, 1.0, 1.0) * pow(rim, 3.0) * 1.5;
-
-    // Reduced opacity to 50% max (mask * core * 0.5)
-    float alpha = mask * core * 0.5;
+    vec3 col = uColor * (bands * 0.35 + 0.65);
+    col += vec3(0.5, 0.9, 1.0) * rim * 0.4;
+    
     gl_FragColor = vec4(col, alpha);
 }`;
 
 // ── Reuse geometry across all portals ────────────────────────────────────────
-let _diskGeo: THREE.CircleGeometry    | null = null;
-let _ringGeo: THREE.TorusGeometry     | null = null;
+let _planeGeo: THREE.PlaneGeometry | null = null;
+let _glowTex:  THREE.CanvasTexture | null = null;
 
-function getDiskGeo()  { return (_diskGeo ??= new THREE.CircleGeometry(4.8, 32));         }
-function getRingGeo()  { return (_ringGeo ??= new THREE.TorusGeometry(5.04, 0.12, 4, 32)); }
+function getPlaneGeo() { return (_planeGeo ??= new THREE.PlaneGeometry(1, 1)); }
+function getGlowTex() {
+    if (_glowTex) return _glowTex;
+    const canvas = document.createElement('canvas');
+    canvas.width = 128; canvas.height = 128;
+    const ctx = canvas.getContext('2d')!;
+    const grd = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+    grd.addColorStop(0,   "rgba(255, 255, 255, 1)");
+    grd.addColorStop(0.2, "rgba(255, 255, 255, 0.8)");
+    grd.addColorStop(0.5, "rgba(255, 255, 255, 0.2)");
+    grd.addColorStop(1,   "rgba(255, 255, 255, 0)");
+    ctx.fillStyle = grd; ctx.fillRect(0, 0, 128, 128);
+    return (_glowTex = new THREE.CanvasTexture(canvas));
+}
 
 // ════════════════════════════════════════════════════════════════════════════
 export class PortalSystem {
     private portals: Portal[] = [];
     private scene:   THREE.Scene;
+    private sharedUniforms = { uTime: { value: 0 } }; // Global uniform for GPU upload optimization
 
     constructor(scene: THREE.Scene) {
         this.scene = scene;
@@ -70,35 +79,44 @@ export class PortalSystem {
         const group = new THREE.Group();
         group.position.copy(position);
 
-        // ── Vortex disc (single draw call, shared geometry) ──────────────────
+        // ── Vortex disc (single draw call, 2 triangles only) ──────────────────
         const vortexMat = new THREE.ShaderMaterial({
             uniforms: {
-                uTime:  { value: 0 },
+                uTime:  this.sharedUniforms.uTime, // Shared uTime object
                 uColor: { value: new THREE.Color(color) },
             },
             vertexShader:   VERT,
             fragmentShader: FRAG,
             transparent:    true,
             depthWrite:     false,
-            side:           THREE.FrontSide, // FrontSide only to halve fragment work
+            side:           THREE.FrontSide, 
         });
-        const disk = new THREE.Mesh(getDiskGeo(), vortexMat);
+        const disk = new THREE.Mesh(getPlaneGeo(), vortexMat);
+        disk.scale.set(10.0, 10.0, 1); // Double radius equivalent (4.8 -> 10.0 scale)
         group.add(disk);
 
-        // ── Thin frame ring (shared geometry, minimal poly) ──────────────────
+        // ── Thin frame ring (shared geometry, 2 triangles only) ──────────────
         const frameMat = new THREE.MeshBasicMaterial({
             color:       color,
             transparent: true,
-            opacity:     0.5,
+            opacity:     0.25, // Lower opacity: only for wireframe feel
         });
-        const ring = new THREE.Mesh(getRingGeo(), frameMat);
+        const ring = new THREE.Mesh(getPlaneGeo(), frameMat);
+        ring.scale.set(10.5, 10.5, 1);
         group.add(ring);
 
-        // ── Single low-range point light ─────────────────────────────────────
-        const light = new THREE.PointLight(color, 9, 18); // Reduced range/intensity for FPS
-        light.position.set(0, 0, 0.5);
-        light.castShadow = false; // Ensure no shadow casting for portal lights
-        group.add(light);
+        // ── High Performance Fake Light (Glow Sprite) ────────────────────────
+        const glowMat = new THREE.SpriteMaterial({
+            map: getGlowTex(),
+            color: color,
+            transparent: true,
+            blending: THREE.AdditiveBlending,
+            opacity: 0.6,
+        });
+        const glow = new THREE.Sprite(glowMat);
+        glow.scale.set(24, 24, 1); // Large aura
+        glow.position.z = -0.5; // Slightly behind
+        group.add(glow);
 
         // ── Floating label sprite ─────────────────────────────────────────────
         const label = this._makeLabel('ENIGMA', color);
@@ -107,6 +125,11 @@ export class PortalSystem {
 
         this.scene.add(group);
 
+        // Cache children for fast update
+        const rotatingMeshes = group.children.filter(c => 
+            c instanceof THREE.Mesh && c.geometry === getPlaneGeo() && c !== disk
+        ) as THREE.Mesh[];
+
         const portal: Portal = { 
             id, 
             position, 
@@ -114,7 +137,7 @@ export class PortalSystem {
             radius: 7.0, 
             destination,
             vortexMat,
-            light
+            rotatingMeshes
         };
         this.portals.push(portal);
         return portal;
@@ -142,21 +165,28 @@ export class PortalSystem {
         return spr;
     }
 
-    update(dt: number, time: number) {
+    update(dt: number, time: number, playerPos: THREE.Vector3) {
+        this.sharedUniforms.uTime.value = time; // Single uniform upload for all materials
+
         for (const portal of this.portals) {
+            // -- Distance Culling --
+            const distSq = playerPos.distanceToSquared(portal.position);
+            if (distSq > 200 * 200) {
+               if (portal.mesh.visible) {
+                   portal.mesh.visible = false;
+                   portal.vortexMat.uniforms.uTime.value = 0; // Stop shader when out of range
+               }
+               continue;
+            }
+            portal.mesh.visible = true;
+
             // Gentle bob
             portal.mesh.position.y = portal.position.y + Math.sin(time * 1.4) * 0.08;
 
-            // Direct material and light update (no traverse/find needed)
-            portal.vortexMat.uniforms.uTime.value = time;
-            portal.mesh.children.forEach(child => {
-                if (child instanceof THREE.Mesh && child.geometry === getRingGeo()) {
-                    child.rotation.z += dt * 0.35;
-                }
-            });
-
-            // Pulse light directly via cached ref
-            portal.light.intensity = 7 + Math.sin(time * 3.5) * 2;
+            // Direct rotation (fast loop, no checks)
+            for (const rMesh of portal.rotatingMeshes) {
+                rMesh.rotation.z += dt * 0.35;
+            }
         }
     }
 

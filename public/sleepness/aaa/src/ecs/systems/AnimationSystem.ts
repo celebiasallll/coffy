@@ -1,6 +1,6 @@
 import { defineQuery, defineSystem, IWorld, hasComponent } from 'bitecs';
 import * as THREE from 'three';
-import { InputState, PlayerTag, AnimState, InputIntents, AIController, EnemyTag, Position, Weapon } from '../components.js';
+import { InputState, PlayerTag, AnimState, InputIntents, AIController, EnemyTag, Position, Weapon, WolfTag, ZombieTag } from '../components.js';
 import { entityMixers, entityAnimationControllers, entityActions, entityMeshes } from '../world.js';
 import { GameWorld, EntityId } from '../types.js';
 import { playerGroundedState } from './PhysicsSystem.js';
@@ -63,15 +63,21 @@ export const animationSystem = defineSystem((world: IWorld) => {
     for (const [id, mixer] of entityMixers.entries()) {
         if (entityAnimationControllers.has(id)) continue; 
 
-        // --- ANIMATION CULLING ---
+        // --- ANIMATION LOD (Refined Bug #5) ---
+        let skipBoneUpdate = false;
         if (players.length > 0) {
             const pid = players[0] as EntityId;
             const dx = Position.x[pid] - Position.x[id];
             const dz = Position.z[pid] - Position.z[id];
-            // Increased from 80m (6400) to 160m (25600) to avoid visible T-posing
-            if (dx*dx + dz*dz > 25600) { 
-                continue; 
+            const distSq = dx*dx + dz*dz;
+            // @ts-ignore
+            const frame = (world as any)._frameCount || 0;
+
+            if (distSq > 25600) {
+                if (frame % 60 !== 0) skipBoneUpdate = true;
             }
+            else if (distSq > 10000 && frame % 4 !== 0) skipBoneUpdate = true; 
+            else if (distSq > 2500 && frame % 2 !== 0) skipBoneUpdate = true;
         }
 
         if (hasComponent(gameWorld as any, EnemyTag, id as number) &&
@@ -96,7 +102,6 @@ export const animationSystem = defineSystem((world: IWorld) => {
             4: 'death',
         };
         const targetName = stateMap[targetState] ?? 'idle';
-
         const lastAnim = npcLastAnim.get(id as EntityId);
 
         if (targetName !== lastAnim) {
@@ -127,21 +132,39 @@ export const animationSystem = defineSystem((world: IWorld) => {
                         targetAction.clampWhenFinished = false;
                         targetAction.enabled = true;
                         targetAction.setEffectiveWeight(1);
-                        targetAction.setEffectiveTimeScale(1.8); 
+                        // @ts-ignore
+                        const isWolf = hasComponent(gameWorld, WolfTag, id);
+                        // @ts-ignore
+                        const isZombie = hasComponent(gameWorld, ZombieTag, id);
+                        const attackScale = isWolf ? 2.4 : (isZombie ? 1.5 : 1.8);
+                        targetAction.setEffectiveTimeScale(attackScale); 
                         targetAction.reset().fadeIn(0.1).play();
                     } else {
                         targetAction.setLoop(THREE.LoopRepeat, Infinity);
                         targetAction.clampWhenFinished = false;
                         targetAction.enabled = true;
                         targetAction.setEffectiveWeight(1);
-                        targetAction.setEffectiveTimeScale(1.0);
+                        // @ts-ignore
+                        const isWolf = hasComponent(gameWorld, WolfTag, id);
+                        // @ts-ignore
+                        const isZombie = hasComponent(gameWorld, ZombieTag, id);
+                        const speedScale = isWolf ? (targetName === 'run' ? 2.2 : 1.8) : (isZombie ? 1.4 : 1.0);
+                        targetAction.setEffectiveTimeScale(speedScale);
                         targetAction.reset().fadeIn(0.2).play();
                     }
                 }
             }
         }
 
-        mixer.update(dt);
+        // --- NEW POSE APPLICATION ---
+        // Apply pose immediately on change to avoid T-pose
+        if (targetName !== lastAnim) {
+             mixer.update(0);
+        }
+
+        if (!skipBoneUpdate) {
+            mixer.update(dt);
+        }
     }
 
     return world;

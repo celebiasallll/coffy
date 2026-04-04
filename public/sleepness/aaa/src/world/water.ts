@@ -15,13 +15,13 @@ export let reflector: any = null; // Removed external reflector to restore stabi
 const IS_MOBILE = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 0);
 
 export function createWater(scene: THREE.Scene): Water {
-  const geo = new THREE.CircleGeometry(LAKE_RADIUS * 0.98, 128);
+  const geo = new THREE.CircleGeometry(LAKE_RADIUS * 0.98, 64);
   // Mesh'i esnetmek yansıma Matrix'ini bozar! Bu yüzden sadece geometriyi esnetiyoruz.
   geo.scale(1.3, 1.0, 1.0);
 
   water = new Water(geo, {
-    textureWidth: IS_MOBILE ? 384 : 768,
-    textureHeight: IS_MOBILE ? 384 : 768,
+    textureWidth: IS_MOBILE ? 256 : 512,
+    textureHeight: IS_MOBILE ? 256 : 512,
     waterNormals: new THREE.TextureLoader().load(
       'https://threejs.org/examples/textures/waternormals.jpg',
       (tex) => { tex.wrapS = tex.wrapT = THREE.RepeatWrapping; }
@@ -53,7 +53,7 @@ export function createWater(scene: THREE.Scene): Water {
 
   // [v100.0] ELITE STABLE REFLECTIONS (60 FPS Motion-Sync)
   // Reframe skipping removed to prevent flickering during movement.
-  // 768px resolution used for optimal Quality-to-Performance ratio.
+  // 512px resolution used for optimal Quality-to-Performance ratio.
   
   scene.add(water);
 
@@ -61,7 +61,7 @@ export function createWater(scene: THREE.Scene): Water {
   const shoreGeo = new THREE.RingGeometry(
     LAKE_RADIUS * 0.98,
     LAKE_RADIUS * 1.12,
-    128
+    64
   );
   shoreGeo.scale(1.3, 1.0, 1.0); // Kıyı geometrisini de esnet
   const shoreMat = new THREE.MeshStandardMaterial({

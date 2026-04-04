@@ -1,23 +1,40 @@
 import * as THREE from 'three';
 
+const lastShadowCamPos = new THREE.Vector3(Infinity, Infinity, Infinity);
+let lastShadowTime = 0;
+
+export function updateShadowMap(renderer: THREE.WebGLRenderer, camera: THREE.Camera, force: boolean = false): void {
+  const now = performance.now();
+  // Throttle: Max 30 updates per second even if moving fast
+  if (!force && now - lastShadowTime < 33) return;
+
+  const currentPos = camera.position;
+  const dist = lastShadowCamPos.distanceTo(currentPos);
+  
+  // Update if camera moved > 0.8m OR forced (sun moved)
+  if (force || dist > 0.8) {
+    renderer.shadowMap.needsUpdate = true;
+    lastShadowCamPos.copy(currentPos);
+    lastShadowTime = now;
+  }
+}
+
 export function createRenderer(): THREE.WebGLRenderer {
   const renderer = new THREE.WebGLRenderer({
     antialias: false,
     powerPreference: 'high-performance',
-    precision: 'highp', // Upgrade to highp for Ultra quality
+    precision: 'highp', 
     stencil: false,
     depth: true,
   });
 
-  // Use capped DPR for initial load to prevent Retina/4K performance kills
   const initialDPR = Math.min(window.devicePixelRatio, 1.35);
   renderer.setPixelRatio(initialDPR);
   renderer.setSize(window.innerWidth, window.innerHeight);
   
-  // Mobile-optimized shadow settings
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap; 
-  renderer.shadowMap.autoUpdate = true;
+  renderer.shadowMap.autoUpdate = false;
   
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 0.72;
@@ -40,7 +57,7 @@ export function createSceneAndCamera(): {
     65,
     window.innerWidth / window.innerHeight,
     0.3,
-    5000 // Reduced far plane for mobile performance
+    5000 
   );
 
   return { scene, camera };
@@ -62,7 +79,6 @@ export function setupLights(scene: THREE.Scene): {
   sun.position.set(50, 80, 30);
   sun.castShadow = true;
   
-  // High shadow resolution for Ultra quality
   const shadowRes = window.innerWidth < 768 ? 1024 : 1024;
   sun.shadow.mapSize.set(shadowRes, shadowRes);
   
@@ -74,7 +90,7 @@ export function setupLights(scene: THREE.Scene): {
   sun.shadow.camera.bottom = -40;
   sun.shadow.bias = -0.0003;
   sun.shadow.normalBias = 0.02;
-  sun.shadow.radius = 2; // Softer shadows with less cost
+  sun.shadow.radius = 2; 
   scene.add(sun);
   scene.add(sun.target);
 
@@ -100,13 +116,12 @@ export function setupResize(
     renderer.setSize(width, height);
     if (composer) composer.setSize(width, height);
     
-    // Adaptive DPR on resize
     const maxDPR = width < 768 ? 1.0 : 1.5;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxDPR));
   };
   
   window.addEventListener('resize', handleResize);
   window.addEventListener('orientationchange', () => {
-    setTimeout(handleResize, 100); // Wait for orientation to settle
+    setTimeout(handleResize, 100); 
   });
 }

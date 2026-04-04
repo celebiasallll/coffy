@@ -7,6 +7,7 @@ import { getHeight } from '../../world/terrain.js';
 import { WATER_LEVEL } from '../../world/terrain.js';
 import { isSpaceOccupied, getSlopeAngle } from '../../world/environment.js';
 import { getPhysicsWorld } from '../../core/physics.js';
+import { spawnImpact } from './ImpactSystem.js';
 
 const enemyQuery = defineQuery([EnemyTag, Position, Rotation, AnimState, AIController, Health]);
 const playerQuery = defineQuery([PlayerTag, Position, Health]);
@@ -71,8 +72,8 @@ export const aiSystem = defineSystem((world: IWorld) => {
 
         let detectionRange = 100.0;
         let attackRange = 3.8;
-        let chaseSpeed = 12.0;
-        let wanderSpeed = 4.0;
+        let chaseSpeed = 18.0; // Increased: 12.0→18.0 (Physical Speed)
+        let wanderSpeed = 6.0;  // Increased: 4.0→6.0
         let fleeSpeed = 15.0;
         let biteDamage = 3;   // Adjusted: 6→3 for 2x player survivability
         let attackCooldown = 1.2;
@@ -84,7 +85,7 @@ export const aiSystem = defineSystem((world: IWorld) => {
         let moveYOffset = 1.5;
 
         if (isZombie) {
-            chaseSpeed = 4.0; wanderSpeed = 1.5; fleeSpeed = 0; biteDamage = 5; attackCooldown = 2.0; // Adjusted: 10→5 for 2x player survivability
+            chaseSpeed = 6.5; wanderSpeed = 2.5; fleeSpeed = 0; biteDamage = 5; attackCooldown = 1.5; 
             moveYOffset = 2.0;
         }
 
@@ -212,10 +213,8 @@ export const aiSystem = defineSystem((world: IWorld) => {
                         (gameWorld as any).playerHitTimer = 0.3;
 
                         // Kan efekti: Zombi ve Kurt saldırısında oyuncuda kan çıkması (User Request)
-                        import('./ImpactSystem.js').then(({ spawnImpact }) => {
-                            const sc = (gameWorld as any).scene as THREE.Scene;
-                            if (sc) spawnImpact(sc, _playerPos, 1 /* ImpactType.FLESH */);
-                        });
+                        const sc = (gameWorld as any).scene as THREE.Scene;
+                        if (sc) spawnImpact(sc, _playerPos, 1 /* ImpactType.FLESH */);
                     }
                 }
             }

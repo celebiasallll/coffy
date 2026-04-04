@@ -129,7 +129,7 @@ let _fogStartHour = 0.6;
 let _autoFogIntensity = 0;
 let _lastDayT = 0;
 let _initialized = false;            // duplicate listener koruması
-let _fog: THREE.FogExp2 | null = null; // per-frame allocation önlemi
+const _fog = new THREE.FogExp2(0x000000, 0); // Pre-allocated fog object
 
 // Aktif güneş yönü vektörü — main.ts günceller (su refleksi vs. için)
 export const sunDirection = new THREE.Vector3(1, 1, 0.5).normalize();
@@ -284,14 +284,15 @@ export function updateDayNight(
   if (currentIntensity > 0.01) {
     const isNightFog = t < 0.22 || t > 0.78;
     const fogColor = isNightFog ? 0x05081a : 0x87ceeb;
-    if (!_fog) {
-      _fog = new THREE.FogExp2(fogColor, 0);
+    if (scene.fog !== _fog) {
       scene.fog = _fog;
     }
     _fog.color.setHex(fogColor);
-    _fog.density = 0.0025 * currentIntensity; // Restored with lower density to avoid gaze/glare highlighting
+    _fog.density = 0.0025 * currentIntensity; 
   } else {
-    if (_fog) { _fog = null; scene.fog = null; }
+    if (scene.fog === _fog) {
+      scene.fog = null;
+    }
   }
 
   return sunDirection;

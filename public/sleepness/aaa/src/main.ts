@@ -43,7 +43,7 @@ if (isMobile) {
   document.addEventListener('click', triggerImmersive);
 }
 
-import { createRenderer, createSceneAndCamera, setupResize, setupLights } from './core/renderer.js';
+import { createRenderer, createSceneAndCamera, setupResize, setupLights, updateShadowMap } from './core/renderer.js';
 import { createTerrain, getHeight } from './world/terrain.js';
 import { populateEnvironment, updateEnvironment, isSpaceOccupied, isNearLake, optimizer } from './world/environment.js';
 import { initBuildingSystem } from './world/BuildingSystem.js';
@@ -96,7 +96,7 @@ import {
   isRaining,
 } from './world/WeatherSystem.js';
 
-import { initSurvival, updateSurvival, canSprint, onDeath, isInputBlocked, fillSleep } from './systems/SurvivalSystem.js';
+import { initSurvival, updateSurvival, canSprint, onDeath, isInputBlocked, fillSleep, takeDamage } from './systems/SurvivalSystem.js';
 import { PortalSystem } from './systems/PortalSystem.js';
 import { PuzzleGame } from './minigames/PuzzleGame.js';
 
@@ -138,32 +138,40 @@ window.addEventListener('keyup', (e) => { vehicleKeys[e.code] = false; });
 
 // ── Yardımcı: HUD zaman/hava etiketi ─────────────────────────────────────────
 
+let cachedTimeHUD: HTMLElement | null = null;
+let lastTimeStr = '';
+
 function updateTimeHUD(): void {
-  // HUD'da varsa güncelle — yoksa div oluştur (index.html'de eklenmemişse fallback)
-  let el = document.getElementById('time-label');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'time-label';
-    el.style.cssText = `
-      position: fixed;
-      top: 4px;
-      right: 16px;
-      color: #fff;
-      font-size: 13px;
-      font-family: 'Rajdhani', sans-serif;
-      text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-      pointer-events: none;
-      background: rgba(0,0,0,0.35);
-      padding: 5px 12px;
-      border-radius: 20px;
-      z-index: 100;
-      border: 1px solid rgba(255,255,255,0.05);
-      backdrop-filter: blur(4px);
-    `;
-    document.body.appendChild(el);
+  if (!cachedTimeHUD) {
+    cachedTimeHUD = document.getElementById('time-label');
+    if (!cachedTimeHUD) {
+      cachedTimeHUD = document.createElement('div');
+      cachedTimeHUD.id = 'time-label';
+      cachedTimeHUD.style.cssText = `
+        position: fixed;
+        top: 4px;
+        right: 16px;
+        color: #fff;
+        font-size: 13px;
+        font-family: 'Rajdhani', sans-serif;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        pointer-events: none;
+        background: rgba(0,0,0,0.35);
+        padding: 5px 12px;
+        border-radius: 20px;
+        z-index: 100;
+        border: 1px solid rgba(255,255,255,0.05);
+        backdrop-filter: blur(4px);
+      `;
+      document.body.appendChild(cachedTimeHUD);
+    }
   }
   const rain = isRaining() ? ' 🌧' : '';
-  el.textContent = `${getTimeString()}  ${getDayLabel()}${rain}`;
+  const str = `${getTimeString()}  ${getDayLabel()}${rain}`;
+  if (lastTimeStr !== str) {
+    cachedTimeHUD.textContent = str;
+    lastTimeStr = str;
+  }
 }
 
 // ── Yardımcı: Crosshair ───────────────────────────────────────────────────────
@@ -267,8 +275,8 @@ async function init(playerType: number) {
   const px = 480, pz = 480;
   const MIN_DIST = 45;
 
-  // Spawning 10 Wolves: 6 near player (50-250m), 4 global
-  for (let i = 0; i < 6; i++) {
+  // Spawning 5 Wolves: 3 near player (50-250m), 2 global
+  for (let i = 0; i < 3; i++) {
     let rx: number, rz: number;
     let attempts = 0;
     do {
@@ -280,7 +288,7 @@ async function init(playerType: number) {
     } while ((isSpaceOccupied(rx, rz, 4) || isNearLake(rx, rz, 15)) && attempts < 50);
     spawnWolf(scene, rx, rz);
   }
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 2; i++) {
     let rx: number, rz: number;
     let attempts = 0;
     do {
@@ -291,8 +299,8 @@ async function init(playerType: number) {
     spawnWolf(scene, rx, rz);
   }
 
-  // Spawning 10 Zombies: 6 near player (50-250m), 4 global
-  for (let i = 0; i < 6; i++) {
+  // Spawning 5 Zombies: 3 near player (50-250m), 2 global
+  for (let i = 0; i < 3; i++) {
     let rx: number, rz: number;
     let attempts = 0;
     do {
@@ -304,7 +312,7 @@ async function init(playerType: number) {
     } while ((isSpaceOccupied(rx, rz, 4) || isNearLake(rx, rz, 15)) && attempts < 50);
     spawnZombie(scene, rx, rz);
   }
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 2; i++) {
     let rx: number, rz: number;
     let attempts = 0;
     do {
@@ -321,12 +329,12 @@ async function init(playerType: number) {
   portalSystem = new PortalSystem(scene);
   portalSystem.createPortal('p_enigma', 475, 470, 'puzzle', 0x00d4ff); // Cyan only
 
-  // Spawn 10 NPC Quest Givers
+  // Spawn 5 NPC Quest Givers
   const npcPromises = [];
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 3; i++) {
     npcPromises.push(spawnRandomNPC(scene, px, pz, 250, i % 2 === 0 ? 0 : 1));
   }
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 2; i++) {
     npcPromises.push(spawnRandomNPC(scene, px, pz, -1, i % 2 === 0 ? 1 : 0));
   }
   
@@ -420,6 +428,7 @@ async function init(playerType: number) {
   const camDir = new THREE.Vector3();
   const aimPoint = new THREE.Vector3();
   const fallbackCamPos = new THREE.Vector3();
+  const camRayShared = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 1 });
 
   let playerDead = false; 
   let fpsWindow: number[] = [];
@@ -478,7 +487,7 @@ async function init(playerType: number) {
     }
 
     if (wolfDmgThisFrame > 0) {
-      import('./systems/SurvivalSystem.js').then(sys => sys.takeDamage(wolfDmgThisFrame));
+      takeDamage(wolfDmgThisFrame);
     }
 
     physicsSystem(world);
@@ -708,6 +717,18 @@ async function init(playerType: number) {
     }
 
     const interactEl = document.getElementById('interact');
+    const ammoTextEl = document.getElementById('ammo-text');
+    const reloadMsgEl = document.getElementById('ammo-reload-msg');
+    const crosshairEl = document.getElementById('crosshair');
+
+    // -- Throttled HUD Sync (DOM writes are expensive) --
+    // @ts-ignore
+    if (world._hudLastAmmo === undefined) world._hudLastAmmo = -1;
+    // @ts-ignore
+    if (world._hudLastMaxAmmo === undefined) world._hudLastMaxAmmo = -1;
+    // @ts-ignore
+    if (world._hudLastReloading === undefined) world._hudLastReloading = false;
+
     if (interactEl) {
       const pMesh = entityMeshes.get(playerId);
       const pPos = pMesh?.position || tempVec1.set(0,0,0);
@@ -716,7 +737,6 @@ async function init(playerType: number) {
 
       if (activePortal && !isDialogueOpen() && !inJet && !occupiedVehicle) {
         // Portal hint is shown by the portal block above — don't duplicate
-        // (handled in the portal interaction section)
       } else if (nearestNPC === null || isDialogueOpen()) {
         const vNear = getNearestVehicleInfo(pPos);
         const jNear = pMesh ? getJetNearInfo(pMesh.position) : null;
@@ -724,29 +744,49 @@ async function init(playerType: number) {
         const eKey = mobile ? '<span class="kbd">USE</span>' : '<span class="kbd">E</span>';
         const tKey = mobile ? '<span class="kbd">USE</span>' : '<span class="kbd">T</span>';
 
-        if (inJet || occupiedVehicle) interactEl.style.display = 'none';
-        else if (jNear && !isDialogueOpen()) {
-          interactEl.innerHTML = `${tKey} <b style="color:#00e5ff">F-16 FIGHTER JET</b> · Enter`;
-          interactEl.style.display = 'block';
+        if (inJet || occupiedVehicle) {
+          if (interactEl.style.display !== 'none') interactEl.style.display = 'none';
+        } else if (jNear && !isDialogueOpen()) {
+          const html = `${tKey} <b style="color:#00e5ff">F-16 FIGHTER JET</b> · Enter`;
+          if (interactEl.innerHTML !== html) interactEl.innerHTML = html;
+          if (interactEl.style.display !== 'block') interactEl.style.display = 'block';
         } else if (vNear && !isDialogueOpen()) {
-          interactEl.innerHTML = `${eKey} ${vNear.type.toUpperCase()} · Enter`;
-          interactEl.style.display = 'block';
-        } else interactEl.style.display = 'none';
+          const html = `${eKey} ${vNear.type.toUpperCase()} · Enter`;
+          if (interactEl.innerHTML !== html) interactEl.innerHTML = html;
+          if (interactEl.style.display !== 'block') interactEl.style.display = 'block';
+        } else if (interactEl.style.display !== 'none') {
+           interactEl.style.display = 'none';
+        }
       }
     }
     collectionSystem(world);
 
-    const crosshairEl = document.getElementById('crosshair');
-    if (crosshairEl) crosshairEl.style.display = (inJet || occupiedVehicle) ? 'none' : 'block';
+    if (crosshairEl) {
+      const crossDisplay = (inJet || occupiedVehicle) ? 'none' : 'block';
+      if (crosshairEl.style.display !== crossDisplay) crosshairEl.style.display = crossDisplay;
+    }
 
-    const ammoTextEl = document.getElementById('ammo-text');
-    const reloadMsgEl = document.getElementById('ammo-reload-msg');
     if (ammoTextEl) {
-      ammoTextEl.textContent = `${Weapon.ammo[playerId]} / ${Weapon.maxAmmo[playerId]}`;
+      const cur = Weapon.ammo[playerId];
+      const max = Weapon.maxAmmo[playerId];
+      // @ts-ignore
+      if (world._hudLastAmmo !== cur || world._hudLastMaxAmmo !== max) {
+        ammoTextEl.textContent = `${cur} / ${max}`;
+        // @ts-ignore
+        world._hudLastAmmo = cur;
+        // @ts-ignore
+        world._hudLastMaxAmmo = max;
+      }
+
       const isReloading = WeaponState.state[playerId] === 2;
-      if (reloadMsgEl) {
-        if (isReloading) reloadMsgEl.classList.add('visible');
-        else reloadMsgEl.classList.remove('visible');
+      // @ts-ignore
+      if (world._hudLastReloading !== isReloading) {
+        if (reloadMsgEl) {
+          if (isReloading) reloadMsgEl.classList.add('visible');
+          else reloadMsgEl.classList.remove('visible');
+        }
+        // @ts-ignore
+        world._hudLastReloading = isReloading;
       }
     }
 
@@ -891,14 +931,19 @@ async function init(playerType: number) {
 
       const physicsWorld = getPhysicsWorld();
       camDir.set(0, 0, -1).applyQuaternion(camera.quaternion);
-      const camRay = new RAPIER.Ray(camera.position, camDir);
-      const camHit = physicsWorld.castRay(camRay, 200, true);
+      camRayShared.origin.x = camera.position.x;
+      camRayShared.origin.y = camera.position.y;
+      camRayShared.origin.z = camera.position.z;
+      camRayShared.dir.x = camDir.x;
+      camRayShared.dir.y = camDir.y;
+      camRayShared.dir.z = camDir.z;
+      const camHit = physicsWorld.castRay(camRayShared, 200, true);
       aimPoint.copy(camera.position).add(tempVec1.copy(camDir).multiplyScalar(100));
 
       if (camHit) {
         // @ts-ignore
         const timpact = camHit.timeOfImpact !== undefined ? camHit.timeOfImpact : (camHit as any).toi;
-        const hp = camRay.pointAt(timpact);
+        const hp = camRayShared.pointAt(timpact);
         aimPoint.set(hp.x, hp.y, hp.z);
       }
       // @ts-ignore
@@ -961,6 +1006,14 @@ async function init(playerType: number) {
     else speedLabel = speed2D;
     
     updateHUD(dt, { pos: camFollowPos, speed: speedLabel, fps: Math.round(1/dt), quality: currentSMAA });
+
+    // -- Optimized Shadow Updates (Bottleneck #1 Fix) --
+    // Update shadow map every 2nd frame OR when sun moves significantly
+    // @ts-ignore
+    const frame = (world as any)._frameCount || 0;
+    if (frame % 2 === 0) {
+      updateShadowMap(renderer, camera);
+    }
 
     // Internal HP sync (SurvivalSystem handles visual HUD sync automatically)
     const hpValue = Health.current[playerId] ?? 100;

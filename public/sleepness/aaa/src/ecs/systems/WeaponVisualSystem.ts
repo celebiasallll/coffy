@@ -26,6 +26,12 @@ const _rayDir = new THREE.Vector3();
 const _hitPos = new THREE.Vector3();
 const _zeroVec = new THREE.Vector3();
 const _tDir = new THREE.Vector3();
+const _worldPos = new THREE.Vector3();
+const _muzzlePos = new THREE.Vector3();
+const _tempVec2 = new THREE.Vector3();
+const _sharedRay = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 1 });
+const _normalVec = new THREE.Vector3();
+const _recoilApplied = new THREE.Vector3();
 
 // Visual State (not in ECS for now, specific to client presentation)
 let adsLerp = 0;
@@ -74,9 +80,8 @@ export const weaponVisualSystem = (camera: THREE.PerspectiveCamera, scene: THREE
                         const muzzleObj = playerMesh.getObjectByName('muzzle');
                         if (muzzleObj) {
                             muzzleObj.updateMatrixWorld(true);
-                            const worldPos = new THREE.Vector3();
-                            muzzleObj.getWorldPosition(worldPos);
-                            mX = worldPos.x; mY = worldPos.y; mZ = worldPos.z;
+                            muzzleObj.getWorldPosition(_worldPos);
+                            mX = _worldPos.x; mY = _worldPos.y; mZ = _worldPos.z;
                         }
                     }
 
@@ -88,7 +93,7 @@ export const weaponVisualSystem = (camera: THREE.PerspectiveCamera, scene: THREE
                     // @ts-ignore
                     if (world.aimTarget) {
                         // @ts-ignore
-                        tDir.subVectors(world.aimTarget, new THREE.Vector3(mX, mY, mZ)).normalize();
+                        tDir.subVectors(world.aimTarget, _muzzlePos.set(mX, mY, mZ)).normalize();
                     }
 
                     // FIX: clone() kaldırıldı — shared material kullan, GC baskısını azalt
@@ -101,7 +106,7 @@ export const weaponVisualSystem = (camera: THREE.PerspectiveCamera, scene: THREE
                     tracers.push({
                         mesh: bullet,
                         time: 3.0,
-                        velocity: tDir.clone().multiplyScalar(350),
+                        velocity: tDir.clone().multiplyScalar(350), // Velocity stored per tracer
                         bounces: 2,
                         damage: Weapon.damage[id] || 10
                     });
@@ -112,7 +117,8 @@ export const weaponVisualSystem = (camera: THREE.PerspectiveCamera, scene: THREE
             recoilRotation.x = THREE.MathUtils.lerp(recoilRotation.x, 0, dt * 10);
             screenShake.lerp(_zeroVec, dt * 8);
 
-            camera.position.add(recoilOffset.clone().applyQuaternion(camera.quaternion));
+            _recoilApplied.copy(recoilOffset).applyQuaternion(camera.quaternion);
+            camera.position.add(_recoilApplied);
             camera.position.add(screenShake);
             camera.rotation.x += recoilRotation.x;
         }
@@ -141,16 +147,18 @@ export const weaponVisualSystem = (camera: THREE.PerspectiveCamera, scene: THREE
             const stepDist = t.velocity.length() * dt;
             _rayDir.copy(t.velocity).normalize();
 
-            const ray = new RAPIER.Ray(
-                { x: t.mesh.position.x, y: t.mesh.position.y, z: t.mesh.position.z },
-                { x: _rayDir.x, y: _rayDir.y, z: _rayDir.z }
-            );
+            _sharedRay.origin.x = t.mesh.position.x;
+            _sharedRay.origin.y = t.mesh.position.y;
+            _sharedRay.origin.z = t.mesh.position.z;
+            _sharedRay.dir.x = _rayDir.x;
+            _sharedRay.dir.y = _rayDir.y;
+            _sharedRay.dir.z = _rayDir.z;
 
-            const hit = physicsWorld.castRayAndGetNormal(ray, stepDist, true);
+            const hit = physicsWorld.castRayAndGetNormal(_sharedRay, stepDist, true);
 
             if (hit) {
                 const collider = (hit as any).collider;
-                const hitPosFlat = ray.pointAt(hit.timeOfImpact || (hit as any).toi);
+                const hitPosFlat = _sharedRay.pointAt(hit.timeOfImpact || (hit as any).toi);
                 _hitPos.set(hitPosFlat.x, hitPosFlat.y, hitPosFlat.z);
 
                 let impactType = ImpactType.DEFAULT;
@@ -193,15 +201,16 @@ export const weaponVisualSystem = (camera: THREE.PerspectiveCamera, scene: THREE
                 // IMPACT SOUND REMOVED BY USER REQUEST
 
                 if (t.bounces > 0 && impactType !== ImpactType.FLESH) {
-                    const normal = new THREE.Vector3(hit.normal.x, hit.normal.y, hit.normal.z);
-                    t.velocity.reflect(normal).multiplyScalar(0.4);
+                    _normalVec.set(hit.normal.x, hit.normal.y, hit.normal.z);
+                    t.velocity.reflect(_normalVec).multiplyScalar(0.4);
                     t.bounces--;
                     t.mesh.position.copy(_hitPos);
                 } else {
                     t.time = 0;
                 }
             } else {
-                t.mesh.position.add(t.velocity.clone().multiplyScalar(dt));
+                _tempVec2.copy(t.velocity).multiplyScalar(dt);
+                t.mesh.position.add(_tempVec2);
             }
 
             if (t.time <= 0) {

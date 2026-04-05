@@ -86,7 +86,9 @@ const GamesSection = ({ id }) => {
       rewards: 'Max 50,000 COFFY/week (base)',
       category: 'Multiplayer PvP',
       isNew: true
-    },
+    }
+    /* Geliştirme aşamasında oldukları için geçici olarak gizlendi
+    ,
     {
       id: 'bee-game',
       title: 'Bee Game Adventure',
@@ -138,6 +140,7 @@ const GamesSection = ({ id }) => {
       rewards: 'Max 50,000 COFFY/week (base)',
       category: 'Action'
     }
+    */
   ], []);
 
   const securityMetrics = useMemo(() => [

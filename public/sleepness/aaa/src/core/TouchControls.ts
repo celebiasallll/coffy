@@ -22,6 +22,7 @@ export class TouchControls {
     public jetYawRight = false;
     public jetBoost = false;
     public jetFire = false;
+    public isChangingCamera = false; // [NEW] Mobile camera switch
 
     private joystickZone: HTMLElement | null = null;
     private joystickBase: HTMLElement | null = null;
@@ -91,6 +92,7 @@ export class TouchControls {
         this.bindButton('btn-jet-boost', 'jetBoost');
         this.bindButton('btn-jet-fire', 'jetFire');
         this.bindButton('btn-jet-exit', 'isJetting');
+        this.bindButton('btn-camera-top', 'isChangingCamera'); // [NEW] Top bar camera
     }
 
     private bindEvents() {

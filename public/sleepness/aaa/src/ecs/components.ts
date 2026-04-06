@@ -90,6 +90,9 @@ export const InputIntents = defineComponent({
   aimYaw: Types.f32,
   aimPitch: Types.f32,
   crouch: Types.ui8,
+  pitch: Types.f32, // JET ANALOG
+  roll: Types.f32,  // JET ANALOG
+  yaw: Types.f32,   // JET ANALOG
   jetRequest: Types.ui8,
 });
 

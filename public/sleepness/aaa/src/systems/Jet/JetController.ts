@@ -44,6 +44,7 @@ interface JetState {
 
 let jet: JetState | null = null;
 let crashTriggered = false;
+let jetStuckTimer = 0; // [NEW] Stuck detection timer for the jet
 
 class JetAudio {
     private engine: THREE.Audio | null = null;
@@ -248,6 +249,23 @@ export function updateJet(dt: number, scene: THREE.Scene, camera: THREE.Perspect
         }
 
         updateFX(jet, dt);
+
+        // [STUCK DETECTION v10.9] - If thrusting but stationary (e.g. nose in wall)
+        if (jet.isOccupied && !jet.state.isCrashed) {
+            const isThrusting = jet.state.throttle > 0.4; // High throttle
+            const isStationary = jet.state.speed < 4.0;  // Very low speed
+            
+            if (isThrusting && isStationary) {
+                jetStuckTimer += dt;
+            } else {
+                jetStuckTimer = 0;
+            }
+
+            if (jetStuckTimer > 4.0) {
+                jet.state.isCrashed = true;
+                console.error(`[JET] Stuck detected (Throttle: ${jet.state.throttle.toFixed(1)}, Speed: ${jet.state.speed.toFixed(1)}). Triggering explosion.`);
+            }
+        }
 
         _q1.copy(jet.mesh.quaternion);
         _euler.setFromQuaternion(_q1, 'YXZ');
@@ -619,20 +637,19 @@ export function handleJetCollisionEvent(h1: number, h2: number): void {
     const isWheel = jet.wheelColliderHandles.slice(0, 3).includes(h1) || jet.wheelColliderHandles.slice(0, 3).includes(h2);
 
     if (isFuselage || isWing) {
-        // [2026] Relaxed fuselage impact (allow tail-strikes during takeoff)
-        const isNoseDive = _fwd.y < -0.4;
-        const lowSpeed = jet.state.speed < 180.0;
-        const groundScrape = jet.state.altitude < 1.0 && jet.state.altitude > -2.0;
+        const vel = jet.rb.linvel();
+        const verticalVelocity = Math.abs(vel.y);
+        const totalSpeed = Math.sqrt(vel.x * vel.x + vel.y * vel.y + vel.z * vel.z);
         
-        if (isNoseDive || (!lowSpeed && !groundScrape) || jet.state.altitude < -2.5) {
+        // [CRASH v10.5] Crash on high speed landing/impact (> 70.0 total speed or > 30.0 vertical)
+        if (verticalVelocity > 30.0 || totalSpeed > 70.0) {
             jet.state.isCrashed = true;
-            console.error(`[JET CRASH] Critical Fuselage Collision`);
+            console.error(`[JET CRASH] Critical Impact (Speed: ${totalSpeed.toFixed(1)}, Vert: ${verticalVelocity.toFixed(1)})`);
         } else {
-            // [TAIL-STRIKE REACTION] Apply small angular impulse or just let physics handle the bounce
             console.log(`[JET] Fuselage Scraping / Tail-Strike Detected`);
         }
     } else if (isWheel && jet.state.prevSpeed > 220) { 
-        // [2026] Increased wheel impact threshold (160 -> 220)
+        // [2026] Increased wheel impact threshold (220)
         jet.state.isCrashed = true;
         console.error(`[JET CRASH] Hard Landing / High Speed Wheel Impact`);
     }

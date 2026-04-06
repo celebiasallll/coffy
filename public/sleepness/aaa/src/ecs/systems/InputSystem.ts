@@ -9,6 +9,7 @@ const keys: Record<string, boolean> = {};
 let jumpPressed = false;
 let interactPressed = false;
 let touchInteractPressed = false;  // rising-edge for mobile USE button
+let lastInteractState = false;      // [NEW] Rising-edge detector for mobile
 let jetPressed = false;
 let reloadPressed = false;
 let punchPressed = false;
@@ -66,7 +67,8 @@ export const inputSystem = defineSystem((world: IWorld) => {
     mouseY = Math.max(-0.6, Math.min(0.85, mouseY));
 
     // Mobile Interact Rising Edge
-    if (touchControls.isInteracting) touchInteractPressed = true;
+    if (touchControls.isInteracting && !lastInteractState) touchInteractPressed = true;
+    lastInteractState = touchControls.isInteracting;
 
     for (let i = 0; i < entities.length; i++) {
         const id = entities[i] as EntityId;

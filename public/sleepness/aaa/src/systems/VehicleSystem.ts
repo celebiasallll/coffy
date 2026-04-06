@@ -311,19 +311,17 @@ function createBody(x: number, y: number, z: number, hx: number, hy: number, hz:
         RAPIER.RigidBodyDesc.dynamic()
             .setTranslation(x, y, z)
             .setCanSleep(false)
-            .setAdditionalMass(mass)
-            .setLinearDamping(0.18)   // hafif hava direnci hissi
-            .setAngularDamping(1.2)   // dönüş sönümleme artırıldı (drift azalır, kontrol artar)
+            .setLinearDamping(0.2)
+            .setAngularDamping(0.5)
     );
     rb.setGravityScale(gravityScale, true);
-    rb.enableCcd(true); // Zeminden geçmeyi engellemek için
+    rb.enableCcd(true); 
 
-    world.createCollider(
-        RAPIER.ColliderDesc.cuboid(hx, hy, hz)
-            .setFriction(0.7)         // zemin tutuşu artırıldı
-            .setRestitution(0.05),     // zıplama azaltıldı
-        rb
-    );
+    const colDesc = RAPIER.ColliderDesc.cuboid(hx, hy, hz)
+    // [v82]: Set mass explicitly on the collider to override volume-based defaults
+    colDesc.setMass(mass);
+    
+    world.createCollider(colDesc, rb);
 
     return rb;
 }
@@ -336,19 +334,19 @@ export function spawnVehicles(scene: THREE.Scene): void {
     const atvGroup = new THREE.Group();
     const atvSpawnX = 450, atvSpawnZ = 520;
     const atvStartY = getHeight(atvSpawnX, atvSpawnZ) + 2.3;
-    const atvRB = createBody(atvSpawnX, atvStartY, atvSpawnZ, 1.4, 0.9, 2.6, 4050); // Lighter additional mass for smaller ATV
+    const atvRB = createBody(atvSpawnX, atvStartY, atvSpawnZ, 1.4, 0.9, 2.6, 6000); 
     atvGroup.position.set(atvSpawnX, atvStartY, atvSpawnZ);
     const atvConfig: VehicleConfig = {
-        mass: 4050,
-        maxSpeed: 55,
-        acceleration: 32400,
-        brakeForce: 54000,
-        steerSpeed: 3.5,
-        suspensionStiffness: 162000,
-        suspensionDamping: 21600,
+        mass: 6000,
+        maxSpeed: 65,
+        acceleration: 45000,
+        brakeForce: 60000,
+        steerSpeed: 2.2, // [FIXED] Heavier steering
+        suspensionStiffness: 45000, // [FIXED] Softer for sag
+        suspensionDamping: 2800,
         suspensionRestLength: 1.3,
-        wheelRadius: 0.96, // Matches visual radius ATV_WR
-        antiRoll: 81000
+        wheelRadius: 0.96,
+        antiRoll: 35000
     };
     const atv = new VehicleController(atvGroup, atvRB, world, atvConfig);
     
@@ -477,7 +475,7 @@ export function spawnVehicles(scene: THREE.Scene): void {
     });
     scene.add(atvGroup);
     const atvEngine = audioManager.createEngineSound('assets/sounds/engine_sound.mp3', 0);
-    vehicles.push({ type: 'atv', controller: atv, isOccupied: false, enterRadius: 5, engineSound: atvEngine });
+    vehicles.push({ type: 'atv', controller: atv, isOccupied: false, enterRadius: 10, engineSound: atvEngine });
 
     // ─── JEEP ─────────────────────────────────────────────────────────────────
     const jeepGroup = new THREE.Group();
@@ -486,21 +484,21 @@ export function spawnVehicles(scene: THREE.Scene): void {
     jeepVisualOffsetGroup.position.set(0, 0.05, 0);
     jeepGroup.add(jeepVisualOffsetGroup);
 
-    const jeepSpawnX = 455, jeepSpawnZ = 540;
+    const jeepSpawnX = 490, jeepSpawnZ = 530;
     const jeepStartY = getHeight(jeepSpawnX, jeepSpawnZ) + 3.1; // radius(1.5) + restLength(1.6)
-    const jeepRB = createBody(jeepSpawnX, jeepStartY, jeepSpawnZ, 3.0, 1.8, 6.0, 40500);
+    const jeepRB = createBody(jeepSpawnX, jeepStartY, jeepSpawnZ, 3.2, 1.8, 6.2, 32000);
     jeepGroup.position.set(jeepSpawnX, jeepStartY, jeepSpawnZ);
     const jeepConfig: VehicleConfig = {
-        mass: 40500,
-        maxSpeed: 50,           // ağır araç, biraz yavaş
-        acceleration: 324000,   // daha kademeli ivme (ağır araç hissi)
-        brakeForce: 540000,     // güçlü fren
-        steerSpeed: 2.8,        // yavaş steer = gerçekçi ağır araç dönüşü
-        suspensionStiffness: 1620000,  // yumuşatıldı (sert sıçrama azalır)
-        suspensionDamping: 216000,     // yüksek damping (sallanma sönümlenir)
-        suspensionRestLength: 1.6,     // uzun süspansiyon (yüksek kalkış hissi)
+        mass: 32000,
+        maxSpeed: 55,
+        acceleration: 180000,
+        brakeForce: 450000,
+        steerSpeed: 1.6, // [FIXED] Heavier steering
+        suspensionStiffness: 220000, // [FIXED] Softer for sag
+        suspensionDamping: 15000,
+        suspensionRestLength: 1.6,
         wheelRadius: 1.5,
-        antiRoll: 810000        // güçlü anti-roll (ağır araç devrilme önleme)
+        antiRoll: 120000
     };
     const jeep = new VehicleController(jeepGroup, jeepRB, world, jeepConfig);
 
@@ -668,20 +666,21 @@ export function spawnVehicles(scene: THREE.Scene): void {
 
     scene.add(jeepGroup);
     const jeepEngine = audioManager.createEngineSound('assets/sounds/engine_sound.mp3', 0);
-    vehicles.push({ type: 'jeep', controller: jeep, isOccupied: false, enterRadius: 5, engineSound: jeepEngine });
+    vehicles.push({ type: 'jeep', controller: jeep, isOccupied: false, enterRadius: 25, engineSound: jeepEngine });
 
     // ─── DRIFTER TRUCK (GLB) ───
     // Silindi.
 }
 
 
-export function updateVehicles(dt: number, input: { forward: boolean; back: boolean; left: boolean; right: boolean; brake: boolean }): void {
-    const cdt = Math.min(dt, 0.033);
-    for (const v of vehicles) {
-        const throttle = (input.forward ? 1 : 0) - (input.back ? 1 : 0);
-        const steer = (input.left ? 1 : 0) - (input.right ? 1 : 0);
-        v.controller.update(cdt, { throttle: v.isOccupied ? throttle : 0, steer: v.isOccupied ? steer : 0, brake: v.isOccupied ? input.brake : false });
+export function updateVehicles(dt: number, input: { throttle: number; steer: number; brake: boolean }): void {
+    const occupiedVehicle = vehicles.find(v => v.isOccupied);
+    if (!occupiedVehicle) return;
 
+    const { throttle, steer } = input;
+    occupiedVehicle.controller.update(dt, input);
+
+    for (const v of vehicles) {
         if (v.engineSound) {
             let aState = vehicleAudioStates.get(v);
             if (!aState) {

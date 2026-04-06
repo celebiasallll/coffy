@@ -88,7 +88,7 @@ class JetInputSystem {
             throttleUp: !!(this.keys['KeyW'] || (isTouch && touch.jetThrottleUp)),
             throttleDown: !!(this.keys['KeyS'] || (isTouch && touch.jetThrottleDown)),
             pitch: THREE.MathUtils.clamp(
-                this.sPitch + (isTouch ? (touch.jetPitchDown ? 1 : touch.jetPitchUp ? -1 : 0) - touch.moveJoystick.y : 0),
+                this.sPitch + (isTouch ? -touch.moveJoystick.y : 0), 
                 -1, 1
             ),
             roll: THREE.MathUtils.clamp(

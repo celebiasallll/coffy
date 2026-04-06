@@ -39,8 +39,9 @@ export class VehicleController {
     public rigidBody: RAPIER.RigidBody;
     public config: VehicleConfig;
 
-    private wheels: { mesh: THREE.Object3D; offset: THREE.Vector3; springCompression: number; spin: number; isWorldSpace: boolean; isFront: boolean; visualSteer: number }[] = [];
+    private wheels: { mesh: THREE.Object3D; offset: THREE.Vector3; springCompression: number; spin: number; isWorldSpace: boolean; isFront: boolean; visualSteer: number; lastDist: number }[] = [];
     private currentSteer = 0;
+    private stuckTimer = 0; // [NEW] Stuck detection timer
     private world: RAPIER.World;
 
     constructor(mesh: THREE.Group, rigidBody: RAPIER.RigidBody, world: RAPIER.World, config: VehicleConfig) {
@@ -58,7 +59,7 @@ export class VehicleController {
      */
     addWheel(mesh: THREE.Object3D, offset: THREE.Vector3, isWorldSpace = false, isFront = false) {
         mesh.traverse(obj => { if (obj instanceof THREE.Mesh) obj.frustumCulled = false; });
-        this.wheels.push({ mesh, offset, springCompression: 0, spin: 0, isWorldSpace, isFront, visualSteer: 0 });
+        this.wheels.push({ mesh, offset, springCompression: 0, spin: 0, isWorldSpace, isFront, visualSteer: 0, lastDist: this.config.suspensionRestLength + this.config.wheelRadius });
     }
 
     update(dt: number, input: { throttle: number; steer: number; brake: boolean }) {
@@ -77,9 +78,10 @@ export class VehicleController {
         _right.set(1, 0, 0).applyQuaternion(_rotQ);
         _up.set(0, 1, 0).applyQuaternion(_rotQ);
 
-        // Steering interpolation — fizik için (2.5 = daha gerçekçi)
+        // Steering interpolation — even smoother/heavier for mobile (v10.6)
         const targetSteer = input.steer;
-        this.currentSteer = THREE.MathUtils.lerp(this.currentSteer, targetSteer, 2.5 * dt);
+        const steerFactor = 2.2 * dt; 
+        this.currentSteer = THREE.MathUtils.lerp(this.currentSteer, targetSteer, steerFactor);
 
         const wheelImpulses: { force: { x: number, y: number, z: number }; point: { x: number, y: number, z: number } }[] = [];
 
@@ -90,14 +92,9 @@ export class VehicleController {
 
             // Suspension raycast starting high (10.0m) - Dev araçlar için artırıldı
             const rayOffsetMultiplier = 10.0;
-            const rayOrigin = {
-                x: _wheelWorldPos.x + _up.x * rayOffsetMultiplier,
-                y: _wheelWorldPos.y + _up.y * rayOffsetMultiplier,
-                z: _wheelWorldPos.z + _up.z * rayOffsetMultiplier
-            };
-            const rayDir = { x: -_up.x, y: -_up.y, z: -_up.z };
-            const ray = new RAPIER.Ray(rayOrigin, rayDir);
-            const maxRayDist = this.config.suspensionRestLength + this.config.wheelRadius + rayOffsetMultiplier + 30.0;
+            // [v84]: Raycast starts from the wheel attachment point downward
+            const ray = new RAPIER.Ray(_wheelWorldPos, { x: -_up.x, y: -_up.y, z: -_up.z });
+            const maxRayDist = this.config.suspensionRestLength + this.config.wheelRadius + 2.0;
             const hit = this.world.castRay(ray, maxRayDist, true, undefined, undefined, undefined, rb);
 
             let distance = maxRayDist;
@@ -105,7 +102,7 @@ export class VehicleController {
 
             if (hit) {
                 const hitDistance = (hit as any).timeOfImpact !== undefined ? (hit as any).timeOfImpact : ((hit as any).toi ?? (hit as any).time);
-                distance = hitDistance - rayOffsetMultiplier;
+                distance = hitDistance;
                 hitFound = true;
             } else {
                 const distToTerrain = _wheelWorldPos.y - terrainHeight;
@@ -124,19 +121,23 @@ export class VehicleController {
 
                 _relVel.copy(_vLin).add(_vAng.clone().cross(_wheelWorldPos.clone().sub(_rbPos)));
 
-                // Suspension Force
+                // Suspension Force (Velocity-based Damping)
                 const springForce = wheel.springCompression * this.config.suspensionStiffness;
-                const dampingForce = _relVel.dot(_up) * this.config.suspensionDamping;
-                let totalSuspensionForce = Math.max(0, springForce - dampingForce);
+                const compressionVel = (wheel.lastDist - distance) / Math.max(dt, 0.001);
+                const dampingForce = compressionVel * this.config.suspensionDamping;
+                
+                let totalSuspensionForce = Math.max(0, springForce + dampingForce);
                 if (compression > this.config.suspensionRestLength * 0.85) totalSuspensionForce *= 2.5;
+
+                wheel.lastDist = distance;
 
                 _forceVec.copy(_up).multiplyScalar(totalSuspensionForce);
                 wheelImpulses.push({ force: { x: _forceVec.x, y: _forceVec.y, z: _forceVec.z }, point: { x: _wheelWorldPos.x, y: _wheelWorldPos.y, z: _wheelWorldPos.z } });
 
-                // Reference Traction & Steering Logic
+                // Analog Steering Logic — Corrected Inversion (Right Pull = Right Turn)
                 _wheelDir.set(0, 0, -1);
                 if (isFront) {
-                    _wheelDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.currentSteer * 0.8);
+                    _wheelDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), -this.currentSteer * 0.85); // Added minus to flip steer
                 }
                 _wheelDir.applyQuaternion(_rotQ).normalize();
                 _wheelRight.set(0, 1, 0).applyQuaternion(_rotQ).cross(_wheelDir).normalize();
@@ -184,8 +185,8 @@ export class VehicleController {
                     wheel.mesh.position.set(wheelWorldX, wheelWorldY, wheelWorldZ);
                     wheel.mesh.updateMatrixWorld(true);
 
-                    // visualSteer: görsel için ayrı, daha yavaş lerp (gerçekçi direksiyon hareketi)
-                    const targetVisualSteer = isFront ? this.currentSteer * 0.5 : 0;
+                    // visualSteer: corrected inversion (Right pull = Negative Y rotation)
+                    const targetVisualSteer = isFront ? -this.currentSteer * 0.5 : 0;
                     wheel.visualSteer = THREE.MathUtils.lerp(wheel.visualSteer, targetVisualSteer, 3.0 * dt);
 
                     const vehicleYaw = _euler.setFromQuaternion(_rotQ, 'YXZ').y;
@@ -207,7 +208,7 @@ export class VehicleController {
                     }
                     wheel.mesh.rotation.order = 'YXZ';
                     wheel.mesh.rotation.x = wheel.spin;
-                    if (isFront) wheel.mesh.rotation.y = this.currentSteer * 0.5;
+                    if (isFront) wheel.mesh.rotation.y = -this.currentSteer * 0.5; // Flipped visual steer
                     wheel.mesh.updateMatrixWorld(true);
                 }
             } else {
@@ -241,6 +242,7 @@ export class VehicleController {
                     wheel.mesh.updateMatrixWorld(true);
                 }
                 wheel.springCompression = 0;
+                wheel.lastDist = this.config.suspensionRestLength + this.config.wheelRadius;
             }
         });
 
@@ -254,6 +256,27 @@ export class VehicleController {
         const rbAngVel = rb.angvel();
         const localAngVelZ = _vAng.set(rbAngVel.x, rbAngVel.y, rbAngVel.z).applyQuaternion(_rotQ.clone().invert()).z;
         rb.applyImpulse({ x: 0, y: 0, z: -localAngVelZ * this.config.antiRoll * dt }, true);
+
+        // [STUCK DETECTION v10.9] - Auto-flip and stuck recovery
+        const isThrottling = Math.abs(input.throttle) > 0.1;
+        const isStationary = _vLin.length() < 0.6;
+        const isFlipped = _up.y < 0.25;
+
+        if (isFlipped || (isThrottling && isStationary)) {
+            this.stuckTimer += dt;
+        } else {
+            this.stuckTimer = 0;
+        }
+
+        if (this.stuckTimer > 5.0) {
+            this.stuckTimer = 0;
+            // RECOVERY: Reset rotation, lift up slightly, zero velocities
+            rb.setRotation({ w: 1, x: 0, y: 0, z: 0 }, true);
+            rb.setTranslation({ x: pos.x, y: pos.y + 3.0, z: pos.z }, true);
+            rb.setLinvel({ x: 0, y: 0, z: 0 }, true);
+            rb.setAngvel({ x: 0, y: 0, z: 0 }, true);
+            console.warn(`[VEHICLE] Stuck/Flipped detected. Auto-recovery triggered.`);
+        }
 
         // Sync mesh
         this.mesh.position.set(pos.x, pos.y, pos.z);

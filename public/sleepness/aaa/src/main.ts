@@ -19,7 +19,7 @@ if (import.meta.env.DEV) {
   const _error = console.error;
   console.error = (...args) => {
     const msg = args[0]?.toString?.() || '';
-    if (msg.includes('SES Removing unpermitted intrinsics') || msg.includes('coin_collect.mp3') || msg.includes('requestFullscreen') || msg.includes('Orientation lock') || msg.includes('SMAA CRITICAL')) return;
+    if (msg.includes('NotAllowedError') || msg.includes('requestFullscreen') || msg.includes('Orientation lock')) return;
     _error.apply(console, args);
   };
 }
@@ -68,7 +68,9 @@ import { weaponVisualSystem } from './ecs/systems/WeaponVisualSystem.js';
 import { collectionSystem } from './ecs/systems/CollectionSystem.js';
 import { initItemSpawner } from './systems/ItemSpawner.js';
 import { isDialogueOpen } from './systems/DialogueSystem.js';
-import { spawnJet, updateJet, tryEnterJet, exitJet, getJetPosition, getJetMesh, getJetRb, isJetOccupied, getJetNearInfo, initJetHUD, showJetHUD, getJetAltitude } from './systems/Jet/JetController.js';
+import { getJetPosition, getJetAltitude, updateJet, spawnJet, tryEnterJet, exitJet, getJetNearInfo, showJetHUD, handleJetCollisionEvent, initJetHUD } from './systems/Jet/JetController.js';
+import { jetCamera } from './systems/Jet/CameraFollow.js';
+import { vehicleCamera } from './systems/VehicleCamera.js';
 import { entityMeshes, entityPhysicsBodies, entityAnimationControllers } from './ecs/world.js';
 import { InputState, Health, InputIntents, Position, Rotation, WolfTag, ZombieTag, Weapon, WeaponState, NPCTag, CoffyCoinTag } from './ecs/components.js';
 import { EntityId } from './ecs/types.js';
@@ -553,15 +555,13 @@ async function init(playerType: number) {
     }
 
     const vInput = occupiedVehicle ? {
-      forward: InputState.moveZ[playerId] < -0.1,
-      back: InputState.moveZ[playerId] > 0.1,
-      left: InputState.moveX[playerId] < -0.1,
-      right: InputState.moveX[playerId] > 0.1,
+      throttle: -InputState.moveZ[playerId], // Raw analog throttle (-1 to 1)
+      steer: InputState.moveX[playerId],    // Raw analog steer (-1 to 1)
       brake: !!vehicleKeys['Space'],
-    } : { forward: false, back: false, left: false, right: false, brake: false };
-
+    } : { throttle: 0, steer: 0, brake: false };
+    
     updateVehicles(dt, vInput);
-    updateJet(dt, scene, camera);
+    updateJet(dt, scene, camera); // [Analog inside via JetInputSystem]
   }
 
   function handlePortalInput() {
@@ -597,7 +597,13 @@ async function init(playerType: number) {
     const pitch = Math.max(PITCH_MIN, Math.min(PITCH_MAX, InputState.pitch[playerId] ?? 0.25));
     const cosPitch = Math.cos(pitch);
 
-    if (!inJet) {
+    if (occupiedVehicle) {
+      if (vehicleKeys['KeyC']) {
+        delete vehicleKeys['KeyC'];
+        vehicleCamera.cycleMode();
+      }
+      vehicleCamera.update(camera, occupiedVehicle.controller.mesh, occupiedVehicle.controller.rigidBody, dt);
+    } else if (!inJet) {
       const shoulderOffset = 1.3 + 0.6 * adsFactor;
       const sideX = Math.cos(yaw) * shoulderOffset;
       const sideZ = -Math.sin(yaw) * shoulderOffset;
@@ -808,6 +814,17 @@ async function init(playerType: number) {
     
     handleJetAndVehicleInput(dt);
     handlePortalInput();
+
+    // [NEW] Mobile Camera Cycle Support (Rising-edge lock)
+    if (touchControls.isChangingCamera && !(touchControls as any)['_cam_lock_']) {
+      if (occupiedVehicle) {
+        vehicleCamera.cycleMode();
+      } else if (inJet) {
+        jetCamera.cycleMode();
+      }
+      (touchControls as any)['_cam_lock_'] = true;
+    }
+    if (!touchControls.isChangingCamera) (touchControls as any)['_cam_lock_'] = false;
 
     const sprintWanted = InputState.sprint[playerId] === 1;
     const sprintAllowed = sprintWanted && canSprint();

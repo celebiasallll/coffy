@@ -1,15 +1,14 @@
 import * as THREE from 'three';
 
 // ── Constants ────────────────────────────────────────────────────────────────
-const FOV_BASE = 75;
-const FOV_MAX = 105;
-const FOV_COCKPIT = 68;
-const FOV_ORBIT = 60;
+const DRONE_SPEED = 120;
 
 // ── Camera Modes ─────────────────────────────────────────────────────────────
-export type CameraMode = 'chase' | 'cockpit' | 'orbit' | 'cinematic';
+export type CameraMode = 'follow' | 'wing_tip' | 'cinematic';
 
-// ── Scratch Vectors/Quaternions (no `new` in update loops) ───────────────────
+// ── Scratch Vectors/Quaternions ───────────────────────────────────────────────
+const _v1 = new THREE.Vector3();
+const _v2 = new THREE.Vector3();
 const _offset = new THREE.Vector3();
 const _targetPos = new THREE.Vector3();
 const _lookAhead = new THREE.Vector3();
@@ -17,6 +16,7 @@ const _lookTarget = new THREE.Vector3();
 const _forward = new THREE.Vector3();
 const _cinOffset = new THREE.Vector3();
 const _euler = new THREE.Euler();
+const _q1 = new THREE.Quaternion();
 const _q2 = new THREE.Quaternion();
 const _tiltAxis = new THREE.Vector3(0, 0, 1);
 const _tiltQ = new THREE.Quaternion();
@@ -25,50 +25,122 @@ function dispatchModeChange(mode: CameraMode): void {
     window.dispatchEvent(new CustomEvent('jetCameraMode', { detail: { mode } }));
 }
 
+// ── [2026] Perlin-based Shake (Sine Stacking) ────────────────────────────────
+class PerlinShake {
+    private t = 0;
+    private scratch = new THREE.Vector3();
+
+    apply(camera: THREE.PerspectiveCamera, dt: number, intensity: number, frequency = 4): void {
+        if (intensity < 0.001) return;
+        this.t += dt * frequency;
+        const t = this.t;
+        const ox = (Math.sin(t * 1.1) * 0.6 + Math.sin(t * 2.7 + 1.3) * 0.4) * intensity;
+        const oy = (Math.sin(t * 0.9 + 0.5) * 0.6 + Math.sin(t * 3.1 + 2.1) * 0.4) * intensity;
+        this.scratch.set(ox, oy, 0).applyQuaternion(camera.quaternion);
+        camera.position.add(this.scratch);
+    }
+}
+
 class JetCamera {
-    public mode: CameraMode = 'chase';
+    public mode: CameraMode = 'follow';
+    public needsImmediateSnap = false;
+
+    private camVelocity = new THREE.Vector3();
+    private readonly CAM_SPRING = 21.0;
+    private readonly CAM_DAMP = 8.2;
 
     private smoothedQ = new THREE.Quaternion();
-    private firstUpdate = true;
-    private shakeIntensity = 0;
-    private bankTilt = 0;
+    private smoothedLook = new THREE.Vector3();
+    private needsReset = true;
 
-    private orbitTheta = Math.PI;
-    private orbitPhi = 0.38;
-    private orbitRadius = 45;
+    private prevCamPos = new THREE.Vector3();
+    private prevCamQuat = new THREE.Quaternion();
+    private transitionAlpha = 1.0;
+
+    // [FREE-LOOK]
+    private lookYaw = 0;
+    private lookPitch = 0;
+    private readonly FREE_LOOK_SENS = 0.005;
+    private bankTilt = 0; // [NEW] Cinematic camera tilt during turns
 
     private cinTimer = 0;
-    private cinAngle = 0;
+    private zoomValue = -12; // Start at closest (ZOOM_MIN)
+    private readonly ZOOM_SENS = 0.04;
+    private readonly ZOOM_MIN = -12;
+    private readonly ZOOM_MAX = 20;
+
+    // [G-FORCE FEEDBACK]
+    private smoothedGForce = 1.0;
+
+    // [DYNAMIC ROLL & SHIFT]
+    private smoothedHorizontalShift = 0;
+
+    // [CINEMATIC STATE]
+    private cinNodePos = new THREE.Vector3();
+    private cinNodeTime = 0;
+    private cinSubMode = 0; // 0: Ground, 1: Air, 2: High
+
+    private shake = new PerlinShake();
+
+    private gVignetteEl: HTMLElement | null = null;
+    private stallWarningEl: HTMLElement | null = null;
 
     constructor() {
         window.addEventListener('mousemove', (e: MouseEvent) => {
-            if (this.mode !== 'orbit') return;
-            this.orbitTheta -= e.movementX * 0.006;
-            this.orbitPhi = THREE.MathUtils.clamp(
-                this.orbitPhi - e.movementY * 0.006,
-                0.05, Math.PI * 0.72
+            if (this.mode.startsWith('cin_')) return;
+            this.lookYaw -= e.movementX * this.FREE_LOOK_SENS;
+            // [wrap fix]
+            this.lookYaw = Math.atan2(Math.sin(this.lookYaw), Math.cos(this.lookYaw));
+            
+            this.lookPitch = THREE.MathUtils.clamp(
+                this.lookPitch - e.movementY * this.FREE_LOOK_SENS,
+                -Math.PI * 0.45, Math.PI * 0.45
             );
         });
 
         window.addEventListener('wheel', (e: WheelEvent) => {
-            if (this.mode !== 'orbit') return;
-            this.orbitRadius = THREE.MathUtils.clamp(
-                this.orbitRadius + e.deltaY * 0.06,
-                8, 150
+            this.zoomValue = THREE.MathUtils.clamp(
+                this.zoomValue + e.deltaY * this.ZOOM_SENS,
+                this.ZOOM_MIN, this.ZOOM_MAX
             );
         }, { passive: true });
 
-        window.addEventListener('keydown', (e: KeyboardEvent) => {
-            if (e.code === 'KeyV') this.cycleMode();
-        });
+        this._initDOMEffects();
+    }
+
+    private _initDOMEffects(): void {
+        const vignette = document.createElement('div');
+        vignette.id = 'g-force-vignette';
+        vignette.style.cssText = `position:fixed; inset:0; pointer-events:none; z-index:50; background: radial-gradient(ellipse at center, transparent 55%, rgba(200,10,10,0) 70%, rgba(200,10,10,0) 100%); opacity:0; transition:opacity 0.1s;`;
+        document.body.appendChild(vignette);
+        this.gVignetteEl = vignette;
+
+        const stallWarn = document.createElement('div');
+        stallWarn.id = 'stall-warning';
+        stallWarn.style.cssText = `position:fixed; inset:0; pointer-events:none; z-index:51; background: radial-gradient(ellipse at center, transparent 60%, rgba(10,100,255,0.15) 100%); opacity:0; transition:opacity 0.15s;`;
+        document.body.appendChild(stallWarn);
+        this.stallWarningEl = stallWarn;
+    }
+
+    private _updateDOMEffects(gForce: number, stallFactor: number): void {
+        if (this.gVignetteEl) {
+            this.gVignetteEl.style.opacity = '0'; 
+        }
+        if (this.stallWarningEl) {
+            const stallIntensity = THREE.MathUtils.clamp(1.0 - stallFactor / 0.35, 0, 1);
+            const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.012);
+            this.stallWarningEl.style.opacity = (stallIntensity * pulse * 0.6).toFixed(3);
+        }
     }
 
     public cycleMode(): void {
-        const modes: CameraMode[] = ['chase', 'cockpit', 'orbit', 'cinematic'];
+        const modes: CameraMode[] = ['follow', 'wing_tip', 'cinematic'];
         const idx = modes.indexOf(this.mode);
         this.mode = modes[(idx + 1) % modes.length] as CameraMode;
+        this.cinNodeTime = 0; // Reset cinematic node timer immediately if entering mode
+        this.transitionAlpha = 0;
+        this.needsReset = true;
         dispatchModeChange(this.mode);
-        console.log(`[Camera] → ${this.mode.toUpperCase()}`);
     }
 
     public update(
@@ -77,189 +149,142 @@ class JetCamera {
         speed: number,
         afterburner: boolean,
         dt: number,
-        roll: number = 0
+        input: any,
+        scene: THREE.Scene,
+        gForce: number = 1.0,
+        stallFactor: number = 1.0
     ): void {
-        switch (this.mode) {
-            case 'chase': this._chase(camera, jetMesh, speed, afterburner, dt, roll); break;
-            case 'cockpit': this._cockpit(camera, jetMesh, speed, afterburner, dt); break;
-            case 'orbit': this._orbit(camera, jetMesh, dt); break;
-            case 'cinematic': this._cinematic(camera, jetMesh, speed, afterburner, dt); break;
-        }
-    }
+        this.smoothedGForce = THREE.MathUtils.lerp(this.smoothedGForce, gForce, dt * 4.0);
 
-    // ── CHASE — GTA Style ────────────────────────────────────────────────────
-    // Kamera jetin sadece YAW'ını takip eder.
-    // Roll/pitch yok sayılır → jet takla atarken kamera sakin kalır.
-    private _chase(
-        camera: THREE.PerspectiveCamera,
-        jetMesh: THREE.Group,
-        speed: number,
-        afterburner: boolean,
-        dt: number,
-        roll: number
-    ): void {
-        if (this.firstUpdate) {
+        if (this.needsImmediateSnap) {
             this.smoothedQ.copy(jetMesh.quaternion);
-            this.firstUpdate = false;
+            this.prevCamPos.copy(camera.position);
+            this.prevCamQuat.copy(camera.quaternion);
+            this.lookYaw = 0;
+            this.lookPitch = 0;
+            this.transitionAlpha = 1.0;
+            this.needsImmediateSnap = false;
         }
 
-        // 1. Stabilizasyon (v25.1: Agresif pürüzsüzleştirme 10->15)
-        this.smoothedQ.slerp(jetMesh.quaternion, Math.min(dt * 15.0, 1.0));
+        this._updateDOMEffects(this.smoothedGForce, stallFactor);
 
-        // 2. Sadece YAW çıkar — roll ve pitch sıfırla
-        _euler.setFromQuaternion(this.smoothedQ, 'YXZ');
-        _euler.x = 0;
-        _euler.z = 0;
-        _q2.setFromEuler(_euler);
+        // [FIXED]: Ensure quaternion syncs every frame for all modes (fixes wing_tip bug)
+        this.smoothedQ.copy(jetMesh.quaternion);
 
-        // 3. Offset: yaw-only → jet roll'undan bağımsız
-        _offset.set(0, 4.5, 18);
-        _offset.applyQuaternion(_q2);
-        _targetPos.copy(jetMesh.position).add(_offset);
-        camera.position.lerp(_targetPos, Math.min(dt * 18.0, 1.0)); // v25.1: 12->18
-
-        // 4. LookAhead: roll'a göre hafif yaw bias (viraj hissi)
-        _lookAhead.set(roll * 18, 0, -100);
-        _lookAhead.applyQuaternion(_q2);
-        _lookTarget.copy(jetMesh.position).add(_lookAhead);
-
-        // 5. World up → lookAt roll'u yok sayar
-        camera.up.set(0, 1, 0);
-        camera.lookAt(_lookTarget);
-
-        // 6. BankTilt: quaternion.multiply ile eklenir (rotation.z atama YOK)
-        const targetBank = -roll * 0.14;  // max ~8°
-        this.bankTilt = THREE.MathUtils.lerp(
-            this.bankTilt, targetBank, Math.min(dt * 12.0, 1.0)
-        );
-        _tiltQ.setFromAxisAngle(_tiltAxis, this.bankTilt);
-        camera.quaternion.multiply(_tiltQ);
-
-        // 7. FOV
-        const targetFov = afterburner ? FOV_MAX : FOV_BASE + (speed / 150) * 12;
-        camera.fov = THREE.MathUtils.lerp(camera.fov, targetFov, Math.min(dt * 5.0, 1.0));
-        camera.updateProjectionMatrix();
-
-        // 8. Shake (lookAt + tilt sonrası)
-        if (speed > 100 || afterburner) {
-            const intensity = afterburner ? 0.07 : (speed / 150) * 0.035;
-            this.shakeIntensity = THREE.MathUtils.lerp(this.shakeIntensity, intensity, dt * 2.0);
-            camera.position.x += (Math.random() - 0.5) * this.shakeIntensity;
-            camera.position.y += (Math.random() - 0.5) * this.shakeIntensity;
-        } else {
-            this.shakeIntensity = THREE.MathUtils.lerp(this.shakeIntensity, 0, dt * 4.0);
+        if (!this.mode.startsWith('cin_')) {
+            this.lookYaw = THREE.MathUtils.lerp(this.lookYaw, 0, dt * 1.5);
+            this.lookPitch = THREE.MathUtils.lerp(this.lookPitch, 0, dt * 1.5);
         }
+
+        switch (this.mode) {
+            case 'follow':       this._follow(camera, jetMesh, speed, dt, input.roll, this.smoothedGForce); break;
+            case 'wing_tip':     this._wingTip(camera, jetMesh, dt); break;
+            case 'cinematic':    this._cinematic(camera, jetMesh, dt); break;
+        }
+
+        if (this.transitionAlpha < 1.0) {
+            this.transitionAlpha = Math.min(1.0, this.transitionAlpha + dt * 2.8);
+            const newPos = _v1.copy(camera.position);
+            const newQuat = _q1.copy(camera.quaternion);
+            camera.position.copy(this.prevCamPos).lerp(newPos, this.transitionAlpha);
+            camera.quaternion.slerpQuaternions(this.prevCamQuat, newQuat, this.transitionAlpha);
+        }
+
+        this.prevCamPos.copy(camera.position);
+        this.prevCamQuat.copy(camera.quaternion);
+
+        // [2026] Shake applied LAST to avoid polluting prevCamPos for next frames
+        const shakeIntensity = THREE.MathUtils.clamp((this.smoothedGForce - 2.5) / 5.0, 0, 1) * 0.15;
+        const stallShake = THREE.MathUtils.clamp(1.0 - stallFactor, 0, 1) * 0.1;
+        this.shake.apply(camera, dt, shakeIntensity + stallShake, stallFactor < 0.5 ? 8 : 4);
     }
 
-    // ── COCKPIT — 1. şahıs ──────────────────────────────────────────────────
-    private _cockpit(
-        camera: THREE.PerspectiveCamera,
-        jetMesh: THREE.Group,
-        speed: number,
-        afterburner: boolean,
-        dt: number
-    ): void {
-        _offset.set(0, 1.4, -1.5);
-        _offset.applyQuaternion(jetMesh.quaternion);
+    private _follow(camera: THREE.PerspectiveCamera, jetMesh: THREE.Group, speed: number, dt: number, roll: number, gForce: number): void {
+        // [RIGID LOCK] already synced in update() for all modes
+        
+        const speedFact = Math.min(speed / 180, 1.0);
+        const dist = (32 + speedFact * 8 + this.zoomValue) * 0.8;
+        
+        _offset.set(0, 4.0, dist).applyQuaternion(this.smoothedQ);
+
+        // ✅ Rigid 1:1 Position Lock
         camera.position.copy(jetMesh.position).add(_offset);
 
-        _lookAhead.set(0, 0, -200).applyQuaternion(jetMesh.quaternion);
+        // 4. LookAhead: uçağın burnuna kilitli (no lag)
+        _lookAhead.set(0, 0, -100);
+        _lookAhead.applyQuaternion(this.smoothedQ);
         _lookTarget.copy(jetMesh.position).add(_lookAhead);
 
-        // Cockpit'te jet up kullan → roll hissedilir (immersive)
-        _forward.set(0, 1, 0).applyQuaternion(jetMesh.quaternion);
-        camera.up.copy(_forward);
+        // 5. Jet up → Uçağa tam kilitli 1:1 roll
+        camera.up.set(0, 1, 0).applyQuaternion(this.smoothedQ);
         camera.lookAt(_lookTarget);
 
-        // Head Bob
-        if (speed > 20) {
-            const t = performance.now() * 0.001;
-            const amp = afterburner
-                ? 0.015
-                : Math.min((speed - 20) / 130, 1) * 0.008;
-            const freq = 0.9 + speed * 0.010;
-            camera.position.x += Math.sin(t * freq * 0.73) * amp;
-            camera.position.y += Math.sin(t * freq) * amp;
+        const targetFov = 75 + speedFact * 12;
+        camera.fov = THREE.MathUtils.lerp(camera.fov, targetFov, dt * 6.0);
+        if (Math.abs(camera.fov - targetFov) > 0.1) {
+            camera.updateProjectionMatrix();
         }
-
-        const targetFov = afterburner
-            ? FOV_COCKPIT + 17
-            : FOV_COCKPIT + (speed / 150) * 6;
-        camera.fov = THREE.MathUtils.lerp(camera.fov, targetFov, dt * 4.0);
-        camera.updateProjectionMatrix();
     }
 
-    // ── ORBIT — serbest dönen kamera ────────────────────────────────────────
-    private _orbit(
-        camera: THREE.PerspectiveCamera,
-        jetMesh: THREE.Group,
-        dt: number
-    ): void {
-        const sinPhi = Math.sin(this.orbitPhi);
-        _targetPos.set(
-            jetMesh.position.x + this.orbitRadius * sinPhi * Math.sin(this.orbitTheta),
-            jetMesh.position.y + this.orbitRadius * Math.cos(this.orbitPhi),
-            jetMesh.position.z + this.orbitRadius * sinPhi * Math.cos(this.orbitTheta)
-        );
+    private _wingTip(camera: THREE.PerspectiveCamera, jetMesh: THREE.Group, dt: number): void {
+        // [2026] Use smoothedQ for cinematic banking/turn feel
+        _offset.set(-10, 1.5, 4.5).applyQuaternion(this.smoothedQ);
+        camera.position.copy(jetMesh.position).add(_offset);
 
-        camera.position.lerp(_targetPos, dt * 10.0);
-        camera.up.set(0, 1, 0);
-        camera.lookAt(jetMesh.position);
+        _lookTarget.set(0, 0, -10).applyQuaternion(this.smoothedQ).add(jetMesh.position);
+        camera.up.set(0, 1, 0).applyQuaternion(this.smoothedQ);
+        camera.lookAt(_lookTarget);
 
-        camera.fov = THREE.MathUtils.lerp(camera.fov, FOV_ORBIT, dt * 3.0);
-        camera.updateProjectionMatrix();
+        camera.fov = THREE.MathUtils.lerp(camera.fov, 85, dt * 4.0);
+        if (Math.abs(camera.fov - 85) > 0.1) camera.updateProjectionMatrix();
+        this.needsReset = false;
     }
 
-    // ── CINEMATIC — manevra bazlı otomatik açı ───────────────────────────────
-    private _cinematic(
-        camera: THREE.PerspectiveCamera,
-        jetMesh: THREE.Group,
-        speed: number,
-        afterburner: boolean,
-        dt: number
-    ): void {
-        this.cinTimer += dt;
-        this.cinAngle += dt * 0.14;
+    private _cinematic(camera: THREE.PerspectiveCamera, jetMesh: THREE.Group, dt: number): void {
+        const now = performance.now() * 0.001;
+        const distToJet = camera.position.distanceTo(jetMesh.position);
+        
+        // Get jet movement info
+        const vel = (jetMesh.userData.linvel as THREE.Vector3) || new THREE.Vector3(0, 0, -50);
+        const speed = vel.length();
+        const fwd = _v1.copy(vel).normalize();
 
-        _forward.set(0, 0, -1).applyQuaternion(jetMesh.quaternion);
-        const pitch = _forward.y;
-        const isDiving = pitch < -0.28;
-        const isClimbing = pitch > 0.28;
+        // [STATIONARY TOWER LOGIC]: Scout NEW position if jet passed and is FAR (Reset dist: 120 -> 350)
+        const toJet = _v2.copy(jetMesh.position).sub(camera.position);
+        const hasPassed = toJet.dot(fwd) > 0;
 
-        if (afterburner) {
-            _cinOffset.set(
-                Math.sin(this.cinAngle * 0.5) * 12,
-                4 + Math.sin(this.cinTimer * 0.4) * 2,
-                62
-            );
-            _cinOffset.applyQuaternion(jetMesh.quaternion);
-        } else if (isDiving) {
-            _cinOffset.set(42, 18, 18);
-            _cinOffset.applyQuaternion(jetMesh.quaternion);
-        } else if (isClimbing) {
-            _cinOffset.set(
-                Math.sin(this.cinAngle) * 22,
-                -10,
-                -60
-            );
-            _cinOffset.applyQuaternion(jetMesh.quaternion);
-        } else {
-            const r = 48 + Math.sin(this.cinTimer * 0.18) * 12;
-            _cinOffset.set(
-                Math.sin(this.cinAngle) * r,
-                9 + Math.sin(this.cinTimer * 0.27) * 5,
-                Math.cos(this.cinAngle) * r
-            );
+        if (now > this.cinNodeTime || (hasPassed && distToJet > 350) || distToJet < 2) {
+            this.cinNodeTime = now + 12.0;
+            this.cinSubMode = (this.cinSubMode + 1) % 4;
+
+            // Forecast: Half distance for intimate shots (1.5 - 2.5s ahead)
+            const forecastDist = Math.max(50, speed * (1.5 + Math.random() * 1.0));
+            const forecastPos = _v2.copy(jetMesh.position).addScaledVector(fwd, forecastDist);
+            
+            // Random offset: Halved for ultra-close intimacy
+            const side = (Math.random() - 0.5) * 18;
+            const up = -2 + Math.random() * 8;
+            const ahead = (Math.random() - 0.5) * 10;
+            
+            _offset.set(side, up, ahead);
+            this.cinNodePos.copy(forecastPos).add(_offset);
+            
+            // Ensure camera is not underground (terrain height check)
+            // Note: Simplistic height check, assuming terrain is around 0-50
+            if (this.cinNodePos.y < 5) this.cinNodePos.y = 10;
+            
+            // Instant jump to new watching position
+            camera.position.copy(this.cinNodePos);
+            this.needsReset = false;
         }
 
-        _targetPos.copy(jetMesh.position).add(_cinOffset);
-        camera.position.lerp(_targetPos, dt * 3.0);
-        camera.up.set(0, 1, 0);
+        // [STATIONARY LOOK]: High zoom (low fov) for that "long lens" look
         camera.lookAt(jetMesh.position);
 
-        const targetFov = afterburner ? 98 : 72 + (speed / 150) * 14;
-        camera.fov = THREE.MathUtils.lerp(camera.fov, targetFov, dt * 2.0);
-        camera.updateProjectionMatrix();
+        // Dynamic FOV: Zoom in as it's far, zoom out as it gets close
+        const targetFov = THREE.MathUtils.clamp(distToJet * 0.15, 25, 75);
+        camera.fov = THREE.MathUtils.lerp(camera.fov, targetFov, dt * 3.0);
+        if (Math.abs(camera.fov - targetFov) > 0.1) camera.updateProjectionMatrix();
     }
 }
 

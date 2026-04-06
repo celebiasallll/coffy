@@ -1,18 +1,24 @@
 import RAPIER from '@dimforge/rapier3d-compat';
 
 let world: RAPIER.World | null = null;
+let eventQueue: RAPIER.EventQueue | null = null;
 
 export async function initPhysics(): Promise<RAPIER.World> {
   if (world) return world;
-  // @ts-ignore - Fixing deprecated parameter warning from runtime
-  await RAPIER.init({}); 
+  await RAPIER.init(); 
   world = new RAPIER.World({ x: 0.0, y: -19.62, z: 0.0 });
+  eventQueue = new RAPIER.EventQueue(true);
   return world;
 }
 
 export function getPhysicsWorld(): RAPIER.World {
   if (!world) throw new Error('[Physics] initPhysics() henüz bitmedi!');
   return world;
+}
+
+export function getPhysicsEventQueue(): RAPIER.EventQueue {
+  if (!eventQueue) throw new Error('[Physics] EventQueue henüz bitmedi!');
+  return eventQueue;
 }
 
 /**
@@ -36,16 +42,13 @@ export function createTerrainCollider(
   const groundBodyDesc = RAPIER.RigidBodyDesc.fixed();
   const groundBody = w.createRigidBody(groundBodyDesc);
 
-  // Rapier heightfield scale is the size of ONE CELL.
-  // Visual mesh size is scaleX, segments is nRows-1.
-  const cellSizeX = scaleX / (nRows - 1);
-  const cellSizeZ = scaleZ / (nCols - 1);
-
+  // Rapier heightfield scale is the TOTAL size of the heightfield, not the cell size!
+  // The heightfield is centered at the origin with extents reaching scaleX and scaleZ.
   const colliderDesc = RAPIER.ColliderDesc.heightfield(
     nRows - 1,
     nCols - 1,
     heights,
-    { x: cellSizeX, y: 1.0, z: cellSizeZ }
+    { x: scaleX, y: 1.0, z: scaleZ }
   )
   .setFriction(0.8)
   .setRestitution(0.1);

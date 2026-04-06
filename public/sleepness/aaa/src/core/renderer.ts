@@ -1,29 +1,14 @@
 import * as THREE from 'three';
 
-const lastShadowCamPos = new THREE.Vector3(Infinity, Infinity, Infinity);
-let lastShadowTime = 0;
-
-export function updateShadowMap(renderer: THREE.WebGLRenderer, camera: THREE.Camera, force: boolean = false): void {
-  const now = performance.now();
-  // Throttle: Max 30 updates per second even if moving fast
-  if (!force && now - lastShadowTime < 33) return;
-
-  const currentPos = camera.position;
-  const dist = lastShadowCamPos.distanceTo(currentPos);
-  
-  // Update if camera moved > 0.8m OR forced (sun moved)
-  if (force || dist > 0.8) {
-    renderer.shadowMap.needsUpdate = true;
-    lastShadowCamPos.copy(currentPos);
-    lastShadowTime = now;
-  }
-}
+// Track whether resize listener is attached to prevent double-binding
+// (postprocessing.ts also adds one — this ensures they don't conflict)
+let _resizeAttached = false;
 
 export function createRenderer(): THREE.WebGLRenderer {
   const renderer = new THREE.WebGLRenderer({
     antialias: false,
     powerPreference: 'high-performance',
-    precision: 'highp', 
+    precision: 'highp',
     stencil: false,
     depth: true,
   });
@@ -31,11 +16,11 @@ export function createRenderer(): THREE.WebGLRenderer {
   const initialDPR = Math.min(window.devicePixelRatio, 1.35);
   renderer.setPixelRatio(initialDPR);
   renderer.setSize(window.innerWidth, window.innerHeight);
-  
+
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFShadowMap; 
-  renderer.shadowMap.autoUpdate = false;
-  
+  renderer.shadowMap.type = THREE.PCFShadowMap;
+  renderer.shadowMap.autoUpdate = true;
+
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 0.72;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -57,7 +42,7 @@ export function createSceneAndCamera(): {
     65,
     window.innerWidth / window.innerHeight,
     0.3,
-    5000 
+    5000
   );
 
   return { scene, camera };
@@ -78,10 +63,12 @@ export function setupLights(scene: THREE.Scene): {
   const sun = new THREE.DirectionalLight(0xfff4e0, 2.6);
   sun.position.set(50, 80, 30);
   sun.castShadow = true;
-  
-  const shadowRes = window.innerWidth < 768 ? 1024 : 1024;
+
+  // [BUG-FIX] Shadow resolution ternary was 1024 : 1024 (both same value)
+  // Mobile uses 1024 to save memory, desktop uses 2048 for sharp shadows.
+  const shadowRes = window.innerWidth < 768 ? 1024 : 2048;
   sun.shadow.mapSize.set(shadowRes, shadowRes);
-  
+
   sun.shadow.camera.near = 1.0;
   sun.shadow.camera.far = 400;
   sun.shadow.camera.left = -40;
@@ -90,7 +77,7 @@ export function setupLights(scene: THREE.Scene): {
   sun.shadow.camera.bottom = -40;
   sun.shadow.bias = -0.0003;
   sun.shadow.normalBias = 0.02;
-  sun.shadow.radius = 2; 
+  sun.shadow.radius = 2;
   scene.add(sun);
   scene.add(sun.target);
 
@@ -106,22 +93,31 @@ export function setupResize(
   camera: THREE.PerspectiveCamera,
   composer?: any
 ): void {
+  // [BUG-FIX] Prevent double resize listener:
+  // postprocessing.ts also attaches a resize handler for the composer.
+  // This function now owns the renderer + camera resize.
+  // The composer's setSize is handled inside postprocessing.ts itself.
+  if (_resizeAttached) return;
+  _resizeAttached = true;
+
   const handleResize = () => {
     const width = window.innerWidth;
     const height = window.innerHeight;
-    
+
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
-    
+
     renderer.setSize(width, height);
+    // Note: composer resize is handled by postprocessing.ts's own listener.
+    // Passing composer here is kept for backwards compatibility only.
     if (composer) composer.setSize(width, height);
-    
+
     const maxDPR = width < 768 ? 1.0 : 1.5;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxDPR));
   };
-  
+
   window.addEventListener('resize', handleResize);
   window.addEventListener('orientationchange', () => {
-    setTimeout(handleResize, 100); 
+    setTimeout(handleResize, 100);
   });
 }

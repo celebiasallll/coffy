@@ -335,20 +335,20 @@ export function spawnVehicles(scene: THREE.Scene): void {
     // ATV
     const atvGroup = new THREE.Group();
     const atvSpawnX = 450, atvSpawnZ = 520;
-    const atvStartY = getHeight(atvSpawnX, atvSpawnZ) + 2;
-    const atvRB = createBody(atvSpawnX, atvStartY, atvSpawnZ, 2.1, 1.2, 3.6, 13500);
+    const atvStartY = getHeight(atvSpawnX, atvSpawnZ) + 2.3;
+    const atvRB = createBody(atvSpawnX, atvStartY, atvSpawnZ, 1.4, 0.9, 2.6, 4050); // Lighter additional mass for smaller ATV
     atvGroup.position.set(atvSpawnX, atvStartY, atvSpawnZ);
     const atvConfig: VehicleConfig = {
-        mass: 13500,
-        maxSpeed: 50,           // biraz yavaşlat, kontrol artırılsın
-        acceleration: 180000,   // daha yumuşak ivme (ani fırlamayı önler)
-        brakeForce: 270000,     // fren kuvveti orantılı
-        steerSpeed: 3.5,        // daha yavaş steer = daha kontrollü dönüş
-        suspensionStiffness: 900000,   // daha yumuşak süspansiyon (sert sıçrama azalır)
-        suspensionDamping: 108000,     // sönümleme artırıldı (sallanma azalır)
-        suspensionRestLength: 1.3,     // biraz daha uzun (daha iyi zemin takibi)
-        wheelRadius: 1.05,
-        antiRoll: 162000        // anti-roll hafif azaltıldı (biraz doğal yatma kalır)
+        mass: 4050,
+        maxSpeed: 55,
+        acceleration: 32400,
+        brakeForce: 54000,
+        steerSpeed: 3.5,
+        suspensionStiffness: 162000,
+        suspensionDamping: 21600,
+        suspensionRestLength: 1.3,
+        wheelRadius: 0.96, // Matches visual radius ATV_WR
+        antiRoll: 81000
     };
     const atv = new VehicleController(atvGroup, atvRB, world, atvConfig);
     
@@ -360,7 +360,8 @@ export function spawnVehicles(scene: THREE.Scene): void {
     const rubberATV   = new THREE.MeshStandardMaterial({ color: 0x080808, roughness: 1.00, metalness: 0.00 });
     // Mat siyah jant (ATV)
     const rimATV      = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, metalness: 0.0 });
-    const atvLensMat  = new THREE.MeshStandardMaterial({ color: 0xfff8e0, emissive: 0xffcc44, emissiveIntensity: 3.5, roughness: 0.05 });
+    // Modern Cool LED White
+    const atvLensMat  = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xebf2ff, emissiveIntensity: 4.0, roughness: 0.05 });
     const atvTailMat  = new THREE.MeshStandardMaterial({ color: 0xff1100, emissive: 0xff0000, emissiveIntensity: 4.5, roughness: 0.05 });
     const seatMat     = new THREE.MeshStandardMaterial({ color: 0x1c1c1c, roughness: 0.92 });
 
@@ -378,8 +379,14 @@ export function spawnVehicles(scene: THREE.Scene): void {
     atvGroup.add(createPart(new THREE.BoxGeometry(0.34, 0.11, 0.06), darkATV,    0,  0.38, -0.73));
     // ── Far lensi ve Işık ──
     atvGroup.add(createPart(new THREE.BoxGeometry(0.27, 0.07, 0.04), atvLensMat, 0,  0.38, -0.76));
-    const atvLight = new THREE.PointLight(0xffcc44, 40, 15);
+    
+    // Gerçekçi Spot Işığı
+    const atvLight = new THREE.SpotLight(0xebf2ff, 100, 70, Math.PI / 5.5, 0.6, 1.0);
     atvLight.position.set(0, 0.38, -0.85);
+    const atvTarget = new THREE.Object3D();
+    atvTarget.position.set(0, 0.1, -6.0); // İleriye ve çok hafif aşağıya bakış
+    atvGroup.add(atvTarget);
+    atvLight.target = atvTarget;
     atvGroup.add(atvLight);
     // ── Arka panel ──
     atvGroup.add(createPart(new THREE.BoxGeometry(0.50, 0.19, 0.24), plasticATV, 0,  0.27,  0.60,  0.18, 0, 0));
@@ -503,7 +510,8 @@ export function spawnVehicles(scene: THREE.Scene): void {
     const jDark   = new THREE.MeshStandardMaterial({ color: 0x0d0d0d, roughness: 0.90, metalness: 0.10 });
     const jMetal  = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.85, metalness: 0.15 }); // siyahımsı metal
     const jGlass  = new THREE.MeshStandardMaterial({ color: 0x88aacc, roughness: 0.05, metalness: 0.10, transparent: true, opacity: 0.55 });
-    const jLight  = new THREE.MeshStandardMaterial({ color: 0xfff8e0, emissive: 0xffcc44, emissiveIntensity: 3.2, roughness: 0.05 });
+    // Modern Cool LED White
+    const jLight  = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xebf2ff, emissiveIntensity: 4.0, roughness: 0.05 });
     const jStop   = new THREE.MeshStandardMaterial({ color: 0xff1100, emissive: 0xff0000, emissiveIntensity: 4.2, roughness: 0.05 });
     const jRubber = new THREE.MeshStandardMaterial({ color: 0x080808, roughness: 1.00, metalness: 0.00 });
     const jRim    = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, metalness: 0.0 }); // mat beyaz jant
@@ -548,8 +556,14 @@ export function spawnVehicles(scene: THREE.Scene): void {
     [-1, 1].forEach(sx => {
         jeepVisualOffsetGroup.add(createPart(new THREE.BoxGeometry(0.30, 0.22, 0.12), jDark,  sx * 0.66,  0.12, -1.73));
         jeepVisualOffsetGroup.add(createPart(new THREE.BoxGeometry(0.22, 0.15, 0.06), jLight, sx * 0.66,  0.12, -1.77));
-        const jHeadlight = new THREE.PointLight(0xffcc44, 45, 20);
+        
+        // Gerçekçi Çift Spot Işığı
+        const jHeadlight = new THREE.SpotLight(0xebf2ff, 120, 90, Math.PI / 5.0, 0.7, 1.0);
         jHeadlight.position.set(sx * 0.66, 0.12, -1.85);
+        const jTarget = new THREE.Object3D();
+        jTarget.position.set(sx * 0.66, -0.2, -8.0);
+        jeepVisualOffsetGroup.add(jTarget);
+        jHeadlight.target = jTarget;
         jeepVisualOffsetGroup.add(jHeadlight);
     });
     // ── Stop lambaları ──

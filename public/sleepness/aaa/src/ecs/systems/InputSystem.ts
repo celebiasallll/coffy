@@ -95,8 +95,8 @@ export const inputSystem = defineSystem((world: IWorld) => {
         InputState.pitch[id] = mouseY;
         InputState.sprint[id] = (keys['ShiftLeft'] || keys['ShiftRight'] || touchControls.isSprinting) ? 1 : 0;
         
-        // Weapon Switches (Only Q)
-        if (keys['KeyQ'] && !keys['_Q_LOCK_']) {
+        // Weapon Switches (Only Q - Blocked while driving to prevent unwanted sounds)
+        if (keys['KeyQ'] && !keys['_Q_LOCK_'] && !InputState.isDriving[id]) {
             InputIntents.switchWeaponRequest[id] = 1; // Toggle signal
             keys['_Q_LOCK_'] = true;
         }

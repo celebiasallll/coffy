@@ -12,9 +12,7 @@ export interface JetInput {
     gearToggle: boolean;
 }
 
-// ── Sensitivity Config ───────────────────────────────────────────────────────
 export interface InputConfig {
-    /** Mouse hassasiyeti (varsayılan: 0.010) */
     sensitivity: number;
 }
 
@@ -24,85 +22,60 @@ const DEFAULT_CONFIG: InputConfig = {
 
 class JetInputSystem {
     private keys: Record<string, boolean> = {};
-    private mouseDeltaX = 0;
-    private mouseDeltaY = 0;
 
-    // v9.0: Dışarıdan ayarlanabilir hassasiyet
+    // [BUG-FIX] Removed mouseDeltaX/mouseDeltaY fields entirely.
+    // They were accumulated in a mousemove listener, then zeroed every frame
+    // in update() without ever being read. The mouse is handled by
+    // CameraFollow.ts's own listener. Dead accumulation wasted CPU each frame.
+
     public config: InputConfig = { ...DEFAULT_CONFIG };
 
-    // Smoothed axes (inertia)
     private sPitch = 0;
     private sRoll = 0;
     private sYaw = 0;
 
     constructor() {
-        window.addEventListener('keydown', (e) => {
-            this.keys[e.code] = true;
-        });
-        window.addEventListener('keyup', (e) => {
-            this.keys[e.code] = false;
-        });
-        window.addEventListener('mousemove', (e: MouseEvent) => {
-            if (document.pointerLockElement) {
-                this.mouseDeltaX += e.movementX;
-                this.mouseDeltaY += e.movementY;
-            }
-        });
+        window.addEventListener('keydown', (e) => { this.keys[e.code] = true; });
+        window.addEventListener('keyup', (e) => { this.keys[e.code] = false; });
+        // No mousemove listener here — CameraFollow owns mouse orbit.
     }
 
-    /** Hassasiyeti çalışma zamanında değiştir (ayar menüsü için) */
     public setSensitivity(value: number): void {
         this.config.sensitivity = THREE.MathUtils.clamp(value, 0.001, 0.05);
     }
 
-    /** Belirli bir tuşun basılı olup olmadığını kontrol et ve latch'i sıfırla (v9.1) */
     public isKeyPressed(code: string): boolean {
-        if (this.keys[code]) {
-            this.keys[code] = false; // Latch
-            return true;
-        }
-        return false;
+        return !!this.keys[code];
+    }
+
+    public clearKey(code: string): void {
+        this.keys[code] = false;
     }
 
     public update(dt: number): JetInput {
-        const sens = this.config.sensitivity;
-
-        // ── Mouse → Pitch / Yaw ──────────────────────────────────────────────
-        // v9.0: Orbit modunda mouse uçuşu etkilemez — sadece kamera döner.
-        // (CameraFollow'un kendi mousemove listener'ı orbit'i yönetir.)
+        // ── Pitch ──────────────────────────────────────────────────────────────
         let rawPitch = 0;
-        let rawYaw = 0;
-
-        if (jetCamera.mode !== 'orbit') {
-            rawPitch = THREE.MathUtils.clamp(-this.mouseDeltaY * sens, -1, 1);
-            rawYaw = THREE.MathUtils.clamp(-this.mouseDeltaX * sens, -1, 1);
-        }
-
-        // Delta her zaman sıfırlanır (orbit modunda da birikmesin)
-        this.mouseDeltaX = 0;
-        this.mouseDeltaY = 0;
-
-        // ── Klavye Pitch ─────────────────────────────────────────────────────
         if (this.keys['ArrowDown']) rawPitch += 1.0;
         if (this.keys['ArrowUp']) rawPitch -= 1.0;
         rawPitch = THREE.MathUtils.clamp(rawPitch, -1, 1);
 
-        // ── Klavye Roll ──────────────────────────────────────────────────────
+        // ── Roll ───────────────────────────────────────────────────────────────
         let rawRoll = 0;
         if (this.keys['KeyA'] || this.keys['ArrowLeft']) rawRoll -= 1.0;
         if (this.keys['KeyD'] || this.keys['ArrowRight']) rawRoll += 1.0;
 
-        // ── Klavye Yaw ───────────────────────────────────────────────────────
+        // ── Yaw ────────────────────────────────────────────────────────────────
+        let rawYaw = 0;
         if (this.keys['KeyQ']) rawYaw += 1.0;
         if (this.keys['KeyE']) rawYaw -= 1.0;
         rawYaw = THREE.MathUtils.clamp(rawYaw, -1, 1);
 
-        // ── Deadzone (v8.0) ──────────────────────────────────────────────────
+        // ── Deadzone ───────────────────────────────────────────────────────────
         if (Math.abs(rawPitch) < 0.05) rawPitch = 0;
         if (Math.abs(rawRoll) < 0.05) rawRoll = 0;
         if (Math.abs(rawYaw) < 0.05) rawYaw = 0;
 
-        // ── Obsidian Smoothing (v8.2) ────────────────────────────────────────
+        // ── Smoothing ──────────────────────────────────────────────────────────
         const smoothRate = dt * 3.0;
         this.sPitch = THREE.MathUtils.lerp(this.sPitch, rawPitch, smoothRate);
         this.sRoll = THREE.MathUtils.lerp(this.sRoll, rawRoll, smoothRate);

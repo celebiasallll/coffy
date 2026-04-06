@@ -71,22 +71,13 @@ export const renderSystem = defineSystem((world: IWorld) => {
                 mesh.visible = shouldBeVisible;
                 (mesh as any)._lastShadowState = shouldCastShadow;
 
-                // --- TRAVERSAL CACHE (Bottleneck #6 Fix) ---
-                // Avoid recursive traverse() on 50+ boned skinned meshes
-                let children = (mesh as any)._cachedMeshChildren;
-                if (!children) {
-                    children = [];
-                    mesh.traverse(c => {
-                        if ((c as any).isMesh) children.push(c);
-                    });
-                    (mesh as any)._cachedMeshChildren = children;
-                }
-
-                for (let j = 0; j < children.length; j++) {
-                    const c = children[j];
-                    c.castShadow = shouldCastShadow;
-                    c.receiveShadow = shouldBeVisible;
-                }
+                // Only traverse when state CHANGES
+                mesh.traverse(c => {
+                    if ((c as any).isMesh) {
+                        c.castShadow = shouldCastShadow;
+                        c.receiveShadow = shouldBeVisible; // Still receive to maintain depth
+                    }
+                });
             }
             if (!shouldBeVisible) continue;
         }

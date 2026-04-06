@@ -2,23 +2,24 @@ import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 
 // ── Scratch Vectors (No `new` in update loop) ────────────────────────────────
-// v9.0: Tüm per-frame new THREE.* çağrıları kaldırıldı → GC pressure sıfır
 const _v1 = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
-const _v3 = new THREE.Vector3(); // v25.0: Scratch for FBW
+const _v3 = new THREE.Vector3();
+const _v4 = new THREE.Vector3(); // [BUG-FIX] Dedicated worldUp scratch — prevents _v3 aliasing
 const _q1 = new THREE.Quaternion();
 const _q2 = new THREE.Quaternion();
-const _euler = new THREE.Euler();        // v9.0: orientation stabilizer için
+const _euler = new THREE.Euler();
 const _fwd = new THREE.Vector3();
 const _up = new THREE.Vector3();
 const _right = new THREE.Vector3();
+const _velDir = new THREE.Vector3();
 
 // ── Physics Constants ────────────────────────────────────────────────────────
 const G_ACCEL = 9.81;
-const THRUST_ACCEL = 45.0; // v24.0: Hız %50 azaltıldı (90 -> 45)
-const DRAG_FACTOR = 0.985;
-const MAX_SPEED = 75;      // v24.0: (150 -> 75)
-const MIN_FLY_SPEED = 14;  // v24.0: (28 -> 14)
+const THRUST_ACCEL = 145.0;
+const DRAG_FACTOR = 0.9988;
+const NOMINAL_MAX_SPEED = 232; // ~450 kts (232 * 1.944)
+const MIN_FLY_SPEED = 18;
 
 export interface FlightState {
     throttle: number;
@@ -27,13 +28,34 @@ export interface FlightState {
     altitude: number;
     isCrashed: boolean;
     prevSpeed: number;
+    health: number;
+    // [NEW] Exported for camera + HUD use
+    gForce: number;
+    stallFactor: number;
+    isStalling: boolean;
+}
+
+// ── G-Force State (Exported for camera & HUD) ────────────────────────────────
+// Smooth the raw per-frame G to avoid jitter in camera effects
+let _smoothedGForce = 1.0;
+let _prevVelLen = 0;
+
+/** Returns the smoothed G-force from the last physics update (1.0 = 1G normal) */
+export function getSmoothedGForce(): number {
+    return _smoothedGForce;
 }
 
 // ── Gravity Scale Init Tracker ───────────────────────────────────────────────
-// Rapier world gravity (-19.62) + manuel gravity → çift yerçekimi.
-// Çözüm: jet RigidBody'de gravity scale = 0, tüm gravity FlightPhysics'te.
-// initedBodies: sadece ilk frame'de setGravityScale çağrılır.
 const _initedBodies = new WeakSet<RAPIER.RigidBody>();
+
+// ── Stall Buffeting State ─────────────────────────────────────────────────────
+let _stallBuffetTimer = 0;
+let _stallBuffetX = 0;
+let _stallBuffetZ = 0;
+
+// ── Flight Control State (Persistent Momentum) ────────────────────────────────
+let _sPitch = 0, _sRoll = 0, _sYaw = 0;
+let _sThrust = 0.4;
 
 export function updateFlightPhysics(
     rb: RAPIER.RigidBody,
@@ -51,11 +73,11 @@ export function updateFlightPhysics(
     groundY: number
 ): void {
 
-    // ── v9.0: Gravity Scale Fix ──────────────────────────────────────────────
-    // Rapier world gravity'yi bu RigidBody için devre dışı bırak.
-    // Tüm gravity manuel olarak aşağıda uygulanır (önceki davranışla aynı).
+    // ── Gravity Scale Fix ─────────────────────────────────────────────────────
     if (!_initedBodies.has(rb)) {
-        rb.setGravityScale(0, false);
+        // [MODIFIED] Set gravity scale to 0 because we handle gravity manually in the update loop
+        // to have absolute control over lift vs weight balance.
+        rb.setGravityScale(0.0, false);
         _initedBodies.add(rb);
     }
 
@@ -72,126 +94,199 @@ export function updateFlightPhysics(
     _v1.set(vel.x, vel.y, vel.z);
     const worldSpeed = _v1.length();
 
+    // ── [FIX] Consistent speed state: single update point ────────────────────
+    state.prevSpeed = state.speed;
     state.speed = worldSpeed;
-    state.altitude = pos.y - groundY;
 
-    // 2. Throttle & Thrust
-    const tRate = 1.3;
-    if (input.throttleUp) state.throttle = Math.min(1.2, state.throttle + dt * tRate);
-    if (input.throttleDown) state.throttle = Math.max(0, state.throttle - dt * tRate);
+    // ── G-Force Calculation ───────────────────────────────────────────────────
+    // G = centripetal acceleration / G_ACCEL. We approximate via speed delta.
+    const speedDelta = Math.abs(worldSpeed - _prevVelLen);
+    const rawG = 1.0 + (speedDelta / Math.max(dt, 0.001)) / G_ACCEL;
+    _smoothedGForce = THREE.MathUtils.lerp(_smoothedGForce, THREE.MathUtils.clamp(rawG, 0.0, 12.0), dt * 5.0);
+    _prevVelLen = worldSpeed;
+    state.gForce = _smoothedGForce;
+
+    // Calculate altitude
+    const currentAlt = pos.y - groundY;
+    const altitudeDelta = (state.altitude < -999)
+        ? 0
+        : THREE.MathUtils.clamp(currentAlt - state.altitude, -5, 5);
+    state.altitude = currentAlt;
+
+    // 2. Throttle & Thrust (Momentum Focused Spool-up)
+    const tRate = input.throttleUp ? 0.35 : (input.throttleDown ? 0.25 : 0.0);
+    if (input.throttleUp) {
+        state.throttle = THREE.MathUtils.clamp(state.throttle + dt * tRate, 0, 1.5);
+    } else if (input.throttleDown) {
+        state.throttle = THREE.MathUtils.clamp(state.throttle - dt * tRate, 0, 1.5);
+    }
+    if (!input.throttleUp && !input.throttleDown && state.throttle > 0.4) {
+        state.throttle = THREE.MathUtils.lerp(state.throttle, 0.4, dt * 0.05);
+    }
     state.afterburner = input.afterburner && state.throttle > 0.8;
 
-    let currentThrustAccel = THRUST_ACCEL;
-    if (state.afterburner) currentThrustAccel *= 2.5;
+    // [2026] Spool-up Thrust Momentum
+    const targetThrust = state.afterburner ? (THRUST_ACCEL * 2.5) : (THRUST_ACCEL * state.throttle);
+    _sThrust = THREE.MathUtils.lerp(_sThrust, targetThrust, dt * 1.5); // Gradual spool
 
-    const thrustMsg = state.throttle * currentThrustAccel * dt;
+    const thrustMsg = _sThrust * dt;
     _v2.copy(_fwd).multiplyScalar(thrustMsg);
-    _v1.multiplyScalar(DRAG_FACTOR).add(_v2);
+
+    // Energy conservation: altitude change transfers to speed
+    const energyTransfer = altitudeDelta * G_ACCEL * 0.035;
+    _v1.addScaledVector(_fwd, -energyTransfer);
+
+    // AoA Guard — zero speed protection
+    if (_v1.length() < 1.0 && state.throttle < 0.1) {
+        _v1.y -= G_ACCEL * dt;
+        _v1.add(_v2);
+        rb.setLinvel({ x: _v1.x, y: _v1.y, z: _v1.z }, true);
+        state.speed = _v1.length();
+        state.stallFactor = 0;
+        state.isStalling = true;
+        return;
+    }
+
+    _velDir.set(_v1.x, _v1.y, _v1.z).normalize();
+    const aoaDot = THREE.MathUtils.clamp(_velDir.dot(_fwd), -1, 1);
+    const aoa = Math.acos(aoaDot) + 0.05;
+    const dynamicPressure = state.speed * state.speed * 0.0005;
+    const liftCoeff = Math.sin(2 * aoa) * 1.2;
+
+    // Stall: AoA > ~20° (0.35 rad)
+    const stallFactor = THREE.MathUtils.clamp(
+        1.0 - Math.max(0, aoa - 0.35) / 0.35, 0, 1
+    );
+    state.stallFactor = stallFactor;
+    state.isStalling = stallFactor < 0.35 && state.speed > MIN_FLY_SPEED;
+
+    let liftFactor = THREE.MathUtils.clamp(
+        dynamicPressure * liftCoeff * stallFactor, 0, 1.4
+    );
+
+    // Ground Effect
+    const GE_ALT = 15.0;
+    if (state.altitude < GE_ALT && state.altitude > 0) {
+        const factor = 1.0 + (1.0 - state.altitude / GE_ALT) * 0.35;
+        liftFactor *= factor;
+    }
+
+    // 5. DRAG
+    const inducedDrag = liftCoeff * liftCoeff * 0.018;
+    const baseDrag = Math.max(0.92, DRAG_FACTOR - inducedDrag);
+    _v1.multiplyScalar(Math.pow(baseDrag, dt * 60));
+
+    // Turbulence
+    const TURB_ALT = 50.0;
+    if (state.altitude < TURB_ALT && state.speed > 20) {
+        const t = performance.now() * 0.001;
+        const turbStr = (1.0 - state.altitude / TURB_ALT) * state.speed * 0.012;
+        _v1.x += Math.sin(t * 8.2) * turbStr * dt;
+        _v1.y += Math.cos(t * 6.4) * turbStr * dt;
+        _v1.z += Math.sin(t * 11.5) * turbStr * dt;
+    }
+
+    _v1.add(_v2);
 
     // 3. Lift & Gravity (v25.1: Pro-FBW Anti-NoseDip)
-    const liftFactor = THREE.MathUtils.clamp(state.speed / MIN_FLY_SPEED, 0, 1.2);
-    const worldUp = _v3.set(0, 1, 0); 
-    // Bank oranına göre (input'tan bağımsız olarak) kaldırma kuvvetini dikey tutma
     const bankImpact = Math.abs(_right.y); // 1.0 ise tam yan yatmışız
+    const worldUp = _v4.set(0, 1, 0);
     const liftVector = _v3.copy(_up).lerp(worldUp, bankImpact * 0.98); // %98 dikey koruma
-    _v2.copy(liftVector).multiplyScalar(G_ACCEL * dt * liftFactor);
+    const liftForce = G_ACCEL * dt * liftFactor;
+    _v2.copy(liftVector).multiplyScalar(liftForce);
+    
+    // [FIXED]: Constant gravity for "Weight on Wheels" (prevents sticking/jittering)
     _v1.y -= G_ACCEL * dt;
     _v1.add(_v2);
 
-
-
-    // 4. Momentum Architecture
-    const currentMax = state.afterburner ? MAX_SPEED * 1.6 : MAX_SPEED;
+    // 4. Air Resistance (Quadratic)
     let speed = _v1.length();
-
-    if (speed > currentMax) {
-        _v1.multiplyScalar(currentMax / speed);
-        speed = currentMax;
-    }
-
+    const currentMax = state.afterburner ? NOMINAL_MAX_SPEED : NOMINAL_MAX_SPEED * 0.65;
     if (speed > 5) {
-        _v2.copy(_fwd).multiplyScalar(speed);
-        _v1.lerp(_v2, dt * 4.5);
+        const speedRatio = speed / currentMax;
+        // [MOMENTUM]: Hava direncini daha doğrusal ve yumuşak hale getirerek hızı koruyoruz.
+        const airResistance = 1.0 - (Math.pow(speedRatio, 2.0) * 0.05 * dt * 60);
+        _v1.multiplyScalar(Math.max(0.70, airResistance));
     }
 
-    _v1.multiplyScalar(0.995);
+    let currentConstrainedSpeed = _v1.length();
+
+    // HARD SPEED LIMIT: Absolute cap at 450 kts (approx 232 m/s)
+    if (currentConstrainedSpeed > NOMINAL_MAX_SPEED * 1.05) {
+        currentConstrainedSpeed = NOMINAL_MAX_SPEED * 1.05;
+        _v1.normalize().multiplyScalar(currentConstrainedSpeed);
+    }
+
+    if (currentConstrainedSpeed > 5) {
+        // [FİZİK DÜZELTMESİ]: Aerodynamic Grip reduced for 'Sideslip' momentum drift
+        _v2.copy(_fwd).multiplyScalar(currentConstrainedSpeed);
+        
+        // [2026] Re-tightened grip (2.5 -> 4.5) to prevent angular jitter/hunting
+        let aerodynamicGrip = Math.pow(currentConstrainedSpeed / 80.0, 2.0) * 4.5;
+        aerodynamicGrip = Math.min(aerodynamicGrip, 10.0); 
+        
+        const followStrength = state.isStalling ? (aerodynamicGrip * 0.1) : aerodynamicGrip; 
+        _v1.lerp(_v2, dt * followStrength);
+        
+        if (_v1.lengthSq() > 0.1) {
+            _v1.normalize().multiplyScalar(currentConstrainedSpeed);
+        }
+    }
+
+    // [MOMENTUM]: Global sürtünmeyi (drone hissiyatını yok etmek için) 0.995 -> 0.999 yaptık.
+    const globalDrag = Math.pow(0.999, dt * 60);
+    _v1.multiplyScalar(globalDrag);
     rb.setLinvel({ x: _v1.x, y: _v1.y, z: _v1.z }, true);
 
-    // 5. ZEN CONTROL LAYER (v8.3 korundu)
-    const P_RATE = 0.8, R_RATE = 1.8, Y_RATE = 0.8;
-    const ctrlAuth = Math.min(1.0, speed / 12.0);
+    // [NEW] Stall Buffeting — random angular impulse when stalling
+    // Gives a realistic shaking feeling when AoA exceeds critical angle
+    if (state.isStalling) {
+        _stallBuffetTimer -= dt;
+        if (_stallBuffetTimer <= 0) {
+            _stallBuffetTimer = 0.04 + Math.random() * 0.06; // ~15-25 Hz
+            const buffetStr = (1.0 - stallFactor) * 0.8; // stronger near full stall
+            _stallBuffetX = (Math.random() - 0.5) * buffetStr;
+            _stallBuffetZ = (Math.random() - 0.5) * buffetStr * 0.5;
+        }
+    } else {
+        _stallBuffetX = THREE.MathUtils.lerp(_stallBuffetX, 0, dt * 10);
+        _stallBuffetZ = THREE.MathUtils.lerp(_stallBuffetZ, 0, dt * 10);
+    }
+
+    // 5. ZEN CONTROL LAYER (v26.0: maneuverability boosted by 20%)
+    const P_RATE = 1.8, R_RATE = 2.4, Y_RATE = 1.2;
+    const ctrlAuth = Math.min(1.0, (speed + 20.0) / 40.0) * stallFactor; // [FIX] Stall reduces control authority
 
     const cav = rb.angvel();
     const curAV = _v2.set(cav.x, cav.y, cav.z);
 
+    // [MOMENTUM]: Smoother input transitions and even heavier angular inertia
+    _sPitch = THREE.MathUtils.lerp(_sPitch, input.pitch, dt * 2.0);
+    _sRoll = THREE.MathUtils.lerp(_sRoll, input.roll, dt * 1.5);
+    _sYaw = THREE.MathUtils.lerp(_sYaw, input.yaw, dt * 1.0);
+
     const targetAV = _v1.set(0, 0, 0)
-        .addScaledVector(_right, input.pitch * P_RATE * ctrlAuth)
-        .addScaledVector(_fwd, input.roll * R_RATE * ctrlAuth)
-        .addScaledVector(_up, input.yaw * Y_RATE * ctrlAuth);
-
-    const bankFactor = _right.y;
-    const isPitching = Math.abs(input.pitch) > 0.1;
-    if (Math.abs(bankFactor) > 0.05) {
-        targetAV.addScaledVector(_up, bankFactor * 1.5 * ctrlAuth);
+        .addScaledVector(_right, (_sPitch * P_RATE + _stallBuffetX) * ctrlAuth)
+        .addScaledVector(_fwd, (_sRoll * R_RATE + _stallBuffetZ) * ctrlAuth)
+        .addScaledVector(_up, _sYaw * Y_RATE * ctrlAuth);
+    
+    // Auto-yaw helper in rolls (v25.1: Pro-FBW coordinated turn - boosted 20%)
+    if (Math.abs(_right.y) > 0.05) {
+        targetAV.addScaledVector(_up, _right.y * 1.8 * ctrlAuth);
     }
-
-    if (!isPitching) {
+    
+    // Smooth auto levelling when not pitching
+    if (Math.abs(_sPitch) < 0.1) {
         const noseDip = _fwd.y;
-        targetAV.addScaledVector(_right, -noseDip * 0.5 * ctrlAuth);
+        targetAV.addScaledVector(_right, -noseDip * 0.6 * ctrlAuth);
     }
-
-    const smoothing = dt * 2.5; // v25.1: Daha tepkisel kontrol (1.5 -> 2.5)
+    
+    // [MOMENTUM]: Re-tightened smoothing (2.0 -> 4.5) to stop oscillations
+    const smoothing = dt * 4.5; 
     curAV.lerp(targetAV, smoothing);
-    curAV.multiplyScalar(0.99); // v25.1: Daha fazla açısal sönümleme
+
+    const angDrag = Math.pow(0.98, dt * 60);
+    curAV.multiplyScalar(angDrag);
 
     rb.setAngvel({ x: curAV.x, y: curAV.y, z: curAV.z }, true);
-
-    // 6. ORIENTATION STABILIZER (v25.0: DEAKTİF - Titremeyi önlemek için)
-    /*
-    _q2.set(rot.x, rot.y, rot.z, rot.w);
-    _euler.setFromQuaternion(_q2, 'YXZ');
-    if (!isPitching) _euler.x *= 1.0;
-    if (Math.abs(input.roll) < 0.1) _euler.z *= 0.9999;
-    _q2.setFromEuler(_euler);
-    rb.setRotation({ x: _q2.x, y: _q2.y, z: _q2.z, w: _q2.w }, true);
-    */
-
-    // 7. Ground Shield & Crash Detection (v17.0 korundu + v19.0 Altitude Guard)
-    const noseY = pos.y + (_fwd.y * 5.25);
-    const tailY = pos.y - (_fwd.y * 5.25);
-    const lowestY = Math.min(pos.y - 5.7, noseY, tailY);
-    const gDiff = lowestY - groundY;
-
-    if (state.speed > 20 && state.altitude < 12.0) { // v24.0: (40 -> 20)
-        const isNoseHit = (noseY - groundY) < -0.4 && _fwd.y < -0.45;
-        const isBellyHit = gDiff < -0.5;
-
-        if (isNoseHit || isBellyHit) {
-            state.isCrashed = true;
-            console.error(
-                `[JET CRASH] NoseHit: ${isNoseHit}, BellyHit: ${isBellyHit}, ` +
-                `Alt: ${state.altitude.toFixed(1)}, Speed: ${state.speed.toFixed(1)}`
-            );
-            return;
-        }
-    }
-
-    state.prevSpeed = state.speed;
-
-    if (gDiff < 1.0) {
-        const push = 1.0 - gDiff;
-        rb.setTranslation({ x: pos.x, y: pos.y + push * 0.6, z: pos.z }, true);
-
-        if (_fwd.y < -0.05) {
-            const curRV = rb.angvel();
-            rb.setAngvel({
-                x: curRV.x + _right.x * 1.5,
-                y: curRV.y + _right.y * 1.5,
-                z: curRV.z + _right.z * 1.5
-            }, true);
-        }
-
-        const curV = rb.linvel();
-        if (curV.y < -0.5) rb.setLinvel({ x: curV.x * 0.9, y: 0.2, z: curV.z * 0.9 }, true);
-    }
 }

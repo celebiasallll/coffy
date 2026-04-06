@@ -41,10 +41,10 @@ function rawHeight(wx: number, wz: number): number {
   }
 
   const dist = Math.sqrt((wx - LAKE_CENTER_X) ** 2 + (wz - LAKE_CENTER_Z) ** 2);
-  if (dist >= LAKE_RADIUS) {
-    h = Math.max(h, WATER_LEVEL + 1.2);
+  if (dist >= LAKE_RADIUS * 0.92) {
+    h = Math.max(h, WATER_LEVEL + 1.25);
   } else {
-    const t     = dist / LAKE_RADIUS;
+    const t     = dist / (LAKE_RADIUS * 0.92);
     const edge  = smoothstep(t / 0.78);
     const floor = WATER_LEVEL - 5.0;
     h = floor + (h - floor) * edge;
@@ -220,8 +220,8 @@ export function createTerrain(scene: THREE.Scene): { terrain: THREE.Mesh; size: 
   // AŞAMA 3: Three.js PBR Standart Fiziksel Materyali
   const mat = new THREE.MeshStandardMaterial({
     map:          grassTex,
-    normalMap:    grassNorm,      // Eğer undefined gelirse (Mobil), Three.js normal shaderlarını komple atlar (Dev optimizasyon)
-    roughnessMap: grassRough,     // Eğer undefined gelirse, roughness düz pürüzlülük olarak çalışır
+    normalMap:    grassNorm ?? null,
+    roughnessMap: grassRough ?? null,
     color:        0xffffff,
     roughness:    1.0,
     metalness:    0.0,
@@ -254,6 +254,8 @@ export function createTerrain(scene: THREE.Scene): { terrain: THREE.Mesh; size: 
       `#include <project_vertex>
       vWorldY    = position.y;
       vTerrainUV = uv;
+      // [FIX-4] vWorldXZ is object-space. Since terrain is at (0,0,0) world, this is fine.
+      // If terrain moves, use: (modelMatrix * vec4(position, 1.0)).xz
       vWorldXZ   = vec2(position.x, position.z);`
     );
 

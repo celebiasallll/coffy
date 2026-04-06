@@ -2,25 +2,31 @@ import { defineQuery, defineSystem, IWorld } from 'bitecs';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { Position, Rotation, PhysicsBody, InputState, PlayerTag, InputIntents, Velocity, EnemyTag, AnimState, Weapon } from '../components.js';
 import { entityPhysicsBodies, entityColliders, entityMeshes, characterController } from '../world.js';
-import { getPhysicsWorld } from '../../core/physics.js';
+import { getPhysicsWorld, getPhysicsEventQueue } from '../../core/physics.js';
 import { getHeight, TERRAIN_SIZE } from '../../world/terrain.js';
 import { isInWater, WATER_LEVEL } from '../../world/water.js';
 import { GameWorld, EntityId } from '../types.js';
+import { handleJetCollisionEvent } from '../../systems/Jet/JetController.js';
 import * as THREE from 'three';
 
 const physicsQuery = defineQuery([Position, Rotation, PhysicsBody]);
-const playerQuery  = defineQuery([PlayerTag, PhysicsBody, InputState, AnimState]);
-const enemyQuery   = defineQuery([EnemyTag, PhysicsBody, InputState]);
+const playerQuery = defineQuery([PlayerTag, PhysicsBody, InputState, AnimState]);
+const enemyQuery = defineQuery([EnemyTag, PhysicsBody, InputState]);
 
-const jumpCooldownMap  = new Map<EntityId, number>();
+const jumpCooldownMap = new Map<EntityId, number>();
 const jumpPendingTimer = new Map<EntityId, number>();
 
 export const playerGroundedState = new Map<EntityId, boolean>();
 
 const JUMP_STANDING_DELAY = 1.0;
-const JUMP_RUNNING_DELAY  = 0.15;
+const JUMP_RUNNING_DELAY = 0.15;
 
+// [BUG-FIX] TERRAIN_HALF was computed but never used — insideTerrain used
+// hardcoded 1515 instead. Now both use TERRAIN_HALF + 15 margin so the
+// boundary auto-updates if TERRAIN_SIZE changes.
 const TERRAIN_HALF = TERRAIN_SIZE / 2;
+const TERRAIN_BOUNDARY = TERRAIN_HALF + 15; // 15m margin to avoid edge pop
+
 const DEATH_PLANE_Y = -60;
 const RESPAWN_X = 480;
 const RESPAWN_Z = 480;
@@ -30,8 +36,9 @@ const _physRot = { x: 0, y: 0, z: 0, w: 1 };
 const _physMove = { x: 0, y: 0, z: 0 };
 
 function insideTerrain(x: number, z: number): boolean {
-    // Limits increased to match new 3000m map size (half = 1500)
-    return x > -1515 && x < 1515 && z > -1515 && z < 1515;
+    // [BUG-FIX] Was hardcoded to 1515, now uses TERRAIN_BOUNDARY
+    return x > -TERRAIN_BOUNDARY && x < TERRAIN_BOUNDARY
+        && z > -TERRAIN_BOUNDARY && z < TERRAIN_BOUNDARY;
 }
 
 function safeHeight(x: number, z: number): number | null {
@@ -39,7 +46,7 @@ function safeHeight(x: number, z: number): number | null {
 }
 
 export const physicsSystem = defineSystem((world: IWorld) => {
-    const gameWorld   = world as GameWorld;
+    const gameWorld = world as GameWorld;
     const rapierWorld = getPhysicsWorld();
     if (!rapierWorld || !characterController) return world;
 
@@ -50,7 +57,7 @@ export const physicsSystem = defineSystem((world: IWorld) => {
         const id = players[i] as EntityId;
         if (InputState.isDriving[id]) continue;
 
-        const rb       = entityPhysicsBodies.get(id);
+        const rb = entityPhysicsBodies.get(id);
         const collider = entityColliders.get(id);
         if (!rb || !collider) continue;
 
@@ -65,15 +72,14 @@ export const physicsSystem = defineSystem((world: IWorld) => {
             continue;
         }
 
-        const inside  = insideTerrain(pos.x, pos.z);
+        const inside = insideTerrain(pos.x, pos.z);
         const groundY = inside ? getHeight(pos.x, pos.z) : null;
 
-        const inWater      = inside && isInWater(pos.y, pos.x, pos.z);
-        const groundDepth  = (inside && groundY !== null) ? WATER_LEVEL - groundY : 0;
-        const wasSwimming  = InputState.swim[id] === 1;
-        const isSwimming   = inWater && (groundDepth > (wasSwimming ? 0.45 : 0.65));
+        const inWater = inside && isInWater(pos.y, pos.x, pos.z);
+        const groundDepth = (inside && groundY !== null) ? WATER_LEVEL - groundY : 0;
+        const wasSwimming = InputState.swim[id] === 1;
+        const isSwimming = inWater && (groundDepth > (wasSwimming ? 0.45 : 0.65));
 
-        // Tolerant grounded check for jumping
         const heightGrounded = (inside && groundY !== null) ? (pos.y - groundY) <= 1.10 : false;
         const isGrounded = characterController.computedGrounded() || heightGrounded;
         playerGroundedState.set(id, isGrounded);
@@ -81,13 +87,12 @@ export const physicsSystem = defineSystem((world: IWorld) => {
         let jcd = jumpCooldownMap.get(id) ?? 0;
         if (jcd > 0) { jcd -= dt; jumpCooldownMap.set(id, jcd); }
 
-        const yaw  = InputState.yaw[id];
+        const yaw = InputState.yaw[id];
         const sinY = Math.sin(yaw);
         const cosY = Math.cos(yaw);
-        const mx   = InputState.moveX[id];
-        const mz   = InputState.moveZ[id];
+        const mx = InputState.moveX[id];
+        const mz = InputState.moveZ[id];
 
-        // Instant Combat Logic: Intent tabanlı kontrol (Animasyon frame gecikmesini önler)
         const isKnife = Weapon.type[id] === 3;
         const isMeleeIntent = InputIntents.punchRequest[id] === 1 || InputIntents.kickRequest[id] === 1;
         const isStabIntent = isKnife && InputIntents.shootRequest[id] === 1;
@@ -95,17 +100,14 @@ export const physicsSystem = defineSystem((world: IWorld) => {
         const currentAnim = AnimState.current[id];
         const isAttacking = isMeleeIntent || isStabIntent || isStationaryShoot || [6, 9, 12].includes(currentAnim);
         const isCrouching = InputIntents.crouch[id] === 1;
-        
+
         let spd = (InputState.sprint[id] && !isAttacking) ? 14 : 7;
-        if (isCrouching) spd *= 0.5; // Eğilince hız azalır
+        if (isCrouching) spd *= 0.5;
 
         let dx = (mz * sinY + mx * cosY) * spd * dt;
         let dz = (mz * cosY - mx * sinY) * spd * dt;
 
-        if (isAttacking) {
-            dx = 0;
-            dz = 0;
-        }
+        if (isAttacking) { dx = 0; dz = 0; }
 
         let vy = Velocity.y[id];
 
@@ -115,7 +117,7 @@ export const physicsSystem = defineSystem((world: IWorld) => {
             vy *= 0.8;
 
             const targetY = WATER_LEVEL - 0.8;
-            let newY      = pos.y + (targetY - pos.y) * 0.1;
+            let newY = pos.y + (targetY - pos.y) * 0.1;
             if (groundY !== null) newY = Math.max(newY, groundY + 0.45);
 
             _physPos.x = pos.x + dx;
@@ -127,7 +129,6 @@ export const physicsSystem = defineSystem((world: IWorld) => {
             const mesh = entityMeshes.get(id);
             if (mesh) mesh.rotation.x = 0;
 
-            // Karakter boyunu fiziksel olarak kısalt (Eğilme/Crouch)
             if (isCrouching) {
                 collider.setHalfHeight(0.25);
             } else {
@@ -155,7 +156,7 @@ export const physicsSystem = defineSystem((world: IWorld) => {
                 pending -= dt;
                 if (pending <= 0) {
                     vy = 6.3;
-                    jumpCooldownMap.set(id, 0.45); 
+                    jumpCooldownMap.set(id, 0.45);
                     jumpPendingTimer.delete(id);
                 } else {
                     jumpPendingTimer.set(id, pending);
@@ -169,17 +170,14 @@ export const physicsSystem = defineSystem((world: IWorld) => {
 
             const nextX = pos.x + corrected.x;
             const nextZ = pos.z + corrected.z;
-            let newY    = pos.y + corrected.y;
+            let newY = pos.y + corrected.y;
 
             if (inside && groundY !== null) {
                 const nextH = safeHeight(nextX, nextZ) ?? groundY;
                 const targetY = nextH + (isCrouching ? 0.55 : 0.95);
-                
-                // smoothing height snapping to prevent jitter
+
                 const dy = targetY - pos.y;
                 if (isGrounded && vy <= 0.1) {
-                    // Yere çok yakınsak veya yerdeysek, yavaşça yer çekimine bırakmak yerine 
-                    // dik yamaçlarda zıplamayı önlemek için daha yumuşak bir takip yap.
                     newY = THREE.MathUtils.lerp(pos.y, targetY, 0.8);
                     if (Math.abs(newY - targetY) < 0.01) newY = targetY;
                     if (vy < 0) vy = 0;
@@ -196,40 +194,34 @@ export const physicsSystem = defineSystem((world: IWorld) => {
             Velocity.y[id] = vy;
         }
 
-        // Karakter yönelimi: Ateş ederken, nişan alırken veya combat animasyonu (Vuruş/Ateş) oynarken crosshair'e bakar, 
-        // normal yürürken ise hareket yönüne döner.
-        // Karakter yönelimi: Combat aksiyonu başladığı an crosshair'e kilitlen (Sıfır gecikme)
-        const isCombatAction = 
-            InputIntents.shootRequest[id] === 1 || 
-            InputIntents.aimRequest[id] === 1 || 
-            isMeleeIntent || 
-            [5, 6, 7, 9, 12].includes(currentAnim) || 
+        const isCombatAction =
+            InputIntents.shootRequest[id] === 1 ||
+            InputIntents.aimRequest[id] === 1 ||
+            isMeleeIntent ||
+            [5, 6, 7, 9, 12].includes(currentAnim) ||
             InputIntents.crouch[id] === 1;
-        
+
         if (isCombatAction) {
             const faceYaw = InputIntents.aimYaw[id];
             const half = faceYaw * 0.5;
-            _physRot.x = 0;
-            _physRot.y = Math.sin(half);
-            _physRot.z = 0;
-            _physRot.w = Math.cos(half);
+            _physRot.x = 0; _physRot.y = Math.sin(half); _physRot.z = 0; _physRot.w = Math.cos(half);
             rb.setRotation(_physRot, true);
         } else if (mx * mx + mz * mz > 0.01) {
-            // atan2(-mx, -mz): W=0 (+faceYaw=yaw) → faces forward, combined with child PI=faces -Z ✓
-            // A=PI/2, D=-PI/2, S=PI — all correct relative to camera yaw
             const faceYaw = yaw + Math.atan2(-mx, -mz);
             const half = faceYaw * 0.5;
-            _physRot.x = 0;
-            _physRot.y = Math.sin(half);
-            _physRot.z = 0;
-            _physRot.w = Math.cos(half);
+            _physRot.x = 0; _physRot.y = Math.sin(half); _physRot.z = 0; _physRot.w = Math.cos(half);
             rb.setRotation(_physRot, true);
         }
     }
 
-    // Redundant enemy physics loop removed. Wolves are now controlled by AISystem.ts
+    const eventQueue = getPhysicsEventQueue();
+    rapierWorld.step(eventQueue);
 
-    rapierWorld.step();
+    eventQueue.drainCollisionEvents((h1, h2, started) => {
+        if (started) {
+            handleJetCollisionEvent(h1, h2);
+        }
+    });
 
     const entities = physicsQuery(gameWorld);
     for (let i = 0; i < entities.length; i++) {

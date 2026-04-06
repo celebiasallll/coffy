@@ -57,6 +57,7 @@ export class VehicleController {
      * @param isFront      true → direksiyon bu tekerleğe uygulanır
      */
     addWheel(mesh: THREE.Object3D, offset: THREE.Vector3, isWorldSpace = false, isFront = false) {
+        mesh.traverse(obj => { if (obj instanceof THREE.Mesh) obj.frustumCulled = false; });
         this.wheels.push({ mesh, offset, springCompression: 0, spin: 0, isWorldSpace, isFront, visualSteer: 0 });
     }
 
@@ -103,7 +104,8 @@ export class VehicleController {
             let hitFound = false;
 
             if (hit) {
-                distance = ((hit as any).toi ?? (hit as any).time) - rayOffsetMultiplier;
+                const hitDistance = (hit as any).timeOfImpact !== undefined ? (hit as any).timeOfImpact : ((hit as any).toi ?? (hit as any).time);
+                distance = hitDistance - rayOffsetMultiplier;
                 hitFound = true;
             } else {
                 const distToTerrain = _wheelWorldPos.y - terrainHeight;
@@ -167,19 +169,20 @@ export class VehicleController {
                 }
 
                 // ── Visual Sync ────────────────────────────────────────────────
-                // Tekerlek merkezi = terrain yüksekliği + wheelRadius
-                // Süspansiyon compression onu biraz yukarı iter
-                const suspensionLift = Math.min(
-                    Math.max(0, wheel.springCompression),
-                    this.config.suspensionRestLength
-                );
-                const wheelWorldY = terrainHeight + this.config.wheelRadius + suspensionLift * 0.5;
+                // Placed along the vehicle's local down vector from the attachment point
+                const suspensionLift = Math.max(0, wheel.springCompression);
+                const actualSuspensionLength = Math.max(0, this.config.suspensionRestLength - suspensionLift);
+                
+                const wheelWorldX = _wheelWorldPos.x - _up.x * actualSuspensionLength;
+                const wheelWorldY = _wheelWorldPos.y - _up.y * actualSuspensionLength;
+                const wheelWorldZ = _wheelWorldPos.z - _up.z * actualSuspensionLength;
 
                 const moveSpeed = _vLin.dot(_wheelDir);
                 wheel.spin -= (moveSpeed / (this.config.wheelRadius + 0.05)) * dt;
 
                 if (wheel.isWorldSpace) {
-                    wheel.mesh.position.set(_wheelWorldPos.x, wheelWorldY, _wheelWorldPos.z);
+                    wheel.mesh.position.set(wheelWorldX, wheelWorldY, wheelWorldZ);
+                    wheel.mesh.updateMatrixWorld(true);
 
                     // visualSteer: görsel için ayrı, daha yavaş lerp (gerçekçi direksiyon hareketi)
                     const targetVisualSteer = isFront ? this.currentSteer * 0.5 : 0;
@@ -191,11 +194,12 @@ export class VehicleController {
                     wheel.mesh.rotation.y = vehicleYaw + wheel.visualSteer;
                     wheel.mesh.rotation.x = wheel.spin;
                     wheel.mesh.rotation.z = 0;
+                    wheel.mesh.updateMatrixWorld(true);
                 } else {
                     // Mesh group içinde → parent'ın local-space'ine çevir
                     const parent = wheel.mesh.parent;
                     if (parent) {
-                        _worldPosLocal.set(_wheelWorldPos.x, wheelWorldY, _wheelWorldPos.z);
+                        _worldPosLocal.set(wheelWorldX, wheelWorldY, wheelWorldZ);
                         parent.worldToLocal(_worldPosLocal);
                         wheel.mesh.position.copy(_worldPosLocal);
                     } else {
@@ -204,12 +208,17 @@ export class VehicleController {
                     wheel.mesh.rotation.order = 'YXZ';
                     wheel.mesh.rotation.x = wheel.spin;
                     if (isFront) wheel.mesh.rotation.y = this.currentSteer * 0.5;
+                    wheel.mesh.updateMatrixWorld(true);
                 }
             } else {
-                // Zemin bağlantısı yok — pozisyon sarkar ama rotasyon araçla sabit kalır
-                const fallbackY = terrainHeight + this.config.wheelRadius;
+                // Suspended in air: extend fully
+                const actualSuspensionLength = this.config.suspensionRestLength;
+                const wheelWorldX = _wheelWorldPos.x - _up.x * actualSuspensionLength;
+                const wheelWorldY = _wheelWorldPos.y - _up.y * actualSuspensionLength;
+                const wheelWorldZ = _wheelWorldPos.z - _up.z * actualSuspensionLength;
+
                 if (wheel.isWorldSpace) {
-                    wheel.mesh.position.set(_wheelWorldPos.x, fallbackY, _wheelWorldPos.z);
+                    wheel.mesh.position.set(wheelWorldX, wheelWorldY, wheelWorldZ);
 
                     // visualSteer sıfıra dön (havada direksiyon yok)
                     wheel.visualSteer = THREE.MathUtils.lerp(wheel.visualSteer, 0, 2.0 * dt);
@@ -219,8 +228,17 @@ export class VehicleController {
                     wheel.mesh.rotation.y = vehicleYaw + wheel.visualSteer;
                     wheel.mesh.rotation.x = wheel.spin;
                     wheel.mesh.rotation.z = 0;
+                    wheel.mesh.updateMatrixWorld(true);
                 } else {
-                    wheel.mesh.position.y = wheel.offset.y - this.config.suspensionRestLength;
+                    const parent = wheel.mesh.parent;
+                    if (parent) {
+                        _worldPosLocal.set(wheelWorldX, wheelWorldY, wheelWorldZ);
+                        parent.worldToLocal(_worldPosLocal);
+                        wheel.mesh.position.copy(_worldPosLocal);
+                    } else {
+                        wheel.mesh.position.y = wheel.offset.y - this.config.suspensionRestLength;
+                    }
+                    wheel.mesh.updateMatrixWorld(true);
                 }
                 wheel.springCompression = 0;
             }

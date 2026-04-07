@@ -72,6 +72,10 @@ const nextConfig = {
         destination: 'https://coffylapse.vercel.app'
       },
       {
+        source: '/sleepness/',
+        destination: '/sleepness/index.html'
+      },
+      {
         source: '/sleepness',
         destination: '/sleepness/index.html'
       }

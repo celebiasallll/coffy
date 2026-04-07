@@ -18,7 +18,7 @@ const _velDir = new THREE.Vector3();
 const G_ACCEL = 9.81;
 const THRUST_ACCEL = 145.0;
 const DRAG_FACTOR = 0.9988;
-const NOMINAL_MAX_SPEED = 232; // ~450 kts (232 * 1.944)
+const NOMINAL_MAX_SPEED = 278; // ~540 kts (278 * 1.944) - Increased by 20% per user request
 const MIN_FLY_SPEED = 18;
 
 export interface FlightState {
@@ -55,7 +55,7 @@ let _stallBuffetZ = 0;
 
 // ── Flight Control State (Persistent Momentum) ────────────────────────────────
 let _sPitch = 0, _sRoll = 0, _sYaw = 0;
-let _sThrust = 0.4;
+let _sThrust = 0.05;
 
 export function updateFlightPhysics(
     rb: RAPIER.RigidBody,
@@ -120,8 +120,8 @@ export function updateFlightPhysics(
     } else if (input.throttleDown) {
         state.throttle = THREE.MathUtils.clamp(state.throttle - dt * tRate, 0, 1.5);
     }
-    if (!input.throttleUp && !input.throttleDown && state.throttle > 0.4) {
-        state.throttle = THREE.MathUtils.lerp(state.throttle, 0.4, dt * 0.05);
+    if (!input.throttleUp && !input.throttleDown && state.throttle > 0.05) {
+        state.throttle = THREE.MathUtils.lerp(state.throttle, 0.05, dt * 0.4);
     }
     state.afterburner = input.afterburner && state.throttle > 0.8;
 
@@ -196,7 +196,9 @@ export function updateFlightPhysics(
     _v2.copy(liftVector).multiplyScalar(liftForce);
     
     // [FIXED]: Constant gravity for "Weight on Wheels" (prevents sticking/jittering)
-    _v1.y -= G_ACCEL * dt;
+    // [SINK]: Increase sink rate as speed drops (Weight vs Lift balance)
+    const sinkRate = (state.speed < 50) ? 1.5 : 1.0;
+    _v1.y -= G_ACCEL * dt * sinkRate;
     _v1.add(_v2);
 
     // 4. Air Resistance (Quadratic)
@@ -233,8 +235,9 @@ export function updateFlightPhysics(
         }
     }
 
-    // [MOMENTUM]: Global sürtünmeyi (drone hissiyatını yok etmek için) 0.995 -> 0.999 yaptık.
-    const globalDrag = Math.pow(0.999, dt * 60);
+    // [MOMENTUM]: Global sürtünmeyi (drone hissiyatını yok etmek için) 0.999 -> 0.994 yaptık.
+    // Bu sayede gazı bırakınca araç yavaş yavaş hız kesecektir (Jeep/ATV gibi).
+    const globalDrag = Math.pow(0.994, dt * 60);
     _v1.multiplyScalar(globalDrag);
     rb.setLinvel({ x: _v1.x, y: _v1.y, z: _v1.z }, true);
 

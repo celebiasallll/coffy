@@ -359,8 +359,8 @@ export function spawnVehicles(scene: THREE.Scene): void {
     // Mat siyah jant (ATV)
     const rimATV      = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, metalness: 0.0 });
     // Modern Cool LED White
-    const atvLensMat  = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xebf2ff, emissiveIntensity: 4.0, roughness: 0.05 });
-    const atvTailMat  = new THREE.MeshStandardMaterial({ color: 0xff1100, emissive: 0xff0000, emissiveIntensity: 4.5, roughness: 0.05 });
+    const atvLensMat  = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xebf2ff, emissiveIntensity: 1.6, roughness: 0.05 });
+    const atvTailMat  = new THREE.MeshStandardMaterial({ color: 0xff1100, emissive: 0xff0000, emissiveIntensity: 1.8, roughness: 0.05 });
     const seatMat     = new THREE.MeshStandardMaterial({ color: 0x1c1c1c, roughness: 0.92 });
 
     // ── Şasi / Ana çerçeve ──
@@ -378,8 +378,8 @@ export function spawnVehicles(scene: THREE.Scene): void {
     // ── Far lensi ve Işık ──
     atvGroup.add(createPart(new THREE.BoxGeometry(0.27, 0.07, 0.04), atvLensMat, 0,  0.38, -0.76));
     
-    // Gerçekçi Spot Işığı
-    const atvLight = new THREE.SpotLight(0xebf2ff, 100, 70, Math.PI / 5.5, 0.6, 1.0);
+    // [DIMMED] Gerçekçi Spot Işığı (Intensity reduced from 100 to 40)
+    const atvLight = new THREE.SpotLight(0xebf2ff, 40, 70, Math.PI / 5.5, 0.6, 1.0);
     atvLight.position.set(0, 0.38, -0.85);
     const atvTarget = new THREE.Object3D();
     atvTarget.position.set(0, 0.1, -6.0); // İleriye ve çok hafif aşağıya bakış
@@ -508,9 +508,9 @@ export function spawnVehicles(scene: THREE.Scene): void {
     const jDark   = new THREE.MeshStandardMaterial({ color: 0x0d0d0d, roughness: 0.90, metalness: 0.10 });
     const jMetal  = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.85, metalness: 0.15 }); // siyahımsı metal
     const jGlass  = new THREE.MeshStandardMaterial({ color: 0x88aacc, roughness: 0.05, metalness: 0.10, transparent: true, opacity: 0.55 });
-    // Modern Cool LED White
-    const jLight  = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xebf2ff, emissiveIntensity: 4.0, roughness: 0.05 });
-    const jStop   = new THREE.MeshStandardMaterial({ color: 0xff1100, emissive: 0xff0000, emissiveIntensity: 4.2, roughness: 0.05 });
+    // [DIMMED] intensities (Reduced by 60% per user request)
+    const jLight  = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xebf2ff, emissiveIntensity: 1.6, roughness: 0.05 });
+    const jStop   = new THREE.MeshStandardMaterial({ color: 0xff1100, emissive: 0xff0000, emissiveIntensity: 1.68, roughness: 0.05 });
     const jRubber = new THREE.MeshStandardMaterial({ color: 0x080808, roughness: 1.00, metalness: 0.00 });
     const jRim    = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, metalness: 0.0 }); // mat beyaz jant
 
@@ -555,8 +555,8 @@ export function spawnVehicles(scene: THREE.Scene): void {
         jeepVisualOffsetGroup.add(createPart(new THREE.BoxGeometry(0.30, 0.22, 0.12), jDark,  sx * 0.66,  0.12, -1.73));
         jeepVisualOffsetGroup.add(createPart(new THREE.BoxGeometry(0.22, 0.15, 0.06), jLight, sx * 0.66,  0.12, -1.77));
         
-        // Gerçekçi Çift Spot Işığı
-        const jHeadlight = new THREE.SpotLight(0xebf2ff, 120, 90, Math.PI / 5.0, 0.7, 1.0);
+        // [DIMMED] Gerçekçi Çift Spot Işığı (Intensity reduced from 120 to 48)
+        const jHeadlight = new THREE.SpotLight(0xebf2ff, 48, 90, Math.PI / 5.0, 0.7, 1.0);
         jHeadlight.position.set(sx * 0.66, 0.12, -1.85);
         const jTarget = new THREE.Object3D();
         jTarget.position.set(sx * 0.66, -0.2, -8.0);

@@ -13,12 +13,12 @@ export function createRenderer(): THREE.WebGLRenderer {
     depth: true,
   });
 
-  const initialDPR = Math.min(window.devicePixelRatio, 1.35);
+  const initialDPR = Math.min(window.devicePixelRatio, 1.6);
   renderer.setPixelRatio(initialDPR);
   renderer.setSize(window.innerWidth, window.innerHeight);
 
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFShadowMap;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.shadowMap.autoUpdate = true;
 
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -112,7 +112,7 @@ export function setupResize(
     // Passing composer here is kept for backwards compatibility only.
     if (composer) composer.setSize(width, height);
 
-    const maxDPR = width < 768 ? 1.0 : 1.5;
+    const maxDPR = width < 768 ? 1.4 : 2.0; // Increased for better clarity on mobile and desktop
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxDPR));
   };
 

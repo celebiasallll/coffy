@@ -220,9 +220,7 @@ function initCrosshair(): void {
 // let debugPanel = new DebugPanel();
 // worldStreamer init moved inside init() after scene is ready
 
-let lowFpsTimer = 0;
-let smaaDegraded = false;
-let currentSMAA = 'ULTRA';
+// Quality tracking moved to postprocessing.ts
 
 async function init(playerType: number) {
   initBVH();
@@ -723,7 +721,7 @@ async function init(playerType: number) {
     if (occupiedVehicle) { const vv = occupiedVehicle.controller.rigidBody.linvel(); speedLabel = Math.hypot(vv.x, vv.z); }
     else speedLabel = speed2D;
     
-    updateHUD(dt, { pos: camFollowPos, speed: speedLabel, fps: Math.round(1/dt), quality: currentSMAA });
+    updateHUD(dt, { pos: camFollowPos, speed: speedLabel, fps: Math.round(1/dt), quality: SMAAPreset[getCurrentSMAA()] });
 
     const hpValue = Health.current[playerId] ?? 100;
     const hpHud = document.getElementById('hp-hud');
@@ -928,15 +926,6 @@ async function init(playerType: number) {
 
     fpsWindow.push(1 / dt);
     if (fpsWindow.length > 60) fpsWindow.shift();
-
-    if (gameState.frameCount % 20 === 0) {
-      // Sync currentSMAA label with actual postprocessing state for accurate HUD
-      const preset = getCurrentSMAA();
-      if (preset === SMAAPreset.LOW) currentSMAA = 'LOW';
-      else if (preset === SMAAPreset.MEDIUM) currentSMAA = 'MEDIUM';
-      else if (preset === SMAAPreset.HIGH) currentSMAA = 'HIGH';
-      else if (preset === SMAAPreset.ULTRA) currentSMAA = 'ULTRA';
-    }
 
     updateCamera(dt, camFollowPos);
     updateHUDAndAudio(dt, camFollowPos);

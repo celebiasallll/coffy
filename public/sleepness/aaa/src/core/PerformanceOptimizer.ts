@@ -97,7 +97,7 @@ export class PerformanceOptimizer {
      * Dynamic shadow range and quality adjustment with Texel Snapping (v12.0)
      */
     optimizeShadows(light: THREE.DirectionalLight, camera: THREE.PerspectiveCamera) {
-        // [v11.5 (MAX PERF)]: Optimized shadow frustum size (70m total width)
+        // [v13.0 (ULTRA)]: Restored generous shadow ranges for maximum visual fidelity
         let shadowSize = this.jetMode ? 80 : 35; 
         if (this.altitude > 400) shadowSize = 150; 
         
@@ -128,7 +128,8 @@ export class PerformanceOptimizer {
             snapZ + 50
         );
 
-        // Dynamic Bias for better water/ground transition
-        light.shadow.bias = this.jetMode ? -0.001 : -0.0004;
+        // Dynamic Bias: Restored to lower precision to fix shadow detachment (Peter Panning)
+        light.shadow.bias = this.jetMode ? -0.0006 : -0.0001; 
+        light.shadow.normalBias = 0.01; // Restored (0.04 caused major detachment)
     }
 }

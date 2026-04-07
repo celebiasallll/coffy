@@ -22,6 +22,7 @@ interface PostFXState {
   qualityCheckInterval: number;
   warmupUntil: number;
   resizeHandler: (() => void) | null;
+  renderer: THREE.WebGLRenderer | null;
 }
 
 // ─── Internal state ───────────────────────────────────────────────────────────
@@ -32,6 +33,7 @@ const state: PostFXState = {
   mainPass: null,
   bloomEffect: null,
   currentSMAAPreset: SMAAPreset.HIGH,
+  renderer: null,
   frameTimes: [],
   lastQualityCheck: 0,
   qualityCheckInterval: 2000,
@@ -50,7 +52,7 @@ export function getCurrentSMAA(): SMAAPreset { return state.currentSMAAPreset; }
 
 const FRAME_WINDOW = 30;
 const QUALITY_LADDER: SMAAPreset[] = [
-  SMAAPreset.LOW, SMAAPreset.MEDIUM, SMAAPreset.HIGH, SMAAPreset.ULTRA,
+  SMAAPreset.MEDIUM, SMAAPreset.HIGH, SMAAPreset.ULTRA,
 ];
 
 function rollingAvg(): number {
@@ -59,9 +61,21 @@ function rollingAvg(): number {
 }
 
 function applySMAAPreset(preset: SMAAPreset): void {
-  if (!state.smaaEffect || state.currentSMAAPreset === preset) return;
+  if (!state.smaaEffect || state.currentSMAAPreset === preset || !state.renderer) return;
   state.smaaEffect.applyPreset(preset);
   state.currentSMAAPreset = preset;
+
+  // Dynamic DPR based on quality tier (Restored for High-DPI excellence)
+  // Medium: ~1.4 (Sharp), High: ~1.8 (Retina-like), Ultra: ~3.0 (Supersampled)
+  let dprTarget = 1.4;
+  if (preset === SMAAPreset.HIGH) dprTarget = 1.8;
+  if (preset === SMAAPreset.ULTRA) dprTarget = 3.0;
+
+  const finalDPR = Math.min(window.devicePixelRatio, dprTarget);
+  state.renderer.setPixelRatio(finalDPR);
+  
+  // Console feedback for developers
+  console.debug(`[Quality] Switched to ${SMAAPreset[preset]} (DPR: ${finalDPR.toFixed(2)})`);
 }
 
 function adaptQuality(now: number): void {
@@ -71,10 +85,19 @@ function adaptQuality(now: number): void {
   const avg = rollingAvg();
   if (avg === 0) return;
   const currentIdx = QUALITY_LADDER.indexOf(state.currentSMAAPreset);
-  if (avg > 18 && currentIdx > 0) {
-    applySMAAPreset(QUALITY_LADDER[currentIdx - 1]);
-  } else if (avg < 15 && currentIdx < QUALITY_LADDER.length - 1) {
-    applySMAAPreset(QUALITY_LADDER[currentIdx + 1]);
+  
+  // User Requested FPS Ranges:
+  // Ultra: > 50 FPS (< 20ms)
+  // High: 43 - 50 FPS (20ms - 23ms)
+  // Medium: 35 - 43 FPS (23ms - 28ms)
+
+  if (currentIdx === 2) { // Currently ULTRA
+    if (avg > 20) applySMAAPreset(QUALITY_LADDER[1]); // Drop to High if < 50 FPS
+  } else if (currentIdx === 1) { // Currently HIGH
+    if (avg > 23) applySMAAPreset(QUALITY_LADDER[0]); // Drop to Medium if < 43 FPS
+    if (avg < 18) applySMAAPreset(QUALITY_LADDER[2]); // Return to Ultra if > 55 FPS (Hysteresis)
+  } else if (currentIdx === 0) { // Currently MEDIUM
+    if (avg < 21) applySMAAPreset(QUALITY_LADDER[1]); // Return to High if > 47 FPS (Hysteresis)
   }
 }
 
@@ -123,6 +146,7 @@ export function initPostprocessing(
     mainPass,
     bloomEffect,
     resizeHandler,
+    renderer,
     frameTimes: [],
     lastQualityCheck: 0,
   });

@@ -37,6 +37,9 @@ interface JetState {
     isOccupied: boolean;
     flameMesh: THREE.Object3D;
     exhaustLight: THREE.PointLight;
+    navLights: THREE.Object3D[];
+    strobeLights: THREE.Object3D[];
+    landingLight: THREE.SpotLight;
     state: FlightState;
     fuseColliderHandle: number;
     wheelColliderHandles: number[];
@@ -121,9 +124,23 @@ export function spawnJet(scene: THREE.Scene, world: RAPIER.World, pos: THREE.Vec
     const cl = world.createCollider(wl, rb);
     const cr = world.createCollider(wr, rb);
 
-    const light = new THREE.PointLight(0xff6600, 0, 18);
-    light.position.set(0, 0, 5.25);
-    mesh.add(light);
+    const exhaustLight = new THREE.PointLight(0xff6600, 0, 18);
+    exhaustLight.position.set(0, 0, 5.25);
+    mesh.add(exhaustLight);
+
+    // [LIGHTING v1.0] Find/create the specific light groups
+    const navLights: THREE.Object3D[] = [];
+    const strobeLights: THREE.Object3D[] = [];
+    
+    // Add Landing Light (Spotlight) to the Nose Gear Strut
+    // [SMOOTHER] Reduced intensity (45), increased penumbra (0.8) and decay (2.0)
+    const landingLight = new THREE.SpotLight(0xfff5ee, 0, 150, Math.PI / 6, 0.8, 2.0);
+    landingLight.position.set(0, -0.9, -1.75); // Nose gear position (Local space before 2.0x scale)
+    const landTarget = new THREE.Object3D();
+    landTarget.position.set(0, -1.2, -40); // Aligned with the nose gear orientation
+    mesh.add(landTarget);
+    landingLight.target = landTarget;
+    mesh.add(landingLight);
 
     const jetObj: JetState = {
         mesh,
@@ -139,7 +156,10 @@ export function spawnJet(scene: THREE.Scene, world: RAPIER.World, pos: THREE.Vec
         gearMeshes: [],
         isOccupied: false,
         flameMesh: mesh.getObjectByName('afterburner')!,
-        exhaustLight: light,
+        exhaustLight,
+        navLights,
+        strobeLights,
+        landingLight,
         state: {
             throttle: 0, afterburner: false, speed: 0, altitude: -9999,
             isCrashed: false, prevSpeed: 0, health: 100,
@@ -151,6 +171,8 @@ export function spawnJet(scene: THREE.Scene, world: RAPIER.World, pos: THREE.Vec
 
     mesh.traverse(obj => {
         if (obj.name.includes('GearPart')) jetObj.gearMeshes.push(obj);
+        if (obj.name.includes('NavLight')) jetObj.navLights.push(obj);
+        if (obj.name.includes('Strobe')) jetObj.strobeLights.push(obj);
     });
 
     jet = jetObj;
@@ -333,8 +355,34 @@ export function updateJet(dt: number, scene: THREE.Scene, camera: THREE.Perspect
 }
 
 function updateFX(j: NonNullable<typeof jet>, dt: number): void {
-    const targetIntensity = j.state.afterburner ? 130 : (j.state.throttle > 0.1 ? 25 : 0);
-    j.exhaustLight.intensity = THREE.MathUtils.lerp(j.exhaustLight.intensity, targetIntensity, dt * 6.0);
+    const time = performance.now();
+    
+    // 1. Afterburner & Exhaust Glow
+    const targetExhaust = j.state.afterburner ? 130 : (j.state.throttle > 0.1 ? 25 : 0);
+    j.exhaustLight.intensity = THREE.MathUtils.lerp(j.exhaustLight.intensity, targetExhaust, dt * 6.0);
+
+    // 2. Navigation Lights (Static)
+    const navOn = j.isOccupied;
+    j.navLights.forEach(light => {
+        if (light instanceof THREE.Mesh) {
+            (light.material as THREE.MeshBasicMaterial).opacity = navOn ? 1.0 : 0.05;
+        }
+    });
+
+    // 3. Strobe Lights (Double-Flash every 1.5s)
+    // [DIMMED] Intensity reduced from 40 to 12 for smoothness
+    const strobeCycle = (time % 1500) / 1500;
+    const strobeOn = (strobeCycle < 0.05 || (strobeCycle > 0.1 && strobeCycle < 0.15));
+    j.strobeLights.forEach(light => {
+        if (light instanceof THREE.Mesh) {
+            (light.material as THREE.MeshBasicMaterial).opacity = j.isOccupied ? (strobeOn ? 1 : 0.05) : 0;
+        }
+    });
+
+    // 4. Landing Light (Only when gear is deployed)
+    // [DIMMED] Target intensity reduced to 45 for better realism
+    const targetLanding = (j.isOccupied && j.gearFactor > 0.8) ? 45 : 0;
+    j.landingLight.intensity = THREE.MathUtils.lerp(j.landingLight.intensity, targetLanding, dt * 4.0);
 
     if (j.state.afterburner) {
         j.flameMesh.visible = true;
@@ -473,9 +521,24 @@ function buildF16Mesh(scene: THREE.Scene): THREE.Group {
         const rail = new THREE.CylinderGeometry(0.045, 0.045, 0.59, 8);
         rail.rotateZ(Math.PI / 2); rail.translate(side * 4.8, -0.28, 0.56);
         darkGeos.push(rail);
-        const navLight = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), new THREE.MeshBasicMaterial({ color: side === 1 ? 0xff2200 : 0x22ff44 }));
+        
+        // Navigation Light Mesh
+        const navLight = new THREE.Mesh(
+            new THREE.SphereGeometry(0.07, 8, 8), 
+            new THREE.MeshBasicMaterial({ color: side === 1 ? 0x22ff44 : 0xff2200, transparent: true, opacity: 0.1 })
+        );
+        navLight.name = 'NavLight';
         navLight.position.set(side * 5.0, -0.28, 0.63);
         group.add(navLight);
+
+        // Strobe Mesh
+        const strobe = new THREE.Mesh(
+            new THREE.SphereGeometry(0.08, 8, 8),
+            new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.1 })
+        );
+        strobe.name = 'Strobe';
+        strobe.position.set(side * 5.0, -0.28, 0.5);
+        group.add(strobe);
     }
 
     const throatGeo = new THREE.CylinderGeometry(0.48, 0.55, 0.35, 18);
@@ -573,24 +636,48 @@ export function initJetHUD(): void {
     if (document.getElementById('jet-hud')) return;
     const hud = document.createElement('div');
     hud.id = 'jet-hud';
+    // [REDESIGN] 40% Smaller (scale 0.45), Horizontal Layout, Glass Effect
     hud.style.cssText = `
-        position:fixed;top:45px;left:50%;transform:translateX(-50%) scale(0.7);transform-origin:top center;
-        display:none;gap:20px;padding:10px 20px;
-        background:rgba(0,10,20,0.82);border-radius:10px;
-        color:#00e5ff;font-family:monospace;pointer-events:none;z-index:100;opacity:0.7;
+        position:fixed;top:40px;left:50%;transform:translateX(-50%) scale(0.45);transform-origin:top center;
+        display:none;align-items:center;gap:35px;padding:12px 35px;
+        background:rgba(0,10,20,0.65);backdrop-filter:blur(8px);
+        border:1px solid rgba(0,229,255,0.22);border-radius:100px;
+        color:#00e5ff;font-family:monospace;pointer-events:none;z-index:100;opacity:0.9;
+        box-shadow:0 0 25px rgba(0,229,255,0.12);
     `;
     hud.innerHTML = `
-        <div style="text-align:center">SPEED<br><span id="jet-speed" style="font-size:24px">0</span> <small>kts</small></div>
-        <div style="position:relative;width:120px;height:120px;border:2px solid rgba(255,255,255,0.2);border-radius:50%;overflow:hidden;background:rgba(0,100,200,0.2)">
-            <div id="jet-horizon" style="position:absolute;top:50%;left:-50%;width:200%;height:200%;background:linear-gradient(to bottom,#4488ff 50%,#884422 50%);transform-origin:center;transition:transform 0.1s linear"></div>
-            <div style="position:absolute;top:50%;left:50%;width:30px;height:2px;background:white;transform:translateX(-50%)"></div>
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <div style="font-size:12px;opacity:0.6;margin-bottom:2px">SPEED</div>
+          <div style="display:flex;align-items:baseline;gap:5px">
+            <span id="jet-speed" style="font-size:36px;font-weight:bold;letter-spacing:-1px">0</span>
+            <span style="font-size:14px;opacity:0.6">KTS</span>
+          </div>
         </div>
-        <div style="text-align:center">ALT<br><span id="jet-alt" style="font-size:24px">0</span> <small>ft</small></div>
-        <div style="text-align:center">G<br><span id="jet-g" style="font-size:24px">1.0</span></div>
-        <div style="text-align:center">THR<br>
-            <div style="width:50px;height:10px;background:#222;border-radius:3px">
-                <div id="jet-thr-bar" style="width:0%;height:100%;background:#00ff88;border-radius:3px;transition:width 0.1s"></div>
+
+        <div style="display:flex;flex-direction:column;align-items:center;padding:0 10px;border-left:1px solid rgba(0,229,255,0.15)">
+            <div style="font-size:11px;opacity:0.6;margin-bottom:6px">THRUST</div>
+            <div style="width:70px;height:12px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden">
+                <div id="jet-thr-bar" style="width:0%;height:100%;background:#00ff88;box-shadow:0 0 10px rgba(0,255,136,0.3);transition:width 0.1s"></div>
             </div>
+        </div>
+
+        <div style="position:relative;width:110px;height:110px;border:3px solid rgba(0,229,255,0.18);border-radius:50%;overflow:hidden;background:rgba(0,180,255,0.08);flex-shrink:0;">
+            <div id="jet-horizon" style="position:absolute;top:50%;left:-50%;width:200%;height:200%;background:linear-gradient(to bottom,rgba(0,229,255,0.22) 50%,rgba(136,68,34,0.3) 50%);transform-origin:center;transition:transform 0.1s linear"></div>
+            <div style="position:absolute;top:50%;left:50%;width:40px;height:2px;background:#00e5ff;transform:translateX(-50%);box-shadow:0 0 10px rgba(0,229,255,0.5)"></div>
+            <div style="position:absolute;top:20%;left:50%;width:1px;height:60%;background:rgba(0,229,255,0.1);transform:translateX(-50%)"></div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;align-items:center;padding:0 10px;border-right:1px solid rgba(0,229,255,0.15)">
+          <div style="font-size:12px;opacity:0.6;margin-bottom:2px">ALTITUDE</div>
+          <div style="display:flex;align-items:baseline;gap:5px">
+            <span id="jet-alt" style="font-size:36px;font-weight:bold;letter-spacing:-1px">0</span>
+            <span style="font-size:14px;opacity:0.6">FT</span>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <div style="font-size:12px;opacity:0.6;margin-bottom:4px">G-FORCE</div>
+          <span id="jet-g" style="font-size:24px;font-weight:bold">1.0</span>
         </div>
     `;
     document.body.appendChild(hud);
@@ -604,10 +691,13 @@ export function initJetHUD(): void {
 
 export function showJetHUD(visible: boolean): void {
     if (jetHudEl) jetHudEl.style.display = visible ? 'flex' : 'none';
+    const isMobile = document.body.classList.contains('mobile-device');
+
     const mobileJetPanel = document.getElementById('jet-controls-mobile');
-    if (mobileJetPanel) mobileJetPanel.style.display = visible ? 'flex' : 'none';
+    if (mobileJetPanel) mobileJetPanel.style.display = (visible && isMobile) ? 'flex' : 'none';
+
     const mobileYawPanel = document.getElementById('jet-yaw-controls');
-    if (mobileYawPanel) mobileYawPanel.style.display = visible ? 'flex' : 'none';
+    if (mobileYawPanel) mobileYawPanel.style.display = (visible && isMobile) ? 'flex' : 'none';
     const charActions = document.getElementById('char-actions');
     if (charActions) charActions.style.display = visible ? 'none' : 'flex';
 }

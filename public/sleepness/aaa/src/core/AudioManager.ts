@@ -15,7 +15,7 @@ class AudioManager {
     this.loader = new THREE.AudioLoader();
   }
 
-  private loadBuffer(url: string): Promise<AudioBuffer> {
+  private loadBuffer(url: string, retry: boolean = true): Promise<AudioBuffer> {
     const cached = this.bufferCache.get(url);
     if (cached) return Promise.resolve(cached);
 
@@ -28,8 +28,15 @@ class AudioManager {
         },
         undefined,
         (err) => {
-           // Prevent double-logging by just passing the error
-           reject(err);
+          if (retry) {
+            // Transient error like ERR_NETWORK_CHANGED, try one more time
+            console.debug(`[Audio] Retrying load for ${url}...`);
+            setTimeout(() => {
+                this.loadBuffer(url, false).then(resolve).catch(reject);
+            }, 1000);
+          } else {
+            reject(err);
+          }
         }
       );
     });

@@ -5,14 +5,14 @@ if (import.meta.env.DEV) {
   const _warn = console.warn;
   console.warn = (...args) => {
     const msg = args[0]?.toString?.() || '';
-    if (msg.includes('THREE.FBXLoader') || msg.includes('rapier.mjs') || msg.includes('ShininessExponent') || msg.includes('deprecated parameters') || msg.includes('requestFullscreen') || msg.includes('Orientation lock') || msg.includes('SMAA CRITICAL')) return;
+    if (msg.includes('THREE.FBXLoader') || msg.includes('rapier.mjs') || msg.includes('ShininessExponent') || msg.includes('deprecated parameters') || msg.includes('requestFullscreen') || msg.includes('Orientation lock') || msg.includes('SMAA CRITICAL') || msg.includes('Failed to fetch')) return;
     _warn.apply(console, args);
   };
 
   const _log = console.log;
   console.log = (...args) => {
     const msg = args[0]?.toString?.() || '';
-    if (msg.includes('✅') || msg.includes('SES Removing') || msg.includes('CharacterController') || msg.includes('BVH') || msg.includes('Spawning NPC')) return;
+    if (msg.includes('✅') || msg.includes('SES Removing') || msg.includes('CharacterController') || msg.includes('BVH') || msg.includes('Spawning NPC') || msg.includes('Orientation lock')) return;
     _log.apply(console, args);
   };
 

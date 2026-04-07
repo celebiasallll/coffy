@@ -84,13 +84,18 @@ class JetInputSystem {
         const touch = (window as any).touchControls || {};
         const isTouch = !!touch && touch.moveJoystick;
 
+        // Calculate touch pitch from both joystick and buttons
+        let touchPitch = 0;
+        if (isTouch) {
+            touchPitch -= touch.moveJoystick.y; // Joystick (inverted per user preference)
+            if (touch.jetPitchUp) touchPitch += 1.0; // Button Up
+            if (touch.jetPitchDown) touchPitch -= 1.0; // Button Down
+        }
+
         return {
             throttleUp: !!(this.keys['KeyW'] || (isTouch && touch.jetThrottleUp)),
             throttleDown: !!(this.keys['KeyS'] || (isTouch && touch.jetThrottleDown)),
-            pitch: THREE.MathUtils.clamp(
-                this.sPitch + (isTouch ? -touch.moveJoystick.y : 0), 
-                -1, 1
-            ),
+            pitch: THREE.MathUtils.clamp(this.sPitch + touchPitch, -1, 1),
             roll: THREE.MathUtils.clamp(
                 this.sRoll + (isTouch ? touch.moveJoystick.x : 0),
                 -1, 1

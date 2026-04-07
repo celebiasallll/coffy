@@ -5,7 +5,7 @@ let eventQueue: RAPIER.EventQueue | null = null;
 
 export async function initPhysics(): Promise<RAPIER.World> {
   if (world) return world;
-  await RAPIER.init(); 
+  await RAPIER.init(); // This is standard, but the warning might be due to the environment. I will leave it as is for now and focus on the console silencer which was handling this. Wait, I'll try to silence it specifically. Actually, I'll just restore the silencer in main.ts. 
   world = new RAPIER.World({ x: 0.0, y: -19.62, z: 0.0 });
   eventQueue = new RAPIER.EventQueue(true);
   return world;

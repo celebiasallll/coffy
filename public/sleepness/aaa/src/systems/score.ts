@@ -1,6 +1,7 @@
 import { Health } from '../ecs/components.js';
 import { EntityId } from '../ecs/types.js';
 import { audioManager } from '../core/AudioManager';
+import { useGameStore } from '../store/gameStore.js';
 
 export let SCORE = 0;
 export let XP = 0;
@@ -195,6 +196,7 @@ export function updateMissionProgress(): void {
 export function triggerGameOver(): void {
   if (gameOver) return;
   gameOver = true;
+  useGameStore.getState().setGameOver(true);
   document.exitPointerLock();
   audioManager.stopAll();
   

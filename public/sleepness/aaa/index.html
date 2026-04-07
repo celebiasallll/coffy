@@ -56,36 +56,6 @@
       pointer-events: none;
     }
 
-    #stats {
-      display: flex;
-      /* Show by default on desktop */
-      position: absolute;
-      top: 16px;
-      left: 16px;
-      padding: 10px 14px;
-      background: rgba(5, 10, 20, 0.82);
-      border-radius: 12px;
-      border: 1px solid rgba(0, 255, 170, 0.3);
-      backdrop-filter: blur(12px);
-      flex-direction: column;
-      gap: 2px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-    }
-
-    #fps {
-      color: #0fa;
-      font-size: 14px;
-      font-weight: 800;
-      letter-spacing: 1px;
-    }
-
-    #quality-label {
-      color: rgba(255, 255, 255, 0.45);
-      font-size: 9px;
-      text-transform: uppercase;
-      letter-spacing: 1.5px;
-      font-weight: 600;
-    }
 
     /* ─── Modern HP HUD ─────────────────────────────────────────────────── */
     #hp-hud {
@@ -1868,9 +1838,6 @@
         transform-origin: top right;
       }
 
-      #stats {
-        display: none !important;
-      }
 
       #mission-hud {
         top: calc(65px + env(safe-area-inset-top));
@@ -1917,7 +1884,6 @@
       #hp-hud,
       #ammo-hud,
       #coin-box,
-      #stats,
       #kill-feed,
       #combo,
       #popup,
@@ -1951,10 +1917,6 @@
 
 <body>
   <div id="hud">
-    <div id="stats">
-      <div id="fps">-- FPS</div>
-      <div id="quality-label">ULTRA QUALITY</div>
-    </div>
     <div id="interact"></div>
     <div id="kill-feed"></div>
     <div id="combo"></div>

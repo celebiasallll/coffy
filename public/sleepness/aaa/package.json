@@ -11,20 +11,27 @@
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.18.0",
+    "@recast-navigation/three": "^0.43.1",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
     "bitecs": "^0.3.38",
     "howler": "^2.2.4",
+    "leva": "^0.10.1",
     "postprocessing": "^6.38.3",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
     "simplex-noise": "^4.0.3",
-    "three": "^0.170.0",
+    "three": "^0.175.0",
     "three-csm": "^4.2.1",
     "three-mesh-bvh": "^0.9.9",
     "viem": "^2.0.0",
-    "yuka": "^0.7.4"
+    "yuka": "^0.7.4",
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@types/howler": "^2.2.11",
     "@types/node": "^25.5.0",
-    "@types/three": "^0.170.0",
+    "@types/three": "^0.175.0",
     "free-tex-packer-core": "^0.3.5",
     "typescript": "^5.4.0",
     "vite": "^6.0.0"

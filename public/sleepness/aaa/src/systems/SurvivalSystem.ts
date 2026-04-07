@@ -18,6 +18,14 @@ export interface SurvivalState {
   coffeeCount: number;
 }
 
+// ── Config (Leva Ready) ───────────────────────────────────────────────────────
+export const survivalConfig = {
+  sleepDrainRateDay: 0.25,
+  sleepDrainRateNight: 0.50,
+  energyDrainRate: 10,
+  energyRegenRate: 5,
+};
+
 // ── State ─────────────────────────────────────────────────────────────────────
 const state: SurvivalState = {
   health: 90,
@@ -81,17 +89,17 @@ export function updateSurvival(dt: number, sprinting: boolean): SurvivalState {
   // ── Sleep drain: gece 2x hızlanır (22:00-06:00 = t<0.26 || t>0.78)
   const timeOfDay = getTimeOfDay();
   const isNight = timeOfDay < 0.26 || timeOfDay > 0.78;
-  const sleepDrainRate = isNight ? 0.50 : 0.25; // gece 2x
+  const sleepDrainRate = isNight ? survivalConfig.sleepDrainRateNight : survivalConfig.sleepDrainRateDay; 
   // Hunger/Thirst disabled — only energy and sleep remain active
   state.hunger = 100; // always full, no depletion
   state.thirst = 100; // always full, no depletion
   state.sleep  = Math.max(0, state.sleep  - dt * sleepDrainRate);
 
   if (sprinting && state.energy > 0) {
-    state.energy = Math.max(0, state.energy - dt * 10);
+    state.energy = Math.max(0, state.energy - dt * survivalConfig.energyDrainRate);
     if (state.energy === 0) _sprintLocked = true;
   } else {
-    state.energy = Math.min(state.maxEnergy, state.energy + dt * 5);
+    state.energy = Math.min(state.maxEnergy, state.energy + dt * survivalConfig.energyRegenRate);
   }
 
   // No hunger/thirst death logic — only sleep-based death check remains in updateSleepEffects

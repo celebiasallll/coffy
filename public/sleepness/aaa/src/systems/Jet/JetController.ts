@@ -48,6 +48,8 @@ interface JetState {
 let jet: JetState | null = null;
 let crashTriggered = false;
 let jetStuckTimer = 0; // [NEW] Stuck detection timer for the jet
+let lastTailStrikeLogTime = 0; // [NEW] Cooldown for tail-strike logs to prevent FPS drops
+
 
 class JetAudio {
     private engine: THREE.Audio | null = null;
@@ -736,8 +738,13 @@ export function handleJetCollisionEvent(h1: number, h2: number): void {
             jet.state.isCrashed = true;
             console.error(`[JET CRASH] Critical Impact (Speed: ${totalSpeed.toFixed(1)}, Vert: ${verticalVelocity.toFixed(1)})`);
         } else {
-            console.log(`[JET] Fuselage Scraping / Tail-Strike Detected`);
+            const now = performance.now();
+            if (now - lastTailStrikeLogTime > 500) {
+                console.log(`[JET] Fuselage Scraping / Tail-Strike Detected`);
+                lastTailStrikeLogTime = now;
+            }
         }
+
     } else if (isWheel && jet.state.prevSpeed > 220) { 
         // [2026] Increased wheel impact threshold (220)
         jet.state.isCrashed = true;

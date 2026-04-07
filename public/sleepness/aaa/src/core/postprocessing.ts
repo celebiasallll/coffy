@@ -65,11 +65,11 @@ function applySMAAPreset(preset: SMAAPreset): void {
   state.smaaEffect.applyPreset(preset);
   state.currentSMAAPreset = preset;
 
-  // Dynamic DPR based on quality tier (Restored for High-DPI excellence)
-  // Medium: ~1.4 (Sharp), High: ~1.8 (Retina-like), Ultra: ~3.0 (Supersampled)
-  let dprTarget = 1.4;
-  if (preset === SMAAPreset.HIGH) dprTarget = 1.8;
-  if (preset === SMAAPreset.ULTRA) dprTarget = 3.0;
+  // Dynamic DPR based on quality tier (Optimized for 60 FPS)
+  // Medium: ~1.1, High: ~1.5, Ultra: ~1.7 (Balanced for High-DPI)
+  let dprTarget = 1.1;
+  if (preset === SMAAPreset.HIGH) dprTarget = 1.5;
+  if (preset === SMAAPreset.ULTRA) dprTarget = 1.7;
 
   const finalDPR = Math.min(window.devicePixelRatio, dprTarget);
   state.renderer.setPixelRatio(finalDPR);
@@ -86,18 +86,18 @@ function adaptQuality(now: number): void {
   if (avg === 0) return;
   const currentIdx = QUALITY_LADDER.indexOf(state.currentSMAAPreset);
   
-  // User Requested FPS Ranges:
-  // Ultra: > 50 FPS (< 20ms)
-  // High: 43 - 50 FPS (20ms - 23ms)
-  // Medium: 35 - 43 FPS (23ms - 28ms)
+  // User Requested Adaptive Scaling (v11):
+  // Ultra: > 48 FPS (< 20.8ms)
+  // High:  40 - 48 FPS (20.8ms - 25ms)
+  // Medium: < 40 FPS (> 25ms)
 
   if (currentIdx === 2) { // Currently ULTRA
-    if (avg > 20) applySMAAPreset(QUALITY_LADDER[1]); // Drop to High if < 50 FPS
+    if (avg > 21.5) applySMAAPreset(QUALITY_LADDER[1]); // Drop to High if < 46.5 FPS
   } else if (currentIdx === 1) { // Currently HIGH
-    if (avg > 23) applySMAAPreset(QUALITY_LADDER[0]); // Drop to Medium if < 43 FPS
-    if (avg < 18) applySMAAPreset(QUALITY_LADDER[2]); // Return to Ultra if > 55 FPS (Hysteresis)
+    if (avg > 26) applySMAAPreset(QUALITY_LADDER[0]);    // Drop to Medium if < 38.5 FPS
+    if (avg < 18.5) applySMAAPreset(QUALITY_LADDER[2]);  // Return to Ultra if > 54 FPS
   } else if (currentIdx === 0) { // Currently MEDIUM
-    if (avg < 21) applySMAAPreset(QUALITY_LADDER[1]); // Return to High if > 47 FPS (Hysteresis)
+    if (avg < 22.5) applySMAAPreset(QUALITY_LADDER[1]);  // Return to High if > 44.5 FPS
   }
 }
 
@@ -109,7 +109,7 @@ export function initPostprocessing(
   renderer: THREE.WebGLRenderer,
   options: { warmupMs?: number; initialPreset?: SMAAPreset } = {},
 ): void {
-  const { warmupMs = 6_000, initialPreset = SMAAPreset.ULTRA } = options;
+  const { warmupMs = 6_000, initialPreset = SMAAPreset.HIGH } = options;
   disposePostprocessing();
 
   state.warmupUntil = performance.now() + warmupMs;
@@ -122,11 +122,11 @@ export function initPostprocessing(
 
   const bloomEffect = new BloomEffect({
     blendFunction: BlendFunction.SCREEN,
-    mipmapBlur: false,
+    mipmapBlur: true,
     luminanceThreshold: 0.9,
     luminanceSmoothing: 0.1,
-    intensity: 0.45,
-    radius: 0.35,
+    intensity: 0.4,
+    radius: 0.4,
   });
 
   const newSmaaEffect = new SMAAEffect({ preset: initialPreset });

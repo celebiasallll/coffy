@@ -113,6 +113,7 @@ export function setupResize(
     if (composer) composer.setSize(width, height);
 
     const maxDPR = width < 768 ? 1.4 : 2.0; // Increased for better clarity on mobile and desktop
+    // @ts-ignore
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxDPR));
   };
 

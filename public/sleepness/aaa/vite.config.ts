@@ -7,15 +7,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
     resolve: {
         alias: {
-            'three': path.resolve(__dirname, 'node_modules/three'),
-            'three/build/three.module.js': path.resolve(__dirname, 'node_modules/three/build/three.module.js'),
-            'three/examples/jsm': path.resolve(__dirname, 'node_modules/three/examples/jsm')
         },
         dedupe: ['three', 'postprocessing']
     },
     optimizeDeps: {
         include: ['three'],
-        exclude: ['@dimforge/rapier3d-compat']
+        exclude: ['@dimforge/rapier3d-compat', '@recast-navigation/three', '@recast-navigation/core', '@recast-navigation/wasm-compat']
     },
     base: './',
     server: {
@@ -28,9 +25,7 @@ export default defineConfig({
         }
     },
     build: {
-        target: 'esnext',
-        outDir: '../',
-        emptyOutDir: false
+        target: 'esnext'
     },
     assetsInclude: ['**/*.wasm']
 });

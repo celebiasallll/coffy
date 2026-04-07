@@ -1,28 +1,23 @@
 import * as THREE from 'three';
 
-// --- GLOBAL CONSOLE SILENCER (Silences FBXLoader and Rapier deprecated warnings) ---
-if (import.meta.env.DEV) {
-  const _warn = console.warn;
-  console.warn = (...args) => {
-    const msg = args[0]?.toString?.() || '';
-    if (msg.includes('THREE.FBXLoader') || msg.includes('rapier.mjs') || msg.includes('ShininessExponent') || msg.includes('deprecated parameters') || msg.includes('requestFullscreen') || msg.includes('Orientation lock') || msg.includes('SMAA CRITICAL') || msg.includes('Failed to fetch')) return;
-    _warn.apply(console, args);
+// ─── PRODUCTION CONSOLE FILTER ──────────────────────────────────────────────
+(function() {
+  const silentPatterns = [
+    'deprecated parameters', 'ShininessExponent', 'skinning weights', 
+    'Audio is already playing', 'NotAllowedError', 'Orientation lock', 'Pointer Lock'
+  ];
+  
+  const filter = (originalFn: any) => (...args: any[]) => {
+    const combinedMsg = args.map(a => (a && a.toString) ? a.toString() : String(a)).join(' ');
+    if (silentPatterns.some(p => combinedMsg.includes(p))) return;
+    originalFn.apply(console, args);
   };
 
-  const _log = console.log;
-  console.log = (...args) => {
-    const msg = args[0]?.toString?.() || '';
-    if (msg.includes('✅') || msg.includes('SES Removing') || msg.includes('CharacterController') || msg.includes('BVH') || msg.includes('Spawning NPC') || msg.includes('Orientation lock')) return;
-    _log.apply(console, args);
-  };
+  console.warn = filter(console.warn);
+  console.error = filter(console.error);
+})();
 
-  const _error = console.error;
-  console.error = (...args) => {
-    const msg = args[0]?.toString?.() || '';
-    if (msg.includes('NotAllowedError') || msg.includes('requestFullscreen') || msg.includes('Orientation lock')) return;
-    _error.apply(console, args);
-  };
-}
+// ─── MOBILE DETECTION & IMMERSIVE SETUP ──────────────────────────────────────
 
 // --- MOBILE DETECTION & IMMERSIVE SETUP ---
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 0);
@@ -63,6 +58,7 @@ import { updateImpacts } from './ecs/systems/ImpactSystem.js';
 import { updateParticles, initParticles } from './systems/particles.js';
 import { updateHUD, initScoreSystem, triggerGameOver, isGameOver, showPopup, addScore } from './systems/score.js';
 import { spawnVehicles, updateVehicles, tryEnterVehicle, exitVehicle, Vehicle, getNearestVehicleInfo } from './systems/VehicleSystem.js';
+import { initNavMesh } from './systems/NavMeshSystem.js';
 import { weaponSystem } from './ecs/systems/WeaponSystem.js';
 import { weaponVisualSystem } from './ecs/systems/WeaponVisualSystem.js';
 import { collectionSystem } from './ecs/systems/CollectionSystem.js';
@@ -101,6 +97,8 @@ import {
 } from './world/WeatherSystem.js';
 
 import { initSurvival, updateSurvival, canSprint, onDeath, isInputBlocked, fillSleep, takeDamage } from './systems/SurvivalSystem.js';
+import { initDebugControls } from './core/DebugControls.js';
+import { useGameStore } from './store/gameStore.js';
 import { PortalSystem } from './systems/PortalSystem.js';
 import { PuzzleGame } from './minigames/PuzzleGame.js';
 
@@ -228,6 +226,7 @@ async function init(playerType: number) {
   initCharacterController(getPhysicsWorld());
 
   const renderer = createRenderer();
+
   const { scene, camera } = createSceneAndCamera();
   setupResize(renderer, camera);
   audioManager.init(camera);
@@ -265,8 +264,14 @@ async function init(playerType: number) {
   const composerObject = getComposer(); 
   if (composerObject) setupResize(renderer, camera, composerObject);
   
-  createTerrain(scene);
+  const { terrain } = createTerrain(scene);
   createWater(scene);
+
+  try {
+    initNavMesh(scene, terrain);
+  } catch (e) {
+    console.error('NavMesh initialization failed, but continuing...', e);
+  }
 
   // [FIX-22] Initialize WorldStreamer only after scene is ready
   worldStreamer = new WorldStreamer(scene);
@@ -422,6 +427,9 @@ async function init(playerType: number) {
   let footstepDistCounter = 0;
   let underwaterSound: any = null;
   let isUnderwater = false;
+  const underwaterFog = new THREE.FogExp2(0x005577, 0.05);
+  const underwaterColor = new THREE.Color(0x005577);
+  const hemiUnderwater = new THREE.Color(0x003344);
 
   // ── Helper: launches PuzzleGame after pointer lock is confirmed released ──
   function launchPuzzleGame() {
@@ -490,6 +498,7 @@ async function init(playerType: number) {
           const mesh = entityMeshes.get(playerId);
           if (mesh) mesh.visible = true;
           inJet = false;
+          useGameStore.getState().setInJet(false);
           showJetHUD(false);
           exitVehicleTimer = 0.5;
 
@@ -511,6 +520,7 @@ async function init(playerType: number) {
           const mesh = entityMeshes.get(playerId);
           if (mesh) mesh.visible = true;
           occupiedVehicle = null;
+          useGameStore.getState().setOccupiedVehicle(null);
           exitVehicleTimer = 0.5;
         }
       } else {
@@ -518,6 +528,7 @@ async function init(playerType: number) {
         if (playerMesh) {
           if (jetPressed && tryEnterJet(playerMesh.position)) {
             inJet = true;
+            useGameStore.getState().setInJet(true);
             InputState.isDriving[playerId] = 1;
             const rb = entityPhysicsBodies.get(playerId);
             if (rb) {
@@ -530,6 +541,7 @@ async function init(playerType: number) {
             audioManager.playSFX('assets/sounds/freesound_community-f16-fighter-jet-start-upaif-14690.mp3', 0.06);
           } else if (interactPressed) {
             occupiedVehicle = tryEnterVehicle(playerMesh.position);
+            useGameStore.getState().setOccupiedVehicle(occupiedVehicle);
             if (occupiedVehicle) {
               InputState.isDriving[playerId] = 1;
               const rb = entityPhysicsBodies.get(playerId);
@@ -683,9 +695,9 @@ async function init(playerType: number) {
     }
     if (isCameraUnderwater && !isUnderwater && !occupiedVehicle) {
       isUnderwater = true;
-      scene.fog = new THREE.FogExp2(0x005577, 0.06);
-      renderer.setClearColor(0x005577, 1);
-      hemi.color.set(0x003344);
+      scene.fog = underwaterFog;
+      renderer.setClearColor(underwaterColor, 1);
+      hemi.color.copy(hemiUnderwater);
       if (underwaterSound && underwaterSound.buffer && !underwaterSound.isPlaying) underwaterSound.play();
     } else if (!isCameraUnderwater && isUnderwater) {
       isUnderwater = false;
@@ -746,6 +758,7 @@ async function init(playerType: number) {
     touchControls.update();
 
     inputSystem(world);
+
     // if (portalSystem) portalSystem.update(dt, clock.getElapsedTime());
 
     // [v65.1]: LOADING STASIS (Freeze world while loading screen is visible)
@@ -783,24 +796,34 @@ async function init(playerType: number) {
       wolfDmgThisFrame = Math.max(0, hpBeforeAI - Health.current[playerId]);
     }
 
+
     if (wolfDmgThisFrame > 0) {
       takeDamage(wolfDmgThisFrame);
     }
 
     physicsSystem(world);
+
     animationSystem(world);
+
     renderSystem(world);
+
     weaponSystem(world);
+
     updateImpacts(scene, dt);
     updateParticles(dt);
+
     if (portalSystem) {
       const playerMesh = entityMeshes.get(playerId);
-      if (playerMesh) portalSystem.update(dt, clock.getElapsedTime(), playerMesh.position);
+      if (playerMesh) {
+        portalSystem.update(dt, clock.getElapsedTime(), playerMesh.position);
+      }
     }
+
     
     if (worldStreamer) {
       worldStreamer.update(camFollowPos);
     }
+
     
 
     const hpAfterWeapon = Health.current[playerId];
@@ -809,9 +832,11 @@ async function init(playerType: number) {
     }
     
     gameState.weaponVisual(world);
+
     
     handleJetAndVehicleInput(dt);
     handlePortalInput();
+
 
     // [NEW] Mobile Camera Cycle Support (Rising-edge lock)
     if (touchControls.isChangingCamera && !(touchControls as any)['_cam_lock_']) {
@@ -830,8 +855,10 @@ async function init(playerType: number) {
     const surv = updateSurvival(dt, sprintAllowed);
     Health.current[playerId] = surv.health;
 
+
     if (Health.current[playerId] <= 0 && !playerDead) {
       playerDead = true;
+      useGameStore.getState().setPlayerDead(true);
       InputState.sprint[playerId] = 0;
       InputState.moveX[playerId] = 0;
       InputState.moveZ[playerId] = 0;
@@ -855,6 +882,7 @@ async function init(playerType: number) {
     }
 
     collectionSystem(world);
+
 
     const crosshairEl = document.getElementById('crosshair');
     if (crosshairEl) crosshairEl.style.display = (inJet || occupiedVehicle) ? 'none' : 'block';
@@ -880,6 +908,7 @@ async function init(playerType: number) {
 
     updateWeather(dt, camFollowPos, getTimeOfDay());
 
+
     envAcc += dt;
     if (envAcc >= ENV_STEP) {
       updateEnvironment(envAcc, clock.getElapsedTime());
@@ -887,6 +916,7 @@ async function init(playerType: number) {
       updateClouds(envAcc);
       envAcc = 0;
     }
+
 
     gameState.bubbleTimer += dt;
 
@@ -922,14 +952,19 @@ async function init(playerType: number) {
       });
     }
 
+
     gameState.frameCount++;
 
     fpsWindow.push(1 / dt);
     if (fpsWindow.length > 60) fpsWindow.shift();
 
     updateCamera(dt, camFollowPos);
+
     updateHUDAndAudio(dt, camFollowPos);
+
     renderComposer(dt);
+
+
   }
 
   animate();

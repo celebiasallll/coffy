@@ -7,6 +7,12 @@ import { getHeight } from '../../world/terrain.js';
 import { WATER_LEVEL } from '../../world/terrain.js';
 import { isSpaceOccupied, getSlopeAngle } from '../../world/environment.js';
 import { getPhysicsWorld } from '../../core/physics.js';
+import { findPath } from '../../systems/NavMeshSystem.js';
+
+// --- NavMesh Path Storage ---
+const enemyPaths = new Map<EntityId, THREE.Vector3[]>();
+const pathUpdateTimer = new Map<EntityId, number>();
+const pathIndex = new Map<EntityId, number>();
 
 const enemyQuery = defineQuery([EnemyTag, Position, Rotation, AnimState, AIController, Health]);
 const playerQuery = defineQuery([PlayerTag, Position, Health]);
@@ -191,8 +197,36 @@ export const aiSystem = defineSystem((world: IWorld) => {
             }
 
             if (state === 2) { // Chase
-                // BUG 7 FIX: _dir.subVectors() reuse
-                _dir.subVectors(_playerPos, _wolfPos).normalize();
+                // --- NavMesh Pathfinding Logic ---
+                let pTimer = pathUpdateTimer.get(id) || 0;
+                let currentPath = enemyPaths.get(id);
+                let pIdx = pathIndex.get(id) || 1;
+
+                pTimer -= dt;
+                if (pTimer <= 0 || !currentPath) {
+                    const newPath = findPath(_wolfPos, _playerPos);
+                    if (newPath && newPath.length > 1) {
+                        enemyPaths.set(id, newPath);
+                        pathIndex.set(id, 1);
+                        pIdx = 1;
+                        currentPath = newPath;
+                    }
+                    pathUpdateTimer.set(id, 0.4 + Math.random() * 0.4); // Update path every 0.4-0.8s
+                } else {
+                    pathUpdateTimer.set(id, pTimer);
+                }
+
+                if (currentPath && pIdx < currentPath.length) {
+                    const waypoint = currentPath[pIdx];
+                    _dir.subVectors(waypoint, _wolfPos).normalize();
+
+                    if (_wolfPos.distanceTo(waypoint) < 1.0) {
+                        pathIndex.set(id, pIdx + 1);
+                    }
+                } else {
+                    // Fallback to direct chase if no path
+                    _dir.subVectors(_playerPos, _wolfPos).normalize();
+                }
 
                 if (dist > attackRange * 0.95) {
                     applySeparation(id, enemies, _wolfPos, _dir);

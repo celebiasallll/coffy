@@ -3,7 +3,8 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Open World AAA Prototype v1.0.1</title>
   <link rel="icon" href="data:;base64,iVBORw0KGgo=">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -35,7 +36,7 @@
 
       --ui-margin: 24px;
       --ui-margin-mobile: 16px;
-      
+
       /* Dynamic Responsive Margins */
       --margin-t: calc(var(--ui-margin-mobile) + var(--sa-top));
       --margin-b: calc(var(--ui-margin-mobile) + var(--sa-bottom));
@@ -54,9 +55,19 @@
       --danger: #ff4b2b;
       --gas: rgba(0, 255, 100, 0.4);
       --brake: rgba(255, 50, 0, 0.4);
+
+      /* [v83.0]: Architectural Layer Registry (z-index) */
+      --z-canvas: 1;
+      --z-hud: 100;
+      --z-mobile-btn: 200;
+      --z-overlay: 500;
+      --z-modal: 1000;
+      --z-loading: 5000;
+      --z-top: 9999;
     }
 
-    body, canvas {
+    body,
+    canvas {
       background: #000;
       overflow: hidden;
       font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -67,14 +78,15 @@
     }
 
     canvas {
-      position: absolute;
+      position: fixed;
       top: 0;
       left: 0;
-      width: 100% !important;
-      height: 100% !important;
+      width: 100vw !important;
+      height: 100vh !important;
       display: block;
       touch-action: none;
-      z-index: 1;
+      z-index: var(--z-canvas);
+      background: #000;
     }
 
     #hud {
@@ -96,16 +108,13 @@
       position: fixed;
       inset: 0;
       pointer-events: none;
-      z-index: 10;
+      z-index: var(--z-hud);
       color: #fff;
       font-size: 12px;
-      padding-top: env(safe-area-inset-top);
-      padding-left: env(safe-area-inset-left);
-      padding-right: env(safe-area-inset-right);
-      padding-bottom: env(safe-area-inset-bottom);
+      padding: var(--sa-top) var(--sa-right) var(--sa-bottom) var(--sa-left);
     }
 
-    #hud > div {
+    #hud>div {
       pointer-events: none;
     }
 
@@ -123,11 +132,22 @@
       background: rgba(4, 8, 16, 0.82);
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 14px;
-      backdrop-filter: blur(14px);
-      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-      pointer-events: none;
+      pointer-events: auto;
       min-width: 240px;
       transition: box-shadow 0.15s;
+    }
+
+    @supports (backdrop-filter: blur(14px)) {
+      #hp-hud {
+        backdrop-filter: blur(14px);
+        background: rgba(4, 8, 16, 0.82);
+      }
+    }
+
+    @supports not (backdrop-filter: blur(14px)) {
+      #hp-hud {
+        background: rgba(15, 20, 30, 0.95);
+      }
     }
 
     #hp-hud.hp-damaged {
@@ -226,10 +246,21 @@
       background: var(--ui-bg);
       border: var(--ui-border);
       border-radius: var(--ui-radius);
-      backdrop-filter: var(--ui-blur);
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-      pointer-events: none;
+      pointer-events: auto;
       min-width: 120px;
+    }
+
+    @supports (backdrop-filter: blur(1px)) {
+      #ammo-hud {
+        backdrop-filter: var(--ui-blur);
+      }
+    }
+
+    @supports not (backdrop-filter: blur(1px)) {
+      #ammo-hud {
+        background: rgba(15, 20, 30, 0.95);
+      }
     }
 
     #ammo-label {
@@ -338,7 +369,13 @@
       border: var(--ui-border);
       backdrop-filter: var(--ui-blur);
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-      pointer-events: none;
+      pointer-events: auto;
+    }
+
+    @supports not (backdrop-filter: blur(1px)) {
+      #score-box {
+        background: rgba(15, 20, 30, 0.95);
+      }
     }
 
     #score-num {
@@ -360,14 +397,15 @@
       color: #ffd700;
       font-size: 12px;
       margin-top: 3px;
-      text-shadow: 0 0 8px rgba(255,215,0,0.5);
+      text-shadow: 0 0 8px rgba(255, 215, 0, 0.5);
     }
 
     #coin-box {
       position: absolute;
       top: var(--ui-margin);
       right: var(--ui-margin);
-      display: none; /* [FIX] Hidden in desktop by default, mobile uses it */
+      display: none;
+      /* [FIX] Hidden in desktop by default, mobile uses it */
       align-items: center;
       gap: 10px;
       padding: 8px 16px;
@@ -490,10 +528,11 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      z-index: 999;
+      z-index: var(--z-loading);
       color: #fff;
       overflow: hidden;
       transition: opacity .7s ease;
+      pointer-events: auto;
     }
 
     #ld-bg,
@@ -671,7 +710,7 @@
       letter-spacing: 12px;
       color: #fff;
       text-transform: uppercase;
-      text-shadow: 0 0 30px var(--accent-glow), 0 5px 20px rgba(0,0,0,0.8);
+      text-shadow: 0 0 30px var(--accent-glow), 0 5px 20px rgba(0, 0, 0, 0.8);
       margin-bottom: 8px;
       animation: ld-title .9s .1s cubic-bezier(.2, 1, .3, 1) both;
     }
@@ -817,9 +856,10 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      z-index: 2100; /* [FIX] Raised above joystick and all HUD elements */
+      z-index: var(--z-overlay);
       color: #fff;
       overflow: hidden;
+      pointer-events: auto;
     }
 
     #gameover::before {
@@ -1140,7 +1180,7 @@
       font-weight: 900;
       letter-spacing: 10px;
       color: #fff;
-      text-shadow: 0 0 40px var(--accent-glow), 0 5px 15px rgba(0,0,0,0.8);
+      text-shadow: 0 0 40px var(--accent-glow), 0 5px 15px rgba(0, 0, 0, 0.8);
       margin-bottom: 0;
       animation: cs-in .6s .05s ease both;
     }
@@ -1440,7 +1480,8 @@
       padding: 0;
       font-family: 'Rajdhani', sans-serif;
       font-weight: 900;
-      font-size: 16px; /* Reduced by 20% from 20px */
+      font-size: 16px;
+      /* Reduced by 20% from 20px */
       pointer-events: none;
       display: none;
       z-index: 1000;
@@ -1488,7 +1529,7 @@
       text-shadow: 0 0 15px rgba(160, 170, 178, 0.4);
       line-height: 1;
     }
-    
+
     #mission-title {
       font-size: 14px;
       font-weight: 700;
@@ -1496,14 +1537,14 @@
       letter-spacing: 2px;
       margin-bottom: 6px;
     }
-    
+
     #mission-desc {
       font-size: 12px;
       color: rgba(255, 255, 255, 0.7);
       line-height: 1.4;
       margin-bottom: 14px;
     }
-    
+
     #mission-progress {
       font-size: 13px;
       font-weight: 700;
@@ -1612,8 +1653,15 @@
     }
 
     @keyframes interact-pulse {
-      0%, 100% { text-shadow: 0 4px 15px rgba(0,0,0,0.9), 0 0 10px rgba(160,170,178,0.4); }
-      50% { text-shadow: 0 4px 15px rgba(0,0,0,0.9), 0 0 25px rgba(160,170,178,0.8); }
+
+      0%,
+      100% {
+        text-shadow: 0 4px 15px rgba(0, 0, 0, 0.9), 0 0 10px rgba(160, 170, 178, 0.4);
+      }
+
+      50% {
+        text-shadow: 0 4px 15px rgba(0, 0, 0, 0.9), 0 0 25px rgba(160, 170, 178, 0.8);
+      }
     }
 
     #start-hint {
@@ -1859,7 +1907,7 @@
         display: none !important;
       }
 
-      #time-label, 
+      #time-label,
       #time-hud {
         display: none !important;
       }
@@ -1898,13 +1946,13 @@
         top: calc(75px + var(--sa-top));
         left: var(--margin-l);
         right: auto;
-        scale: 0.8;
+        scale: 0.5;
         transform-origin: top left;
         background: var(--ui-bg) !important;
         border: var(--ui-border) !important;
         border-left: 5px solid var(--accent) !important;
         backdrop-filter: var(--ui-blur) !important;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.4) !important;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
         width: 220px !important;
         height: auto !important;
         padding: 16px !important;
@@ -1927,39 +1975,28 @@
         backdrop-filter: var(--ui-blur);
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
       }
-      
+
       /* Pro Fix: Global UI Layer Passivity (Net Solution) */
-      #hud, 
-      #hud-container,
-      #instructions,
-      #terrain-info,
-      #tachometer,
-      #notification,
-      #audioNotification,
-      #settings-menu,
-      #mobile-mode-instructions,
-      #mobile-controls, 
-      #action-zone, 
-      .input-guides-wrapper, 
-      #mission-hud, 
-      #survival-box,
-      #hp-hud,
-      #ammo-hud,
-      #coin-box,
-      #kill-feed,
-      #combo,
-      #popup,
-      #time-label, 
-      #interact, 
-      #survival-warning,
-      #ld-inner { /* [FIX] #go-inner removed from pointer-events: none */
-        pointer-events: none !important;
+      #hud {
+        pointer-events: none;
       }
 
-      /* Explicitly activate buttons and interactive menus */
-      button, 
-      .mobile-btn, 
-      .cs-start-btn, 
+      /* Resilient HUD interaction (Modular override) */
+      #survival-box,
+      #coin-box,
+      #mission-hud,
+      #hp-hud,
+      #ammo-hud,
+      #kill-feed,
+      #score-box,
+      .mobile-btn {
+        pointer-events: auto;
+      }
+
+      /* Clean Activation without !important */
+      button,
+      .mobile-btn,
+      .cs-start-btn,
       .char-btn,
       .go-btn,
       #cs-start,
@@ -1967,11 +2004,11 @@
       #char-select,
       #loading,
       #gameover,
-      #go-inner, /* [FIX] Explicitly activate the inner container */
+      #go-inner,
       #pauseMenu,
       #pauseMenu button,
       #settings-menu {
-        pointer-events: auto !important;
+        pointer-events: auto;
       }
     }
   </style>
@@ -2029,9 +2066,13 @@
 
 
     <div id="coin-box">
-      <button id="btn-camera-top" class="mobile-btn" style="width:34px; height:34px; pointer-events:auto; font-size:15px; margin-right:3px; border-radius:10px !important;">🎥</button>
-      <span id="coin-icon" style="font-size:18px; text-shadow:0 2px 10px rgba(255,215,0,0.5); filter:drop-shadow(0 0 5px rgba(255,215,0,0.4));">☕</span>
-      <div id="coin-num" style="color:#ffd700; font-size:20px; font-weight:800; font-family:'Rajdhani',sans-serif; text-shadow:0 0 10px rgba(255,215,0,0.4); letter-spacing:1px;">0</div>
+      <button id="btn-camera-top" class="mobile-btn"
+        style="width:34px; height:34px; pointer-events:auto; font-size:15px; margin-right:3px; border-radius:10px !important;">🎥</button>
+      <span id="coin-icon"
+        style="font-size:18px; text-shadow:0 2px 10px rgba(255,215,0,0.5); filter:drop-shadow(0 0 5px rgba(255,215,0,0.4));">☕</span>
+      <div id="coin-num"
+        style="color:#ffd700; font-size:20px; font-weight:800; font-family:'Rajdhani',sans-serif; text-shadow:0 0 10px rgba(255,215,0,0.4); letter-spacing:1px;">
+        0</div>
     </div>
 
     <div id="camera-mode-badge">
@@ -2052,26 +2093,29 @@
           <div id="joystick-handle"></div>
         </div>
       </div>
-      <!-- Yaw Controls (Mobile Only) - Relocated to left to prevent right-side clashes -->
       <div id="jet-yaw-controls"
-        style="display:none; position:fixed; left:var(--margin-l); bottom:calc(var(--margin-b) + 160px); z-index:1000; flex-direction:row; gap:12px;">
+        style="display:none; position:fixed; left:calc(20vw + var(--margin-l)); bottom:calc(10vh + var(--margin-b) + min(140px, 30vmin) + 20px); z-index:1000; flex-direction:row; gap:12px;">
+        <button id="btn-jet-boost" class="mobile-btn mini"
+          style="width:14vmin; height:14vmin; max-width:60px; max-height:60px; font-size:20px;">⚡</button>
         <button id="btn-jet-yaw-l" class="mobile-btn mini"
           style="width:14vmin; height:14vmin; max-width:60px; max-height:60px; font-size:20px;">◄</button>
         <button id="btn-jet-yaw-r" class="mobile-btn mini"
           style="width:14vmin; height:14vmin; max-width:60px; max-height:60px; font-size:20px;">►</button>
-        <button id="btn-jet-boost" class="mobile-btn mini" 
-          style="width:14vmin; height:14vmin; max-width:60px; max-height:60px; font-size:20px;">⚡</button>
       </div>
 
       <div id="action-zone">
-        <div id="char-actions" style="position: relative; width: 50vmin; height: 40vmin; max-width: 230px; max-height: 180px; margin-bottom: 25px;">
-          <button id="btn-fire" class="mobile-btn" style="position: absolute; right: 20vmin; bottom: 20vmin; width: 18vmin; height: 18vmin; max-width: 82px; max-height: 82px;">
+        <div id="char-actions"
+          style="position: relative; width: 50vmin; height: 40vmin; max-width: 230px; max-height: 180px; margin-bottom: 25px;">
+          <button id="btn-fire" class="mobile-btn"
+            style="position: absolute; right: 23vmin; bottom: 20vmin; width: 18vmin; height: 18vmin; max-width: 82px; max-height: 82px;">
             <span class="fire-reticle"></span>
           </button>
-          <button id="btn-jump" class="mobile-btn mini" style="position: absolute; right: 2vmin; bottom: 8vmin; width: 14vmin; height: 14vmin; max-width: 56px; max-height: 56px; font-size: 24px; color: #a0aab2;">
+          <button id="btn-jump" class="mobile-btn mini"
+            style="position: absolute; right: 2vmin; bottom: 8vmin; width: 14vmin; height: 14vmin; max-width: 56px; max-height: 56px; font-size: 24px; color: #a0aab2;">
             ⇪
           </button>
-          <button id="btn-interact" class="mobile-btn mini" style="position: absolute; right: 22vmin; bottom: 2vmin; width: 18vmin; height: 12vmin; max-width: 76px; max-height: 48px; font-size: 18px; border-radius: 24px !important; color: #a0aab2;">
+          <button id="btn-interact" class="mobile-btn mini"
+            style="position: absolute; right: 22vmin; bottom: 2vmin; width: 18vmin; height: 12vmin; max-width: 76px; max-height: 48px; font-size: 18px; border-radius: 24px !important; color: #a0aab2;">
             🔑
           </button>
         </div>
@@ -2079,23 +2123,33 @@
         <!-- Jet Controls (Mobile Only) [MODERNIZED] -->
         <div id="jet-controls-mobile"
           style="display:none; flex-direction:column; gap:12px; align-items:flex-end; padding-top:10px;">
-          
+
           <div style="display:flex; gap:5vmin; align-items:center;">
             <!-- Column 1: Pitch -->
             <div style="display:flex; flex-direction:column; gap:3vmin;">
-              <button id="btn-jet-up" class="mobile-btn mini" style="width:14vmin; height:14vmin; max-width:56px; max-height:56px; font-size:18px;">▲<span class="btn-label">PITCH</span></button>
-              <button id="btn-jet-down" class="mobile-btn mini" style="width:14vmin; height:14vmin; max-width:56px; max-height:56px; font-size:18px;">▼<span class="btn-label">PITCH</span></button>
+              <button id="btn-jet-up" class="mobile-btn mini"
+                style="width:14vmin; height:14vmin; max-width:56px; max-height:56px; font-size:18px;">▲<span
+                  class="btn-label">PITCH</span></button>
+              <button id="btn-jet-down" class="mobile-btn mini"
+                style="width:14vmin; height:14vmin; max-width:56px; max-height:56px; font-size:18px;">▼<span
+                  class="btn-label">PITCH</span></button>
             </div>
 
             <!-- Column 2: Throttle -->
             <div style="display:flex; flex-direction:column; gap:3vmin;">
-              <button id="btn-jet-thr-up" class="mobile-btn mini" style="width:14vmin; height:14vmin; max-width:56px; max-height:56px; font-size:18px;">▲<span class="btn-label">THR</span></button>
-              <button id="btn-jet-thr-down" class="mobile-btn mini" style="width:14vmin; height:14vmin; max-width:56px; max-height:56px; font-size:18px;">▼<span class="btn-label">THR</span></button>
+              <button id="btn-jet-thr-up" class="mobile-btn mini"
+                style="width:14vmin; height:14vmin; max-width:56px; max-height:56px; font-size:18px;">▲<span
+                  class="btn-label">THR</span></button>
+              <button id="btn-jet-thr-down" class="mobile-btn mini"
+                style="width:14vmin; height:14vmin; max-width:56px; max-height:56px; font-size:18px;">▼<span
+                  class="btn-label">THR</span></button>
             </div>
           </div>
 
           <!-- Exit Button -->
-          <button id="btn-jet-exit" class="mobile-btn mini" style="width:22vmin; height:10vmin; max-width:90px; max-height:40px; margin-top:5vmin; font-weight:bold; letter-spacing:1px; font-size:10px;">🚪 EXIT JET</button>
+          <button id="btn-jet-exit" class="mobile-btn mini"
+            style="width:22vmin; height:10vmin; max-width:90px; max-height:40px; margin-top:5vmin; font-weight:bold; letter-spacing:1px; font-size:10px;">🚪
+            EXIT JET</button>
         </div>
       </div>
     </div>
@@ -2104,55 +2158,59 @@
   <style>
     /* ═══ MODERN fixed JOYSTICK ═══ */
     /* [v82.0]: Gas/Brake Details (toz gibi) */
-    #btn-jet-thr-up, #btn-jet-up {
-      box-shadow: inset 0 0 20px var(--gas), 0 0 10px rgba(0,255,100,0.1) !important;
+    #btn-jet-thr-up,
+    #btn-jet-up {
+      box-shadow: inset 0 0 20px var(--gas), 0 0 10px rgba(0, 255, 100, 0.1) !important;
       border-color: rgba(0, 255, 100, 0.4) !important;
     }
-    #btn-jet-thr-down, #btn-jet-down {
-      box-shadow: inset 0 0 20px var(--brake), 0 0 10px rgba(255,50,0,0.1) !important;
+
+    #btn-jet-thr-down,
+    #btn-jet-down {
+      box-shadow: inset 0 0 20px var(--brake), 0 0 10px rgba(255, 50, 0, 0.1) !important;
       border-color: rgba(255, 50, 0, 0.4) !important;
     }
 
     #joystick-zone {
       position: fixed;
-      bottom: var(--margin-b);
-      left: var(--margin-l);
-      width: 140px;
-      height: 140px;
+      bottom: calc(10vh + var(--margin-b));
+      left: calc(20vw + var(--margin-l));
+      width: min(140px, 30vmin);
+      height: min(140px, 30vmin);
       pointer-events: none;
       display: none;
-      z-index: 1000;
+      z-index: var(--z-mobile-btn);
     }
 
     #joystick-base {
       width: 100%;
       height: 100%;
-      background: radial-gradient(circle, rgba(160,170,178,0.05) 0%, rgba(0,0,0,0.35) 70%);
-      border: 2px solid rgba(160,170,178,0.25);
+      background: radial-gradient(circle, rgba(160, 170, 178, 0.05) 0%, rgba(0, 0, 0, 0.35) 70%);
+      border: 2px solid rgba(160, 170, 178, 0.25);
       border-radius: 50%;
       position: relative;
       backdrop-filter: blur(20px);
-      box-shadow: 0 0 25px rgba(160,170,178,0.1), inset 0 0 30px rgba(0,0,0,0.3);
+      box-shadow: 0 0 25px rgba(160, 170, 178, 0.1), inset 0 0 30px rgba(0, 0, 0, 0.3);
       transition: border-color 0.3s, box-shadow 0.3s;
-      opacity: 0.7; /* 30% transparent */
+      opacity: 0.7;
+      /* 30% transparent */
     }
 
     #joystick-base.sprinting {
-      border-color: rgba(160,170,178,0.5);
-      box-shadow: 0 0 25px rgba(160,170,178,0.15), inset 0 0 30px rgba(0,0,0,0.3);
+      border-color: rgba(160, 170, 178, 0.5);
+      box-shadow: 0 0 25px rgba(160, 170, 178, 0.15), inset 0 0 30px rgba(0, 0, 0, 0.3);
     }
 
     #joystick-handle {
       width: 48px;
       height: 48px;
-      background: radial-gradient(circle at 35% 35%, rgba(160,170,178,0.45), rgba(100,110,120,0.2));
-      border: 2px solid rgba(160,170,178,0.5);
+      background: radial-gradient(circle at 35% 35%, rgba(160, 170, 178, 0.45), rgba(100, 110, 120, 0.2));
+      border: 2px solid rgba(160, 170, 178, 0.5);
       border-radius: 50%;
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      box-shadow: 0 0 18px rgba(160,170,178,0.35), inset 0 1px 0 rgba(255,255,255,0.2);
+      box-shadow: 0 0 18px rgba(160, 170, 178, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2);
       transition: box-shadow 0.15s;
     }
 
@@ -2160,9 +2218,10 @@
     #joystick-handle::before {
       content: '+';
       position: absolute;
-      top: 50%; left: 50%;
-      transform: translate(-50%,-50%);
-      color: rgba(255,255,255,0.3);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: rgba(255, 255, 255, 0.3);
       font-size: 18px;
       font-weight: 300;
       pointer-events: none;
@@ -2171,7 +2230,7 @@
     #action-zone {
       position: absolute;
       bottom: var(--margin-b);
-      right: var(--margin-r);
+      right: calc(5vw + var(--margin-r));
       display: none;
       flex-direction: column;
       align-items: flex-end;
@@ -2197,26 +2256,42 @@
       flex-direction: column;
       font-family: 'Outfit', sans-serif;
       font-weight: 700;
-      backdrop-filter: var(--ui-blur) !important;
-      -webkit-backdrop-filter: var(--ui-blur) !important;
+      min-width: 48px;
+      min-height: 48px;
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
       user-select: none;
       -webkit-tap-highlight-color: transparent;
-      pointer-events: auto !important;
+      pointer-events: auto;
       touch-action: none;
       transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s ease, background 0.15s ease, border-color 0.15s ease;
       position: relative;
       overflow: hidden;
       text-shadow: var(--ui-shadow);
+      z-index: var(--z-mobile-btn);
+    }
+
+    @supports (backdrop-filter: blur(1px)) {
+      .mobile-btn {
+        backdrop-filter: var(--ui-blur) !important;
+        -webkit-backdrop-filter: var(--ui-blur) !important;
+      }
+    }
+
+    @supports not (backdrop-filter: blur(1px)) {
+      .mobile-btn {
+        background: rgba(15, 20, 30, 0.9) !important;
+      }
     }
 
     /* Glassmorphism highlight */
     .mobile-btn::before {
       content: '';
       position: absolute;
-      top: 0; left: 0; right: 0;
+      top: 0;
+      left: 0;
+      right: 0;
       height: 45%;
-      background: linear-gradient(180deg, rgba(255,255,255,0.12) 0%, transparent 100%);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, transparent 100%);
       border-radius: 50% 50% 0 0;
       pointer-events: none;
     }
@@ -2232,7 +2307,7 @@
     .mobile-btn .btn-icon {
       font-size: inherit;
       line-height: 1;
-      filter: drop-shadow(0 1px 3px rgba(0,0,0,0.5));
+      filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
     }
 
     .mobile-btn .btn-label {
@@ -2248,16 +2323,16 @@
       width: 82px;
       height: 82px;
       font-size: 34px;
-      background: radial-gradient(circle at 40% 40%, rgba(255,80,40,0.25), rgba(255,30,0,0.1));
-      border: 2px solid rgba(255,80,40,0.45);
-      box-shadow: 0 0 25px rgba(255,60,20,0.2), inset 0 0 15px rgba(255,60,20,0.08);
+      background: radial-gradient(circle at 40% 40%, rgba(255, 80, 40, 0.25), rgba(255, 30, 0, 0.1));
+      border: 2px solid rgba(255, 80, 40, 0.45);
+      box-shadow: 0 0 25px rgba(255, 60, 20, 0.2), inset 0 0 15px rgba(255, 60, 20, 0.08);
       /* Removed arbitrary transforms and margins because it uses absolute positioning now */
     }
 
     #btn-fire:active {
-      background: radial-gradient(circle at 40% 40%, rgba(255,100,50,0.45), rgba(255,40,10,0.25)) !important;
-      border-color: rgba(255,120,60,0.8) !important;
-      box-shadow: 0 0 35px rgba(255,60,20,0.5), inset 0 0 20px rgba(255,80,30,0.15) !important;
+      background: radial-gradient(circle at 40% 40%, rgba(255, 100, 50, 0.45), rgba(255, 40, 10, 0.25)) !important;
+      border-color: rgba(255, 120, 60, 0.8) !important;
+      box-shadow: 0 0 35px rgba(255, 60, 20, 0.5), inset 0 0 20px rgba(255, 80, 30, 0.15) !important;
     }
 
     /* ── Jump Button ── */
@@ -2285,8 +2360,15 @@
     }
 
     @keyframes boost-glow {
-      0%, 100% { box-shadow: 0 0 15px rgba(160, 170, 178, 0.2); }
-      50% { box-shadow: 0 0 25px rgba(160, 170, 178, 0.4); }
+
+      0%,
+      100% {
+        box-shadow: 0 0 15px rgba(160, 170, 178, 0.2);
+      }
+
+      50% {
+        box-shadow: 0 0 25px rgba(160, 170, 178, 0.4);
+      }
     }
 
     #btn-jet-exit {
@@ -2301,21 +2383,24 @@
     }
 
     .fire-reticle {
-      width: 14px; 
+      width: 14px;
       height: 38px;
       background: linear-gradient(90deg, #343a40 0%, #6c757d 20%, #a0aab2 50%, #6c757d 80%, #212529 100%);
       border: 1px solid #1c1f23;
       border-radius: 50% 50% 5% 5% / 20% 20% 5% 5%;
       position: relative;
       display: block;
-      box-shadow: 2px 2px 5px rgba(0,0,0,0.5), inset -2px -2px 4px rgba(0,0,0,0.3), inset 2px 2px 4px rgba(255,255,255,0.4);
+      box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.5), inset -2px -2px 4px rgba(0, 0, 0, 0.3), inset 2px 2px 4px rgba(255, 255, 255, 0.4);
       flex-shrink: 0;
       transform: rotate(45deg) translate(-2px, -2px);
     }
+
     .fire-reticle::after {
       content: '';
       position: absolute;
-      bottom: -4px; left: -1px; right: -1px;
+      bottom: -4px;
+      left: -1px;
+      right: -1px;
       height: 6px;
       background: linear-gradient(90deg, #212529 0%, #495057 50%, #212529 100%);
       border: 1px solid #1c1f23;
@@ -2331,26 +2416,38 @@
       align-items: center;
       gap: 6px;
       padding: 5px 12px;
-      background: rgba(30, 35, 45, 0.4) !important;
-      border: 1px solid rgba(255,255,255,0.15) !important;
-      border-radius: 20px;
-      backdrop-filter: blur(20px);
-      box-shadow: 0 8px 32px rgba(0,0,0,0.35), inset 0 0 12px rgba(255,255,255,0.03);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), inset 0 0 12px rgba(255, 255, 255, 0.03);
       pointer-events: none;
-      z-index: 1000;
+      z-index: var(--z-hud);
       opacity: 0;
       transition: opacity 0.4s ease;
     }
+
+    @supports (backdrop-filter: blur(1px)) {
+      #camera-mode-badge {
+        backdrop-filter: blur(20px);
+      }
+    }
+
+    @supports not (backdrop-filter: blur(1px)) {
+      #camera-mode-badge {
+        background: rgba(30, 35, 45, 0.9) !important;
+      }
+    }
+
     #camera-mode-badge.visible {
       opacity: 1;
     }
+
     #camera-mode-badge .cam-dot {
-      width: 6px; height: 6px;
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
       background: #a0aab2;
       box-shadow: 0 0 6px rgba(160, 170, 178, 0.8);
       animation: cam-pulse 1.5s ease-in-out infinite;
     }
+
     #camera-mode-badge .cam-text {
       font-family: 'Rajdhani', sans-serif;
       font-size: 10px;
@@ -2359,23 +2456,31 @@
       color: rgba(255, 255, 255, 0.85);
       text-transform: uppercase;
     }
+
     @keyframes cam-pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.35; }
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.35;
+      }
     }
 
     /* ── Camera Button ── */
     #btn-camera-top {
-      background: rgba(0,0,0,0.35) !important;
-      border: 1.5px solid rgba(255,255,255,0.15) !important;
+      background: rgba(0, 0, 0, 0.35) !important;
+      border: 1.5px solid rgba(255, 255, 255, 0.15) !important;
       border-radius: 12px !important;
       backdrop-filter: blur(12px) !important;
       transition: all 0.15s ease;
     }
 
     #btn-camera-top:active {
-      background: rgba(0,229,255,0.15) !important;
-      border-color: rgba(0,229,255,0.4) !important;
+      background: rgba(0, 229, 255, 0.15) !important;
+      border-color: rgba(0, 229, 255, 0.4) !important;
     }
   </style>
   <div id="char-select">
@@ -2612,7 +2717,7 @@
   </script>
   <script>
     // Camera mode badge logic
-    (function() {
+    (function () {
       const badge = document.getElementById('camera-mode-badge');
       const modeText = document.getElementById('cam-mode-text');
       let badgeTimeout = null;

@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 
 // ─── PRODUCTION CONSOLE FILTER ──────────────────────────────────────────────
-(function() {
+(function () {
   const silentPatterns = [
-    'deprecated parameters', 'ShininessExponent', 'skinning weights', 
+    'deprecated parameters', 'ShininessExponent', 'skinning weights',
     'Audio is already playing', 'NotAllowedError', 'Orientation lock', 'Pointer Lock'
   ];
-  
+
   const filter = (originalFn: any) => (...args: any[]) => {
     const combinedMsg = args.map(a => (a && a.toString) ? a.toString() : String(a)).join(' ');
     if (silentPatterns.some(p => combinedMsg.includes(p))) return;
@@ -30,11 +30,11 @@ if (isMobile) {
       if (requestFS) {
         requestFS.call(docEl).then(() => {
           if (screen.orientation && (screen.orientation as any).lock) {
-            (screen.orientation as any).lock('landscape').catch(() => {});
+            (screen.orientation as any).lock('landscape').catch(() => { });
           }
-        }).catch(() => {});
+        }).catch(() => { });
       }
-    } catch (e) {}
+    } catch (e) { }
     // Safari optimization: scroll to hide bars
     window.scrollTo(0, 1);
     document.removeEventListener('click', triggerImmersive);
@@ -107,13 +107,13 @@ import { PortalSystem } from './systems/PortalSystem.js';
 import { PuzzleGame } from './minigames/PuzzleGame.js';
 
 const gameState = {
-    bubbleTimer: 0,
-    frameCount: 0,
-    adsFactor: 0,
-    aimTarget: new THREE.Vector3(),
-    weaponVisual: null as any,
-    wasSwimming: false,
-    qualityConfidence: 0
+  bubbleTimer: 0,
+  frameCount: 0,
+  adsFactor: 0,
+  aimTarget: new THREE.Vector3(),
+  weaponVisual: null as any,
+  wasSwimming: false,
+  qualityConfidence: 0
 };
 
 enum GameState { EXPLORING, MINIGAME }
@@ -125,9 +125,9 @@ let worldStreamer: WorldStreamer | null = null; // Defined here, init later
 
 // Robust mobile detection helper
 function isMobileDevice() {
-  return window.innerWidth <= 1024 || 
-         navigator.maxTouchPoints > 0 || 
-         /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  return window.innerWidth <= 1024 ||
+    navigator.maxTouchPoints > 0 ||
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
 
 // ── Kamera sabitleri ──────────────────────────────────────────────────────────
@@ -265,9 +265,9 @@ async function init(playerType: number) {
   initWeather(scene);        // yağmur sistemi (T tuşuyla toggle)
 
   initPostprocessing(scene, camera, renderer);
-  const composerObject = getComposer(); 
+  const composerObject = getComposer();
   if (composerObject) setupResize(renderer, camera, composerObject);
-  
+
   const { terrain } = createTerrain(scene);
   createWater(scene);
 
@@ -326,7 +326,7 @@ async function init(playerType: number) {
   for (let i = 0; i < 4; i++) {
     npcPromises.push(spawnRandomNPC(scene, px, pz, -1, i % 2 === 0 ? 1 : 0));
   }
-  
+
   onDeath(() => {
     InputState.sprint[playerId] = 0;
     InputState.moveX[playerId] = 0;
@@ -384,11 +384,11 @@ async function init(playerType: number) {
   };
 
   let assetsLoaded = false;
-  let loadingHidden = false; 
+  let loadingHidden = false;
 
-  THREE.DefaultLoadingManager.onLoad = () => { 
-    assetsLoaded = true; 
-    checkLoading(); 
+  THREE.DefaultLoadingManager.onLoad = () => {
+    assetsLoaded = true;
+    checkLoading();
   };
 
   function checkLoading() {
@@ -397,7 +397,7 @@ async function init(playerType: number) {
       if (pctEl) pctEl.textContent = '100%';
       if (loadBarEl) loadBarEl.style.width = '100%';
       if (msgEl) msgEl.textContent = 'Ready.';
-      audioManager.setMuted(false); 
+      audioManager.setMuted(false);
 
       const last = document.getElementById('ld-log-5');
       if (last) { last.classList.add('done'); last.textContent = 'World ready'; }
@@ -421,11 +421,11 @@ async function init(playerType: number) {
   // [FIX-22] Pre-allocated Ray for physics to avoid frame GC
   const camRay = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 1 });
 
-  let playerDead = false; 
+  let playerDead = false;
   let fpsWindow: number[] = [];
   const clock = new THREE.Clock();
   let envAcc = 0;
-  const ENV_STEP = 1 / 20; 
+  const ENV_STEP = 1 / 20;
   let exitVehicleTimer = 0;
   let splashCooldown = 0;
   let footstepDistCounter = 0;
@@ -486,7 +486,7 @@ async function init(playerType: number) {
   function handleJetAndVehicleInput(dt: number) {
     const interactPressed = InputState.interact[playerId] === 1; // KeyE (Browser)
     const jetPressed = InputIntents.jetRequest[playerId] === 1; // KeyT (Browser)
-    
+
     const isMobile = isMobileDevice();
 
     if (exitVehicleTimer <= 0 && getNearestNPC() === null) {
@@ -533,7 +533,7 @@ async function init(playerType: number) {
           useGameStore.getState().setOccupiedVehicle(null);
           exitVehicleTimer = 0.5;
         }
-      } 
+      }
       // 2. ENTER LOGIC
       else {
         const playerMesh = entityMeshes.get(playerId);
@@ -576,7 +576,7 @@ async function init(playerType: number) {
           }
         }
       }
-      
+
       // Cleanup intents
       const _pMeshForClear = entityMeshes.get(playerId);
       const _nearPortalNow = _pMeshForClear && portalSystem ? portalSystem.checkProximity(_pMeshForClear.position) : null;
@@ -591,7 +591,7 @@ async function init(playerType: number) {
       steer: InputState.moveX[playerId],
       brake: !!vehicleKeys['Space'],
     } : { throttle: 0, steer: 0, brake: false };
-    
+
     updateVehicles(dt, vInput);
     updateJet(dt, scene, camera);
   }
@@ -644,9 +644,9 @@ async function init(playerType: number) {
       const desiredX = camFollowPos.x + Math.sin(yaw) * cosPitch * currentDist + sideX;
       const desiredZ = camFollowPos.z + Math.cos(yaw) * cosPitch * currentDist + sideZ;
       const zoomFactor = (camDist - CAM_DIST_MIN) / (CAM_DIST_MAX - CAM_DIST_MIN);
-      const baseHeight = 3.4 + 0.4 * zoomFactor; 
+      const baseHeight = 3.4 + 0.4 * zoomFactor;
       const desiredY = camFollowPos.y + baseHeight + (0.4 * adsFactor);
-      
+
       camTarget.set(desiredX, Math.max(camFollowPos.y + 0.5, desiredY), desiredZ);
       camera.position.lerp(camTarget, CAM_LERP);
       camera.rotation.order = 'YXZ';
@@ -656,7 +656,7 @@ async function init(playerType: number) {
 
       const physicsWorld = getPhysicsWorld();
       camDir.set(0, 0, -1).applyQuaternion(camera.quaternion);
-      
+
       // [FIX-22] Reusing pre-allocated Ray instead of new per frame
       camRay.origin.x = camera.position.x;
       camRay.origin.y = camera.position.y;
@@ -664,7 +664,7 @@ async function init(playerType: number) {
       camRay.dir.x = camDir.x;
       camRay.dir.y = camDir.y;
       camRay.dir.z = camDir.z;
-      
+
       const camHit = physicsWorld.castRay(camRay, 200, true);
       aimPoint.copy(camera.position).add(tempVec1.copy(camDir).multiplyScalar(100));
 
@@ -681,7 +681,7 @@ async function init(playerType: number) {
     const interactEl = document.getElementById('interact');
     if (interactEl) {
       const pMesh = entityMeshes.get(playerId);
-      const pPos = pMesh?.position || tempVec1.set(0,0,0);
+      const pPos = pMesh?.position || tempVec1.set(0, 0, 0);
       const activePortal = portalSystem?.checkProximity(pPos);
       const nearestNPC = getNearestNPC();
 
@@ -691,7 +691,7 @@ async function init(playerType: number) {
         const vNear = getNearestVehicleInfo(pPos);
         const jNear = pMesh ? getJetNearInfo(pMesh.position) : null;
         const mobile = isMobileDevice();
-        
+
         const eKeyDesktop = '<span class="kbd" style="font-size:0.7em; margin-left:6px; opacity:0.8;">PRESS E</span>';
         const tKeyDesktop = '<span class="kbd" style="font-size:0.7em; margin-left:6px; opacity:0.8;">PRESS T</span>';
 
@@ -754,8 +754,8 @@ async function init(playerType: number) {
     let speedLabel = 0;
     if (occupiedVehicle) { const vv = occupiedVehicle.controller.rigidBody.linvel(); speedLabel = Math.hypot(vv.x, vv.z); }
     else speedLabel = speed2D;
-    
-    updateHUD(dt, { pos: camFollowPos, speed: speedLabel, fps: Math.round(1/dt), quality: getSMAAPresetName(getCurrentSMAA()) });
+
+    updateHUD(dt, { pos: camFollowPos, speed: speedLabel, fps: Math.round(1 / dt), quality: getSMAAPresetName(getCurrentSMAA()) });
 
     const hpValue = Health.current[playerId] ?? 100;
     const hpHud = document.getElementById('hp-hud');
@@ -767,7 +767,7 @@ async function init(playerType: number) {
   function animate() {
     if (isGameOver()) return;
     requestAnimationFrame(animate);
-    const dt = Math.min(clock.getDelta(), 0.1); 
+    const dt = Math.min(clock.getDelta(), 0.1);
     world.dt = dt;
     checkLoading();
 
@@ -787,7 +787,7 @@ async function init(playerType: number) {
     if (!loadingHidden) {
       if (renderer && scene && camera) {
         // Limited render for background atmosphere if needed, otherwise just wait
-        renderer.render(scene, camera); 
+        renderer.render(scene, camera);
       }
       return; // Skip all AI/Physics/Survival
     }
@@ -841,21 +841,21 @@ async function init(playerType: number) {
       }
     }
 
-    
+
     if (worldStreamer) {
       worldStreamer.update(camFollowPos);
     }
 
-    
+
 
     const hpAfterWeapon = Health.current[playerId];
     if (hpAfterWeapon < hpBeforeAI && !playerDead) {
       audioManager.playSFX('assets/sounds/freesound_community-young-man-being-hurt-95628.mp3', 0.09, 0.1);
     }
-    
+
     gameState.weaponVisual(world);
 
-    
+
     handleJetAndVehicleInput(dt);
     handlePortalInput();
 
@@ -1013,29 +1013,29 @@ async function init(playerType: number) {
   function startGame() {
     const cs = document.getElementById('char-select');
     if (!cs || cs.style.display === 'none') return;
-    
+
     // Modern UX: Enter Fullscreen, Lock Orientation & Pointer Lock
     try {
-        const docEl = document.documentElement as any;
-        const requestFS = docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.mozRequestFullScreen || docEl.msRequestFullscreen;
-        
-        if (requestFS) {
-            // [v26.0] Request PointerLock IMMEDIATELY within the click event to satisfy browser security
-            if (window.innerWidth > 1024) {
-               try { document.body.requestPointerLock(); } catch(e) {}
-            }
+      const docEl = document.documentElement as any;
+      const requestFS = docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.mozRequestFullScreen || docEl.msRequestFullscreen;
 
-            requestFS.call(docEl).then(() => {
-                // Try to lock orientation to landscape
-                if (screen.orientation && (screen.orientation as any).lock) {
-                    (screen.orientation as any).lock('landscape').catch(() => {
-                        console.log('Orientation lock not supported or failed');
-                    });
-                }
-            }).catch(() => {});
+      if (requestFS) {
+        // [v26.0] Request PointerLock IMMEDIATELY within the click event to satisfy browser security
+        if (window.innerWidth > 1024) {
+          try { document.body.requestPointerLock(); } catch (e) { }
         }
-    } catch(e) {
-        console.error('Fullscreen/Orientation failed:', e);
+
+        requestFS.call(docEl).then(() => {
+          // Try to lock orientation to landscape
+          if (screen.orientation && (screen.orientation as any).lock) {
+            (screen.orientation as any).lock('landscape').catch(() => {
+              console.log('Orientation lock not supported or failed');
+            });
+          }
+        }).catch(() => { });
+      }
+    } catch (e) {
+      console.error('Fullscreen/Orientation failed:', e);
     }
 
     if (cs) cs.style.display = 'none';
@@ -1047,12 +1047,12 @@ async function init(playerType: number) {
 
     // Show control hint after load
     setTimeout(() => {
-        const hint = document.getElementById('start-hint');
-        if (hint) {
-            hint.style.opacity = '1';
-            setTimeout(() => { hint.style.opacity = '0'; }, 6000);
-        }
-    }, 4500); 
+      const hint = document.getElementById('start-hint');
+      if (hint) {
+        hint.style.opacity = '1';
+        setTimeout(() => { hint.style.opacity = '0'; }, 6000);
+      }
+    }, 4500);
   }
 
   // Kart tıklaması: zaten seçiliyse başlat, değilse seç

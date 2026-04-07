@@ -3,6 +3,7 @@ import * as THREE from 'three';
 // Track whether resize listener is attached to prevent double-binding
 // (postprocessing.ts also adds one — this ensures they don't conflict)
 let _resizeAttached = false;
+let _currentComposer: any = null;
 
 export function createRenderer(): THREE.WebGLRenderer {
   const renderer = new THREE.WebGLRenderer({
@@ -93,6 +94,7 @@ export function setupResize(
   camera: THREE.PerspectiveCamera,
   composer?: any
 ): void {
+  if (composer) _currentComposer = composer;
   if (_resizeAttached) return;
   _resizeAttached = true;
 
@@ -107,7 +109,7 @@ export function setupResize(
 
     const maxDPR = width < 768 ? 1.4 : 2.0; 
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxDPR));
-    if (composer) composer.setSize(width, height);
+    if (_currentComposer) _currentComposer.setSize(width, height);
   };
 
   window.addEventListener('resize', handleResize);

@@ -214,22 +214,39 @@ export function updateMissionProgress(): void {
 export function triggerGameOver(): void {
   if (gameOver) return;
   gameOver = true;
+  console.log("%c [GAME OVER] Triggered ", "background: #f00; color: #fff; font-weight: bold;");
+
   useGameStore.getState().setGameOver(true);
-  document.exitPointerLock();
+  
+  if (document.pointerLockElement) {
+    document.exitPointerLock();
+  }
+  
   audioManager.stopAll();
   
   const go = document.getElementById('gameover');
-  if (go) go.style.display = 'flex';
+  if (go) {
+    go.style.display = 'flex';
+    go.style.opacity = '0';
+    // Small delay to allow CSS transitions if any
+    requestAnimationFrame(() => {
+        go.style.opacity = '1';
+    });
+  } else {
+    console.warn("Game Over element not found!");
+  }
 
-  const gScore = document.getElementById('go-score-val');
-  const gLevel = document.getElementById('go-level-val');
-  const gKills = document.getElementById('go-kills-val');
-  const gCoins = document.getElementById('go-coins-val');
+  const stats = {
+    score: document.getElementById('go-score-val'),
+    level: document.getElementById('go-level-val'),
+    kills: document.getElementById('go-kills-val'),
+    coins: document.getElementById('go-coins-val')
+  };
 
-  if (gScore) gScore.textContent = SCORE.toString();
-  if (gLevel) gLevel.textContent = LEVEL.toString();
-  if (gKills) gKills.textContent = KILLS.toString();
-  if (gCoins) gCoins.textContent = COFFY_COINS.toString();
+  if (stats.score) stats.score.textContent = SCORE.toString();
+  if (stats.level) stats.level.textContent = LEVEL.toString();
+  if (stats.kills) stats.kills.textContent = KILLS.toString();
+  if (stats.coins) stats.coins.textContent = COFFY_COINS.toString();
 }
 
 export function isGameOver(): boolean {

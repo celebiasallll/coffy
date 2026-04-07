@@ -27,7 +27,19 @@
       -webkit-tap-highlight-color: transparent;
     }
 
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
     :root {
+      --vh: 100vh;
       /* Safe Area Defaults */
       --sa-top: env(safe-area-inset-top, 0px);
       --sa-bottom: env(safe-area-inset-bottom, 0px);
@@ -35,7 +47,7 @@
       --sa-right: env(safe_area-inset-right, 0px);
 
       --ui-margin: 24px;
-      --ui-margin-mobile: 16px;
+      --ui-margin-mobile: 22px;
 
       /* Dynamic Responsive Margins */
       --margin-t: calc(var(--ui-margin-mobile) + var(--sa-top));
@@ -74,7 +86,13 @@
       margin: 0;
       padding: 0;
       width: 100vw;
-      height: 100vh;
+      height: var(--vh);
+      position: fixed;
+      left: 0;
+      top: 0;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+      outline: none;
     }
 
     canvas {
@@ -111,7 +129,7 @@
       z-index: var(--z-hud);
       color: #fff;
       font-size: 12px;
-      padding: var(--sa-top) var(--sa-right) var(--sa-bottom) var(--sa-left);
+      padding: 0;
     }
 
     #hud>div {
@@ -402,8 +420,8 @@
 
     #coin-box {
       position: absolute;
-      top: var(--ui-margin);
-      right: var(--ui-margin);
+      top: var(--margin-t);
+      right: var(--margin-r);
       display: none;
       /* [FIX] Hidden in desktop by default, mobile uses it */
       align-items: center;
@@ -856,7 +874,7 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      z-index: var(--z-overlay);
+      z-index: var(--z-top);
       color: #fff;
       overflow: hidden;
       pointer-events: auto;
@@ -1927,7 +1945,7 @@
       #coin-box {
         top: var(--margin-t) !important;
         right: var(--margin-r) !important;
-        scale: 0.85;
+        scale: 0.8 !important;
         transform-origin: top right;
         background: var(--ui-bg) !important;
         border: var(--ui-border) !important;
@@ -1946,7 +1964,7 @@
         top: calc(75px + var(--sa-top));
         left: var(--margin-l);
         right: auto;
-        scale: 0.5;
+        scale: 0.8;
         transform-origin: top left;
         background: var(--ui-bg) !important;
         border: var(--ui-border) !important;
@@ -2746,6 +2764,16 @@
       // Mobile camera button — also show badge on mobile via global hook
       window.__showCameraMode = showCameraMode;
     })();
+  </script>
+  <script>
+    // [v84.1]: Mobile Viewport Height Fix — Prevents 'cropping' on browser chrome change
+    function updateViewportHeight() {
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh * 100}px`);
+    }
+    window.addEventListener('resize', updateViewportHeight);
+    window.addEventListener('orientationchange', updateViewportHeight);
+    updateViewportHeight();
   </script>
   <script type="module" src="./src/main.ts"></script>
 </body>

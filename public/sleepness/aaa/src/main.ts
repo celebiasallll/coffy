@@ -327,16 +327,27 @@ async function init(playerType: number) {
     npcPromises.push(spawnRandomNPC(scene, px, pz, -1, i % 2 === 0 ? 1 : 0));
   }
 
-  onDeath(() => {
-    InputState.sprint[playerId] = 0;
-    InputState.moveX[playerId] = 0;
-    InputState.moveZ[playerId] = 0;
-    InputState.jump[playerId] = 0;
-    InputState.interact[playerId] = 0;
-    InputState.attack[playerId] = 0;
-    InputState.swim[playerId] = 0;
+  onDeath((cause) => {
+    if (isGameOver()) return;
+    
+    // Clear all inputs
+    for (let i = 0; i < InputState.moveX.length; i++) {
+        InputState.sprint[i] = 0;
+        InputState.moveX[i] = 0;
+        InputState.moveZ[i] = 0;
+        InputState.jump[i] = 0;
+        InputState.interact[i] = 0;
+        InputState.attack[i] = 0;
+        InputState.swim[i] = 0;
+    }
+    
     Health.current[playerId] = 0;
-    triggerGameOver();
+    playerDead = true;
+    
+    // Show game over with a very slight delay for visual transition
+    setTimeout(() => {
+        triggerGameOver();
+    }, 100);
   });
   spawnVehicles(scene);
   const jX = 500, jZ = 500;
@@ -512,7 +523,12 @@ async function init(playerType: number) {
           exitVehicleTimer = 0.5;
 
           if (exitAlt > 150) {
-            setTimeout(() => { if (!isGameOver()) triggerGameOver(); }, 2000);
+            // [FIXED] Synchronized with SurvivalSystem/main death logic
+            setTimeout(() => { 
+                if (!isGameOver()) {
+                    takeDamage(1000); // This will trigger onDeath correctly
+                }
+            }, 1200);
           }
         }
       } else if (occupiedVehicle) {
@@ -765,11 +781,15 @@ async function init(playerType: number) {
   }
 
   function animate() {
-    if (isGameOver()) return;
     requestAnimationFrame(animate);
     const dt = Math.min(clock.getDelta(), 0.1);
-    world.dt = dt;
-    checkLoading();
+ 
+    const gameOver = isGameOver();
+
+    if (!gameOver) {
+      world.dt = dt;
+      checkLoading();
+    }
 
     // [FIX-22] Get camFollowPos at start of frame for all systems
     fallbackCamPos.set(Position.x[playerId], Position.y[playerId], Position.z[playerId]);
@@ -783,199 +803,155 @@ async function init(playerType: number) {
 
     // if (portalSystem) portalSystem.update(dt, clock.getElapsedTime());
 
-    // [v65.1]: LOADING STASIS (Freeze world while loading screen is visible)
-    if (!loadingHidden) {
-      if (renderer && scene && camera) {
-        // Limited render for background atmosphere if needed, otherwise just wait
-        renderer.render(scene, camera);
-      }
-      return; // Skip all AI/Physics/Survival
-    }
-
-    if (isInputBlocked()) {
-      InputState.moveX[playerId] = 0;
-      InputState.moveZ[playerId] = 0;
-      InputState.jump[playerId] = 0;
-      InputState.attack[playerId] = 0;
-      InputState.sprint[playerId] = 0;
-      InputIntents.shootRequest[playerId] = 0;
-    }
-
-    if (currentGameState === GameState.MINIGAME && activeMiniGame) {
-      activeMiniGame.update(dt);
-      activeMiniGame.render();
-
-      // PuzzleGame kendi E tuşunu dinliyor (onExit callback'i üzerinden).
-      // Bu blok sadece beklenmedik durumlarda fallback olarak çalışır.
-      return; // Minigame aktifken dünya güncellemesi durur
-    }
-
-    const hpBeforeAI = Health.current[playerId];
-    let wolfDmgThisFrame = 0;
-
-    if (clock.elapsedTime > 3.0 && gameState.frameCount % 2 === 0) {
-      aiSystem(world);
-      wolfDmgThisFrame = Math.max(0, hpBeforeAI - Health.current[playerId]);
-    }
-
-
-    if (wolfDmgThisFrame > 0) {
-      takeDamage(wolfDmgThisFrame);
-    }
-
-    physicsSystem(world);
-
-    animationSystem(world);
-
-    renderSystem(world);
-
-    weaponSystem(world);
-
-    updateImpacts(scene, dt);
-    updateParticles(dt);
-
-    if (portalSystem) {
-      const playerMesh = entityMeshes.get(playerId);
-      if (playerMesh) {
-        portalSystem.update(dt, clock.getElapsedTime(), playerMesh.position);
-      }
-    }
-
-
-    if (worldStreamer) {
-      worldStreamer.update(camFollowPos);
-    }
-
-
-
-    const hpAfterWeapon = Health.current[playerId];
-    if (hpAfterWeapon < hpBeforeAI && !playerDead) {
-      audioManager.playSFX('assets/sounds/freesound_community-young-man-being-hurt-95628.mp3', 0.09, 0.1);
-    }
-
-    gameState.weaponVisual(world);
-
-
-    handleJetAndVehicleInput(dt);
-    handlePortalInput();
-
-
-    // [NEW] Mobile Camera Cycle Support (Rising-edge lock)
-    if (touchControls.isChangingCamera && !(touchControls as any)['_cam_lock_']) {
-      if (occupiedVehicle) {
-        vehicleCamera.cycleMode();
-      } else if (inJet) {
-        jetCamera.cycleMode();
-      }
-      (touchControls as any)['_cam_lock_'] = true;
-    }
-    if (!touchControls.isChangingCamera) (touchControls as any)['_cam_lock_'] = false;
-
-    const sprintWanted = InputState.sprint[playerId] === 1;
-    const sprintAllowed = sprintWanted && canSprint();
-    InputState.sprint[playerId] = sprintAllowed ? 1 : 0;
-    const surv = updateSurvival(dt, sprintAllowed);
-    Health.current[playerId] = surv.health;
-
-
-    if (Health.current[playerId] <= 0 && !playerDead) {
-      playerDead = true;
-      useGameStore.getState().setPlayerDead(true);
-      InputState.sprint[playerId] = 0;
-      InputState.moveX[playerId] = 0;
-      InputState.moveZ[playerId] = 0;
-      InputState.jump[playerId] = 0;
-      InputState.attack[playerId] = 0;
-      InputIntents.shootRequest[playerId] = 0;
-
-      const animCtrl = entityAnimationControllers.get(playerId) as any;
-      if (animCtrl) {
-        if (animCtrl.actions?.['death']) animCtrl.setState('death', true);
-        else {
-          const acts = animCtrl.actions;
-          if (acts) for (const key in acts) if (acts[key]?.isRunning?.()) acts[key].fadeOut(0.4);
+    if (!gameOver && loadingHidden) {
+        if (isInputBlocked()) {
+          InputState.moveX[playerId] = 0;
+          InputState.moveZ[playerId] = 0;
+          InputState.jump[playerId] = 0;
+          InputState.attack[playerId] = 0;
+          InputState.sprint[playerId] = 0;
+          InputIntents.shootRequest[playerId] = 0;
         }
-      }
-      setTimeout(() => triggerGameOver(), 2000);
-    }
 
-    if (gameState.frameCount % 2 !== 0) {
-      npcSystem(world);
-    }
+        if (currentGameState === GameState.MINIGAME && activeMiniGame) {
+          activeMiniGame.update(dt);
+          activeMiniGame.render();
+          // Skip world update
+        } else {
+            const hpBeforeAI = Health.current[playerId];
+            let wolfDmgThisFrame = 0;
 
-    collectionSystem(world);
+            if (clock.elapsedTime > 3.0 && gameState.frameCount % 2 === 0) {
+              aiSystem(world);
+              wolfDmgThisFrame = Math.max(0, hpBeforeAI - Health.current[playerId]);
+            }
 
+            if (wolfDmgThisFrame > 0) {
+              takeDamage(wolfDmgThisFrame);
+            }
 
-    const crosshairEl = document.getElementById('crosshair');
-    if (crosshairEl) crosshairEl.style.display = (inJet || occupiedVehicle) ? 'none' : 'block';
+            physicsSystem(world);
+            animationSystem(world);
+            renderSystem(world);
+            weaponSystem(world);
 
-    const newSunDir = updateDayNight(dt, sun, hemi, ambient, renderer, scene, camFollowPos);
+            updateImpacts(scene, dt);
+            updateParticles(dt);
 
-    if (optimizer) {
-      optimizer.setJetMode(inJet, inJet ? getJetAltitude() : 0);
-      optimizer.update(camera);
-      optimizer.optimizeShadows(sun, camera);
-    }
+            if (portalSystem) {
+              const playerMesh = entityMeshes.get(playerId);
+              if (playerMesh) {
+                portalSystem.update(dt, clock.getElapsedTime(), playerMesh.position);
+              }
+            }
 
-    updateWeather(dt, camFollowPos, getTimeOfDay());
+            if (worldStreamer) {
+              worldStreamer.update(camFollowPos);
+            }
 
+            const hpAfterWeapon = Health.current[playerId];
+            if (hpAfterWeapon < hpBeforeAI && !playerDead) {
+              audioManager.playSFX('assets/sounds/freesound_community-young-man-being-hurt-95628.mp3', 0.09, 0.1);
+            }
 
-    envAcc += dt;
-    if (envAcc >= ENV_STEP) {
-      updateEnvironment(envAcc, clock.getElapsedTime());
-      updateWater(envAcc, newSunDir, camera.position);
-      updateClouds(envAcc);
-      envAcc = 0;
-    }
+            gameState.weaponVisual(world);
+            handleJetAndVehicleInput(dt);
+            handlePortalInput();
 
+            // [NEW] Mobile Camera Cycle Support (Rising-edge lock)
+            if (touchControls.isChangingCamera && !(touchControls as any)['_cam_lock_']) {
+              if (occupiedVehicle) {
+                vehicleCamera.cycleMode();
+              } else if (inJet) {
+                jetCamera.cycleMode();
+              }
+              (touchControls as any)['_cam_lock_'] = true;
+            }
+            if (!touchControls.isChangingCamera) (touchControls as any)['_cam_lock_'] = false;
 
-    gameState.bubbleTimer += dt;
+            const sprintWanted = InputState.sprint[playerId] === 1;
+            const sprintAllowed = sprintWanted && canSprint();
+            InputState.sprint[playerId] = sprintAllowed ? 1 : 0;
+            const surv = updateSurvival(dt, sprintAllowed);
+            Health.current[playerId] = surv.health;
 
-    if (gameState.bubbleTimer > 5.0) {
-      gameState.bubbleTimer = 0;
-      const bubblePx = Position.x[playerId];
-      const bubblePz = Position.z[playerId];
-      const currentWolves = wolfQ(world);
-      const currentZombies = zombieQ(world);
-      const currentNPCs = npcQ(world);
-      const entities = [...currentWolves, ...currentZombies, ...currentNPCs];
+            // [REMOVED] Redundant death check — handled by SurvivalSystem -> onDeath
 
-      entities.forEach(id => {
-        const dx = Position.x[id] - bubblePx;
-        const dz = Position.z[id] - bubblePz;
-        if (dx * dx + dz * dz > 250000) {
-          let rx, rz;
-          let attempts = 0;
-          do {
-            const angle = Math.random() * Math.PI * 2;
-            const radius = 150 + Math.random() * 150;
-            rx = bubblePx + Math.cos(angle) * radius;
-            rz = bubblePz + Math.sin(angle) * radius;
-            attempts++;
-          } while ((isSpaceOccupied(rx, rz, 4) || isNearLake(rx, rz, 15)) && attempts < 20);
+            if (gameState.frameCount % 2 !== 0) {
+              npcSystem(world);
+            }
 
-          Position.x[id] = rx;
-          Position.z[id] = rz;
-          Position.y[id] = getHeight(rx, rz);
-          const rb = entityPhysicsBodies.get(id as any);
-          if (rb) rb.setTranslation({ x: rx, y: Position.y[id], z: rz }, true);
+            collectionSystem(world);
+
+            const crosshairEl = document.getElementById('crosshair');
+            if (crosshairEl) crosshairEl.style.display = (inJet || occupiedVehicle) ? 'none' : 'block';
+
+            const newSunDir = updateDayNight(dt, sun, hemi, ambient, renderer, scene, camFollowPos);
+
+            if (optimizer) {
+              optimizer.setJetMode(inJet, inJet ? getJetAltitude() : 0);
+              optimizer.update(camera);
+              optimizer.optimizeShadows(sun, camera);
+            }
+
+            updateWeather(dt, camFollowPos, getTimeOfDay());
+
+            envAcc += dt;
+            if (envAcc >= ENV_STEP) {
+              updateEnvironment(envAcc, clock.getElapsedTime());
+              updateWater(envAcc, newSunDir, camera.position);
+              updateClouds(envAcc);
+              envAcc = 0;
+            }
+
+            gameState.bubbleTimer += dt;
+            if (gameState.bubbleTimer > 5.0) {
+              gameState.bubbleTimer = 0;
+              const bubblePx = Position.x[playerId];
+              const bubblePz = Position.z[playerId];
+              const currentWolves = wolfQ(world);
+              const currentZombies = zombieQ(world);
+              const currentNPCs = npcQ(world);
+              const entities = [...currentWolves, ...currentZombies, ...currentNPCs];
+
+              entities.forEach(id => {
+                const dx = Position.x[id] - bubblePx;
+                const dz = Position.z[id] - bubblePz;
+                if (dx * dx + dz * dz > 250000) {
+                  let rx, rz;
+                  let attempts = 0;
+                  do {
+                    const angle = Math.random() * Math.PI * 2;
+                    const radius = 150 + Math.random() * 150;
+                    rx = bubblePx + Math.cos(angle) * radius;
+                    rz = bubblePz + Math.sin(angle) * radius;
+                    attempts++;
+                  } while ((isSpaceOccupied(rx, rz, 4) || isNearLake(rx, rz, 15)) && attempts < 20);
+
+                  Position.x[id] = rx;
+                  Position.z[id] = rz;
+                  Position.y[id] = getHeight(rx, rz);
+                  const rb = entityPhysicsBodies.get(id as any);
+                  if (rb) rb.setTranslation({ x: rx, y: Position.y[id], z: rz }, true);
+                }
+              });
+            }
+
+            gameState.frameCount++;
+            fpsWindow.push(1 / dt);
+            if (fpsWindow.length > 60) fpsWindow.shift();
+
+            updateCamera(dt, camFollowPos);
+            updateHUDAndAudio(dt, camFollowPos);
         }
-      });
+    } else if (!loadingHidden) {
+        // Still loading
+        if (renderer && scene && camera) {
+            renderer.render(scene, camera);
+        }
     }
-
-
-    gameState.frameCount++;
-
-    fpsWindow.push(1 / dt);
-    if (fpsWindow.length > 60) fpsWindow.shift();
-
-    updateCamera(dt, camFollowPos);
-
-    updateHUDAndAudio(dt, camFollowPos);
 
     renderComposer(dt);
-
-
   }
 
   animate();

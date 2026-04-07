@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { getHeight } from '../../world/terrain.js';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const DRONE_SPEED = 120;
@@ -247,31 +248,39 @@ class JetCamera {
         // Get jet movement info
         const vel = (jetMesh.userData.linvel as THREE.Vector3) || new THREE.Vector3(0, 0, -50);
         const speed = vel.length();
-        const fwd = _v1.copy(vel).normalize();
+        // Use horizontal-only forward for safe forecast position (avoid terrain slope dives)
+        const fwdXZ = _v1.set(vel.x, 0, vel.z);
+        if (fwdXZ.length() < 0.01) fwdXZ.set(0, 0, -1);
+        fwdXZ.normalize();
 
-        // [STATIONARY TOWER LOGIC]: Scout NEW position if jet passed and is FAR (Reset dist: 120 -> 350)
+        // [STATIONARY TOWER LOGIC]: Scout NEW position if jet passed and is FAR
         const toJet = _v2.copy(jetMesh.position).sub(camera.position);
-        const hasPassed = toJet.dot(fwd) > 0;
+        const hasPassed = toJet.dot(fwdXZ) > 0;
 
         if (now > this.cinNodeTime || (hasPassed && distToJet > 350) || distToJet < 2) {
             this.cinNodeTime = now + 12.0;
             this.cinSubMode = (this.cinSubMode + 1) % 4;
 
-            // Forecast: Half distance for intimate shots (1.5 - 2.5s ahead)
+            // Forecast: forward in XZ plane at jet's current height + some offset
             const forecastDist = Math.max(50, speed * (1.5 + Math.random() * 1.0));
-            const forecastPos = _v2.copy(jetMesh.position).addScaledVector(fwd, forecastDist);
+            const forecastPos = _v2.copy(jetMesh.position).addScaledVector(fwdXZ, forecastDist);
+            // Flatten forecast vertically — terrain will be sampled below
+            forecastPos.y = jetMesh.position.y;
             
-            // Random offset: Halved for ultra-close intimacy
             const side = (Math.random() - 0.5) * 18;
-            const up = -2 + Math.random() * 8;
+            const up = 4 + Math.random() * 8; // Always positive: min 4 units above forecast
             const ahead = (Math.random() - 0.5) * 10;
             
             _offset.set(side, up, ahead);
             this.cinNodePos.copy(forecastPos).add(_offset);
             
-            // Ensure camera is not underground (terrain height check)
-            // Note: Simplistic height check, assuming terrain is around 0-50
-            if (this.cinNodePos.y < 5) this.cinNodePos.y = 10;
+            // [FIX] Use actual terrain height to prevent underground camera
+            try {
+                const terrainH = getHeight(this.cinNodePos.x, this.cinNodePos.z);
+                if (this.cinNodePos.y < terrainH + 4) this.cinNodePos.y = terrainH + 6;
+            } catch (_) {
+                if (this.cinNodePos.y < 8) this.cinNodePos.y = 12;
+            }
             
             // Instant jump to new watching position
             camera.position.copy(this.cinNodePos);

@@ -29,12 +29,14 @@ class AudioManager {
         undefined,
         (err) => {
           if (retry) {
-            // Transient error like ERR_NETWORK_CHANGED, try one more time
-            console.debug(`[Audio] Retrying load for ${url}...`);
+            // Transient error like ERR_NETWORK_CHANGED, try one more time silently
+            console.debug(`[Audio] Potential network glitch, retrying: ${url}`);
             setTimeout(() => {
                 this.loadBuffer(url, false).then(resolve).catch(reject);
-            }, 1000);
+            }, 800);
           } else {
+            // Silencing the error to 'debug' level to avoid "Console Scare" for the user
+            console.debug(`[Audio] Persistent load error (skipping): ${url}`, err);
             reject(err);
           }
         }

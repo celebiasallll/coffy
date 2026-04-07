@@ -33,6 +33,7 @@ export interface FlightState {
     gForce: number;
     stallFactor: number;
     isStalling: boolean;
+    exitCooldown: number; // [NEW] Ignore crashes/inputs for a brief moments after bailout
 }
 
 // ── G-Force State (Exported for camera & HUD) ────────────────────────────────

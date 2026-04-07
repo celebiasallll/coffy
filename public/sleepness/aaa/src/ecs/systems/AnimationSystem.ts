@@ -25,6 +25,13 @@ const animStateMapping: Record<string, number> = {
 
 export const npcLastAnim = new Map<EntityId, string>();
 
+/**
+ * [SAFE OPTIMIZATION v17.0] Prevents memory leaks by removing stale entity data.
+ */
+export function clearAnimState(id: EntityId) {
+    npcLastAnim.delete(id);
+}
+
 export const animationSystem = defineSystem((world: IWorld) => {
     const gameWorld = world as GameWorld;
     const dt = gameWorld.dt ?? (1 / 60);

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
+import { getHeight } from '../world/terrain.js';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 export type VehicleCameraMode = 'follow' | 'hood' | 'cinematic';
@@ -48,6 +49,7 @@ class VehicleCamera {
         this.cinNodeTime = 0;
         this.transitionAlpha = 0;
         this.needsReset = true;
+        window.dispatchEvent(new CustomEvent('vehicleCameraMode', { detail: { mode: this.mode } }));
     }
 
     public update(
@@ -125,28 +127,36 @@ class VehicleCamera {
         const lv = rb.linvel();
         _v1.set(lv.x, lv.y, lv.z);
         const speed = _v1.length();
-        const fwd = _v1.normalize();
+        // Use only XZ component of velocity for horizontal forecast to avoid going into terrain on slopes
+        const fwdXZ = _v1.set(lv.x, 0, lv.z).normalize();
+        if (fwdXZ.length() < 0.01) fwdXZ.set(0, 0, -1); // fallback forward
 
         const toCar = _v2.copy(vehicleMesh.position).sub(camera.position);
-        const hasPassed = toCar.dot(fwd) > 0;
+        const hasPassed = toCar.dot(fwdXZ) > 0;
 
         // Reset if passed, too far, or time out
         if (now > this.cinNodeTime || (hasPassed && distToCar > 80) || distToCar < 1) {
             this.cinNodeTime = now + 10.0;
 
-            // Shorter forecast for slower ground vehicles (1.5 - 2.5s)
             const forecastDist = Math.max(30, speed * (2.0 + Math.random() * 1.0));
-            const forecastPos = _v2.copy(vehicleMesh.position).addScaledVector(fwd, forecastDist);
+            const forecastPos = _v2.copy(vehicleMesh.position).addScaledVector(fwdXZ, forecastDist);
+            // Keep forecast at vehicle height (XZ only), terrain will be sampled below
+            forecastPos.y = vehicleMesh.position.y;
             
             const side = (Math.random() - 0.5) * 20;
-            const up = 2 + Math.random() * 8;
+            const up = 5 + Math.random() * 8; // Minimum 5 units above ground
             const ahead = (Math.random() - 0.5) * 10;
             
             _offset.set(side, up, ahead);
             this.cinNodePos.copy(forecastPos).add(_offset);
             
-            // Basic ground height safety
-            if (this.cinNodePos.y < vehicleMesh.position.y + 1) this.cinNodePos.y = vehicleMesh.position.y + 2;
+            // [FIX] Clamp camera above actual terrain height at camera XZ position
+            try {
+                const terrainH = getHeight(this.cinNodePos.x, this.cinNodePos.z);
+                if (this.cinNodePos.y < terrainH + 3) this.cinNodePos.y = terrainH + 4;
+            } catch (_) {
+                if (this.cinNodePos.y < vehicleMesh.position.y + 3) this.cinNodePos.y = vehicleMesh.position.y + 5;
+            }
             
             camera.position.copy(this.cinNodePos);
             this.needsReset = false;

@@ -165,7 +165,8 @@ export function spawnJet(scene: THREE.Scene, world: RAPIER.World, pos: THREE.Vec
         state: {
             throttle: 0, afterburner: false, speed: 0, altitude: -9999,
             isCrashed: false, prevSpeed: 0, health: 100,
-            stallFactor: 1.0, isStalling: false, gForce: 1.0
+            stallFactor: 1.0, isStalling: false, gForce: 1.0,
+            exitCooldown: 0 // [NEW] Initialization
         },
         fuseColliderHandle: fuseHandle,
         wheelColliderHandles: [cf.handle, cl.handle, cr.handle, cWL.handle, cWR.handle]
@@ -189,6 +190,8 @@ export function updateJet(dt: number, scene: THREE.Scene, camera: THREE.Perspect
     if (!jet) return;
 
     const input = jetInputSystem.update(dt);
+    if (jet.state.exitCooldown > 0) jet.state.exitCooldown -= dt; // [NEW] Cooldown decrement
+
     if (jet.isOccupied) {
         jet.state.prevSpeed = jet.state.speed;
 
@@ -285,9 +288,13 @@ export function updateJet(dt: number, scene: THREE.Scene, camera: THREE.Perspect
                 jetStuckTimer = 0;
             }
 
-            if (jetStuckTimer > 4.0) {
-                jet.state.isCrashed = true;
-                console.error(`[JET] Stuck detected (Throttle: ${jet.state.throttle.toFixed(1)}, Speed: ${jet.state.speed.toFixed(1)}). Triggering explosion.`);
+            if (jetStuckTimer > 2.5) {
+                jetStuckTimer = 0;
+                // Auto-recover instead of blowing up: gentle upward and backward pop
+                const currentFwd = new THREE.Vector3(0, 0, -1).applyQuaternion(jet.mesh.quaternion).normalize();
+                jet.rb.setLinvel({ x: -currentFwd.x * 20, y: 15, z: -currentFwd.z * 20 }, true);
+                jet.state.speed = 0;
+                console.warn(`[JET] Stuck detected. Auto-recovery triggered (bounce back).`);
             }
         }
 
@@ -300,26 +307,17 @@ export function updateJet(dt: number, scene: THREE.Scene, camera: THREE.Perspect
             let shouldCrash = false;
             let crashReason = '';
 
-            const delta = (jet.state.prevSpeed - jet.state.speed) / Math.max(dt, 0.001);
+            // [FIXED] Frame-rate independent velocity drop check.
+            const deltaV = jet.state.prevSpeed - jet.state.speed;
             const isNoseUp = _fwd.y > 0.1;
             const isAtAlt = jet.state.altitude > 10.0;
-            const deltaLimit = isAtAlt ? 8000 : (isNoseUp ? 4000 : 25000); // [RELAXED] Massive increase to avoid terrain bumps causing 'Sudden Halt' crashes
+            const deltaVLimit = isAtAlt ? 80 : (isNoseUp ? 50 : 200);
 
-            // [FIXED]: Sadece Event-Driven kontrol bazen yüksek hızlı dikey çakılmaları kaçırabilir.
-            // Bu yüzden "Penetration" ve "Nose Dive" gibi hafif matematiksel kontrolleri (O(1)) geri ekliyoruz.
-            if (delta > deltaLimit) {
+            if (deltaV > deltaVLimit) {
                 shouldCrash = true;
-                crashReason = `Sudden Halt (Delta: ${delta.toFixed(1)} / Limit: ${deltaLimit})`;
+                crashReason = `Sudden Halt (DeltaV: ${deltaV.toFixed(1)} / Limit: ${deltaVLimit})`;
             }
-            if (!shouldCrash && _fwd.y < -0.45 && jet.state.altitude < 1.0 && (delta > 600 || jet.state.altitude < -2.0)) {
-                shouldCrash = true;
-                crashReason = `Nose Dive Impact`;
-            }
-            if (!shouldCrash && jet.state.altitude < -2.5 && maxRecentSpeed > 40) {
-                shouldCrash = true;
-                crashReason = `Ground Penetration`;
-            }
-            if (!shouldCrash && _fwd.y < -0.45 && jet.state.altitude < 1.0 && (delta > 600 || jet.state.altitude < -2.0)) {
+            if (!shouldCrash && _fwd.y < -0.45 && jet.state.altitude < 1.0 && (deltaV > 15 || jet.state.altitude < -2.0)) {
                 shouldCrash = true;
                 crashReason = `Nose Dive Impact`;
             }
@@ -330,7 +328,7 @@ export function updateJet(dt: number, scene: THREE.Scene, camera: THREE.Perspect
         // [EVOLVED]: expensive contactPairsWith polling loop REMOVED.
         // Collision detection is now handled by handleJetCollisionEvent (Event-Driven).
 
-            if (shouldCrash) {
+            if (shouldCrash && jet.state.exitCooldown <= 0) {
                 jet.state.isCrashed = true;
                 console.error(`[JET CRASH] ${crashReason}`);
             }
@@ -422,9 +420,12 @@ export function tryEnterJet(playerPos: THREE.Vector3): boolean {
 export function exitJet(): THREE.Vector3 {
     if (jet) {
         jet.isOccupied = false;
+        jet.state.throttle = 0;      // [v26.0] KILL ENGINES
+        jet.state.afterburner = false;
+        jet.state.exitCooldown = 0.8; // [v26.0] 0.8s safety buffer for the bail-out transition
         showJetHUD(false);
         const p = jet.rb.translation();
-        return new THREE.Vector3(p.x + 5, p.y, p.z);
+        return new THREE.Vector3(p.x + 5, p.y + 1, p.z);
     }
     return new THREE.Vector3();
 }
@@ -638,50 +639,91 @@ export function initJetHUD(): void {
     if (document.getElementById('jet-hud')) return;
     const hud = document.createElement('div');
     hud.id = 'jet-hud';
-    // [REDESIGN] 40% Smaller (scale 0.45), Horizontal Layout, Glass Effect
-    hud.style.cssText = `
-        position:fixed;top:40px;left:50%;transform:translateX(-50%) scale(0.45);transform-origin:top center;
-        display:none;align-items:center;gap:35px;padding:12px 35px;
-        background:rgba(0,10,20,0.65);backdrop-filter:blur(8px);
-        border:1px solid rgba(0,229,255,0.22);border-radius:100px;
-        color:#00e5ff;font-family:monospace;pointer-events:none;z-index:100;opacity:0.9;
-        box-shadow:0 0 25px rgba(0,229,255,0.12);
-    `;
-    hud.innerHTML = `
-        <div style="display:flex;flex-direction:column;align-items:center;">
-          <div style="font-size:12px;opacity:0.6;margin-bottom:2px">SPEED</div>
-          <div style="display:flex;align-items:baseline;gap:5px">
-            <span id="jet-speed" style="font-size:36px;font-weight:bold;letter-spacing:-1px">0</span>
-            <span style="font-size:14px;opacity:0.6">KTS</span>
-          </div>
-        </div>
+    const isMobile = document.body.classList.contains('mobile-device');
 
-        <div style="display:flex;flex-direction:column;align-items:center;padding:0 10px;border-left:1px solid rgba(0,229,255,0.15)">
-            <div style="font-size:11px;opacity:0.6;margin-bottom:6px">THRUST</div>
-            <div style="width:70px;height:12px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden">
-                <div id="jet-thr-bar" style="width:0%;height:100%;background:#00ff88;box-shadow:0 0 10px rgba(0,255,136,0.3);transition:width 0.1s"></div>
+    if (isMobile) {
+        // ── MOBILE: Compact glassmorphism strip ──
+        hud.style.cssText = `
+            position:fixed;top:calc(8px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);
+            display:none;align-items:center;gap:16px;padding:8px 20px;
+            background:rgba(0,10,20,0.7);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+            border:1px solid rgba(0,229,255,0.2);border-radius:20px;
+            color:#00e5ff;font-family:'Rajdhani',monospace;pointer-events:none;z-index:100;
+            box-shadow:0 0 20px rgba(0,229,255,0.08), inset 0 1px 0 rgba(255,255,255,0.05);
+            max-width:95vw;
+        `;
+        hud.innerHTML = `
+            <div style="display:flex;align-items:baseline;gap:3px">
+              <span id="jet-speed" style="font-size:22px;font-weight:800;letter-spacing:-0.5px">0</span>
+              <span style="font-size:9px;opacity:0.5">KTS</span>
             </div>
-        </div>
 
-        <div style="position:relative;width:110px;height:110px;border:3px solid rgba(0,229,255,0.18);border-radius:50%;overflow:hidden;background:rgba(0,180,255,0.08);flex-shrink:0;">
-            <div id="jet-horizon" style="position:absolute;top:50%;left:-50%;width:200%;height:200%;background:linear-gradient(to bottom,rgba(0,229,255,0.22) 50%,rgba(136,68,34,0.3) 50%);transform-origin:center;transition:transform 0.1s linear"></div>
-            <div style="position:absolute;top:50%;left:50%;width:40px;height:2px;background:#00e5ff;transform:translateX(-50%);box-shadow:0 0 10px rgba(0,229,255,0.5)"></div>
-            <div style="position:absolute;top:20%;left:50%;width:1px;height:60%;background:rgba(0,229,255,0.1);transform:translateX(-50%)"></div>
-        </div>
+            <div style="width:50px;height:8px;background:rgba(255,255,255,0.08);border-radius:4px;overflow:hidden;border:1px solid rgba(0,229,255,0.1)">
+                <div id="jet-thr-bar" style="width:0%;height:100%;background:linear-gradient(90deg,#00ff88,#00cc66);border-radius:4px;transition:width 0.1s"></div>
+            </div>
 
-        <div style="display:flex;flex-direction:column;align-items:center;padding:0 10px;border-right:1px solid rgba(0,229,255,0.15)">
-          <div style="font-size:12px;opacity:0.6;margin-bottom:2px">ALTITUDE</div>
-          <div style="display:flex;align-items:baseline;gap:5px">
-            <span id="jet-alt" style="font-size:36px;font-weight:bold;letter-spacing:-1px">0</span>
-            <span style="font-size:14px;opacity:0.6">FT</span>
-          </div>
-        </div>
+            <div style="position:relative;width:44px;height:44px;border:2px solid rgba(0,229,255,0.2);border-radius:50%;overflow:hidden;background:rgba(0,180,255,0.06);flex-shrink:0;">
+                <div id="jet-horizon" style="position:absolute;top:50%;left:-50%;width:200%;height:200%;background:linear-gradient(to bottom,rgba(0,229,255,0.2) 50%,rgba(136,68,34,0.25) 50%);transform-origin:center;transition:transform 0.1s linear"></div>
+                <div style="position:absolute;top:50%;left:50%;width:18px;height:1.5px;background:#00e5ff;transform:translateX(-50%);box-shadow:0 0 6px rgba(0,229,255,0.5)"></div>
+            </div>
 
-        <div style="display:flex;flex-direction:column;align-items:center;">
-          <div style="font-size:12px;opacity:0.6;margin-bottom:4px">G-FORCE</div>
-          <span id="jet-g" style="font-size:24px;font-weight:bold">1.0</span>
-        </div>
-    `;
+            <div style="display:flex;align-items:baseline;gap:3px">
+              <span id="jet-alt" style="font-size:22px;font-weight:800;letter-spacing:-0.5px">0</span>
+              <span style="font-size:9px;opacity:0.5">FT</span>
+            </div>
+
+            <div style="display:flex;align-items:baseline;gap:2px;">
+              <span id="jet-g" style="font-size:18px;font-weight:800">1.0</span>
+              <span style="font-size:8px;opacity:0.4">G</span>
+            </div>
+        `;
+    } else {
+        // ── DESKTOP: Full-size HUD (unchanged layout) ──
+        hud.style.cssText = `
+            position:fixed;top:40px;left:50%;transform:translateX(-50%) scale(0.45);transform-origin:top center;
+            display:none;align-items:center;gap:35px;padding:12px 35px;
+            background:rgba(0,10,20,0.65);backdrop-filter:blur(8px);
+            border:1px solid rgba(0,229,255,0.22);border-radius:100px;
+            color:#00e5ff;font-family:monospace;pointer-events:none;z-index:100;opacity:0.9;
+            box-shadow:0 0 25px rgba(0,229,255,0.12);
+        `;
+        hud.innerHTML = `
+            <div style="display:flex;flex-direction:column;align-items:center;">
+              <div style="font-size:12px;opacity:0.6;margin-bottom:2px">SPEED</div>
+              <div style="display:flex;align-items:baseline;gap:5px">
+                <span id="jet-speed" style="font-size:36px;font-weight:bold;letter-spacing:-1px">0</span>
+                <span style="font-size:14px;opacity:0.6">KTS</span>
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;align-items:center;padding:0 10px;border-left:1px solid rgba(0,229,255,0.15)">
+                <div style="font-size:11px;opacity:0.6;margin-bottom:6px">THRUST</div>
+                <div style="width:70px;height:12px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden">
+                    <div id="jet-thr-bar" style="width:0%;height:100%;background:#00ff88;box-shadow:0 0 10px rgba(0,255,136,0.3);transition:width 0.1s"></div>
+                </div>
+            </div>
+
+            <div style="position:relative;width:110px;height:110px;border:3px solid rgba(0,229,255,0.18);border-radius:50%;overflow:hidden;background:rgba(0,180,255,0.08);flex-shrink:0;">
+                <div id="jet-horizon" style="position:absolute;top:50%;left:-50%;width:200%;height:200%;background:linear-gradient(to bottom,rgba(0,229,255,0.22) 50%,rgba(136,68,34,0.3) 50%);transform-origin:center;transition:transform 0.1s linear"></div>
+                <div style="position:absolute;top:50%;left:50%;width:40px;height:2px;background:#00e5ff;transform:translateX(-50%);box-shadow:0 0 10px rgba(0,229,255,0.5)"></div>
+                <div style="position:absolute;top:20%;left:50%;width:1px;height:60%;background:rgba(0,229,255,0.1);transform:translateX(-50%)"></div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;align-items:center;padding:0 10px;border-right:1px solid rgba(0,229,255,0.15)">
+              <div style="font-size:12px;opacity:0.6;margin-bottom:2px">ALTITUDE</div>
+              <div style="display:flex;align-items:baseline;gap:5px">
+                <span id="jet-alt" style="font-size:36px;font-weight:bold;letter-spacing:-1px">0</span>
+                <span style="font-size:14px;opacity:0.6">FT</span>
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;align-items:center;">
+              <div style="font-size:12px;opacity:0.6;margin-bottom:4px">G-FORCE</div>
+              <span id="jet-g" style="font-size:24px;font-weight:bold">1.0</span>
+            </div>
+        `;
+    }
+
     document.body.appendChild(hud);
     jetHudEl = hud;
     jetSpeedEl = document.getElementById('jet-speed');
@@ -721,7 +763,7 @@ function updateJetHUD(s: number, a: number, ab: boolean, thr: number, g: number,
 }
 
 export function handleJetCollisionEvent(h1: number, h2: number): void {
-    if (!jet || jet.state.isCrashed) return;
+    if (!jet || jet.state.isCrashed || jet.state.exitCooldown > 0) return;
     
     // RAPiER Collision Events provide COLLIDER handles, not RigidBody handles.
     const isFuselage = (h1 === jet.fuseColliderHandle || h2 === jet.fuseColliderHandle);
@@ -733,8 +775,9 @@ export function handleJetCollisionEvent(h1: number, h2: number): void {
         const verticalVelocity = Math.abs(vel.y);
         const totalSpeed = Math.sqrt(vel.x * vel.x + vel.y * vel.y + vel.z * vel.z);
         
-        // [CRASH v10.5] Crash on high speed landing/impact (> 70.0 total speed or > 30.0 vertical)
-        if (verticalVelocity > 30.0 || totalSpeed > 70.0) {
+        // [CRASH v10.6] Increased thresholds to prevent "Sudden Ejection" during scrapes
+        // Crash only on EXTREME impact (> 90.0 total speed or > 45.0 vertical)
+        if (verticalVelocity > 45.0 || totalSpeed > 90.0) {
             jet.state.isCrashed = true;
             console.error(`[JET CRASH] Critical Impact (Speed: ${totalSpeed.toFixed(1)}, Vert: ${verticalVelocity.toFixed(1)})`);
         } else {

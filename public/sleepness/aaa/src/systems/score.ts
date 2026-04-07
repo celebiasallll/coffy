@@ -28,9 +28,22 @@ let missionScoreDom: HTMLElement | null = null;
 
 let comboTO: ReturnType<typeof setTimeout> | null = null;
 let popupTO: ReturnType<typeof setTimeout> | null = null;
+let missionHudDom: HTMLElement | null = null;
+let missionHudTO: ReturnType<typeof setTimeout> | null = null;
 
-let _posDom: HTMLElement | null = null, _spdDom: HTMLElement | null = null, _fpsDom: HTMLElement | null = null;
-
+function showMissionHudTemporarily(): void {
+  if (!missionHudDom) return;
+  missionHudDom.style.opacity = '1';
+  missionHudDom.classList.add('hud-pop');
+  setTimeout(() => {
+    if (missionHudDom) missionHudDom.classList.remove('hud-pop');
+  }, 150);
+  
+  if (missionHudTO) clearTimeout(missionHudTO);
+  missionHudTO = setTimeout(() => {
+    if (missionHudDom) missionHudDom.style.opacity = '0';
+  }, 5000);
+}
 export function initScoreSystem(): void {
   // Her init'te state sıfırla — restart sonrası eski değerler kalmasın
   SCORE = 0; XP = 0; LEVEL = 1; XP_NEXT = 15;
@@ -46,14 +59,16 @@ export function initScoreSystem(): void {
   killFeedDom = document.getElementById('kill-feed');
   dmgFlashDom = document.getElementById('dmg-flash');
 
-  _posDom = document.getElementById('pos');
-  _spdDom = document.getElementById('spd');
-  _fpsDom = document.getElementById('fps');
 
   missionDescDom = document.getElementById('mission-desc');
   missionValDom = document.getElementById('mission-val');
   missionScoreDom = document.getElementById('mission-score');
+  missionHudDom = document.getElementById('mission-hud');
+  
   updateMissionProgress();
+  
+  // Show it once at the start to indicate existence
+  showMissionHudTemporarily();
 }
 
 export function markKill(): void {
@@ -106,6 +121,7 @@ export function addScore(points: number, label: string | null, player: EntityId 
   }
 
   if (label) showPopup(label, '#0fa');
+  showMissionHudTemporarily();
 }
 
 export function tickCombo(dt: number): void {
@@ -164,13 +180,15 @@ export function addCoffyCoin(amount: number): void {
             if (coinDom) coinDom.style.transform = 'scale(1)';
         }, 200);
     }
-    showPopup(`☕ +${amount} COFFY COIN`, '#ffd700');
+    showPopup(`☕ +${amount} COFFY COIN`, '#a0aab2');
+    showMissionHudTemporarily();
 }
 
 export function addSavedVillager(): void {
     SAVED_VILLAGERS += 1;
-    showPopup(`👨‍👩‍👧‍👦 A VILLAGER HAS BEEN SAVED!`, '#00ffcc');
+    showPopup(`👨‍👩‍👧‍👦 A VILLAGER HAS BEEN SAVED!`, '#a0aab2');
     updateMissionProgress();
+    showMissionHudTemporarily();
 }
 
 export function updateMissionProgress(): void {
@@ -219,13 +237,6 @@ export function isGameOver(): boolean {
 }
 
 export function updateHUD(dt: number, { pos, speed, fps, quality }: { pos: { x: number, y: number, z: number }, speed: number, fps: number, quality?: string }): void {
-  if (_posDom) _posDom.textContent = `pos: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}`;
-  if (_spdDom) _spdDom.textContent = `speed: ${Math.round(speed)}`;
-  if (_fpsDom) _fpsDom.textContent = `${Math.round(fps || 0)} FPS`;
-  
-  const qLabel = document.getElementById('quality-label');
-  if (qLabel && quality) qLabel.textContent = `${quality} QUALITY`;
-
   tickCombo(dt);
 }
 

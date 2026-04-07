@@ -13,6 +13,7 @@ export function createRenderer(): THREE.WebGLRenderer {
     depth: true,
   });
 
+  // [v17.0] Optimized DPR and Shadows for 'Perfect Balance'
   const initialDPR = Math.min(window.devicePixelRatio, 1.6);
   renderer.setPixelRatio(initialDPR);
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -64,9 +65,8 @@ export function setupLights(scene: THREE.Scene): {
   sun.position.set(50, 80, 30);
   sun.castShadow = true;
 
-  // [BUG-FIX] Shadow resolution ternary was 1024 : 1024 (both same value)
-  // Mobile uses 1024 to save memory, desktop uses 2048 for sharp shadows.
-  const shadowRes = window.innerWidth < 768 ? 1024 : 2048;
+  // [v17.0] 1024 Shadow Resolution (User Preference for Performance/Quality balance)
+  const shadowRes = 1024;
   sun.shadow.mapSize.set(shadowRes, shadowRes);
 
   sun.shadow.camera.near = 1.0;
@@ -93,10 +93,6 @@ export function setupResize(
   camera: THREE.PerspectiveCamera,
   composer?: any
 ): void {
-  // [BUG-FIX] Prevent double resize listener:
-  // postprocessing.ts also attaches a resize handler for the composer.
-  // This function now owns the renderer + camera resize.
-  // The composer's setSize is handled inside postprocessing.ts itself.
   if (_resizeAttached) return;
   _resizeAttached = true;
 
@@ -108,13 +104,10 @@ export function setupResize(
     camera.updateProjectionMatrix();
 
     renderer.setSize(width, height);
-    // Note: composer resize is handled by postprocessing.ts's own listener.
-    // Passing composer here is kept for backwards compatibility only.
-    if (composer) composer.setSize(width, height);
 
-    const maxDPR = width < 768 ? 1.4 : 2.0; // Increased for better clarity on mobile and desktop
-    // @ts-ignore
+    const maxDPR = width < 768 ? 1.4 : 2.0; 
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxDPR));
+    if (composer) composer.setSize(width, height);
   };
 
   window.addEventListener('resize', handleResize);

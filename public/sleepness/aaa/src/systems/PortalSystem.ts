@@ -44,10 +44,10 @@ void main() {
 }`;
 
 // ── Reuse geometry across all portals ────────────────────────────────────────
-let _planeGeo: THREE.PlaneGeometry | null = null;
+let _circleGeo: THREE.CircleGeometry | null = null;
 let _glowTex:  THREE.CanvasTexture | null = null;
 
-function getPlaneGeo() { return (_planeGeo ??= new THREE.PlaneGeometry(1, 1)); }
+function getCircleGeo() { return (_circleGeo ??= new THREE.CircleGeometry(0.5, 64)); }
 function getGlowTex() {
     if (_glowTex) return _glowTex;
     const canvas = document.createElement('canvas');
@@ -72,7 +72,7 @@ export class PortalSystem {
         this.scene = scene;
     }
 
-    createPortal(id: string, x: number, z: number, destination = 'puzzle', color = 0x00d4ff): Portal {
+    createPortal(id: string, x: number, z: number, destination = 'puzzle', color = 0x8a95a5): Portal {
         const y        = getHeight(x, z);
         const position = new THREE.Vector3(x, y + 4.0, z); // Floating higher for 2x size
 
@@ -91,7 +91,7 @@ export class PortalSystem {
             depthWrite:     false,
             side:           THREE.FrontSide, 
         });
-        const disk = new THREE.Mesh(getPlaneGeo(), vortexMat);
+        const disk = new THREE.Mesh(getCircleGeo(), vortexMat);
         disk.scale.set(10.0, 10.0, 1); // Double radius equivalent (4.8 -> 10.0 scale)
         group.add(disk);
 
@@ -101,7 +101,7 @@ export class PortalSystem {
             transparent: true,
             opacity:     0.25, // Lower opacity: only for wireframe feel
         });
-        const ring = new THREE.Mesh(getPlaneGeo(), frameMat);
+        const ring = new THREE.Mesh(getCircleGeo(), frameMat);
         ring.scale.set(10.5, 10.5, 1);
         group.add(ring);
 
@@ -127,7 +127,7 @@ export class PortalSystem {
 
         // Cache children for fast update
         const rotatingMeshes = group.children.filter(c => 
-            c instanceof THREE.Mesh && c.geometry === getPlaneGeo() && c !== disk
+            c instanceof THREE.Mesh && c.geometry === getCircleGeo() && c !== disk
         ) as THREE.Mesh[];
 
         const portal: Portal = { 
@@ -186,7 +186,11 @@ export class PortalSystem {
             // Direct rotation (fast loop, no checks)
             for (const rMesh of portal.rotatingMeshes) {
                 rMesh.rotation.z += dt * 0.35;
+                rMesh.rotation.x += dt * 0.15; // Give it a mystic wobble
+                rMesh.rotation.y += dt * 0.2;
             }
+            // Make the portal disc always face the player for a true 3D vortex illusion
+            portal.mesh.lookAt(playerPos.x, portal.mesh.position.y, playerPos.z);
         }
     }
 

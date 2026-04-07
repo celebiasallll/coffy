@@ -48,6 +48,17 @@ export let smaaEffect: SMAAEffect | null = null;
 export function getComposer(): EffectComposer | null { return state.composer; }
 export function getCurrentSMAA(): SMAAPreset { return state.currentSMAAPreset; }
 
+/** [v17.0] Restored robust name mapping for HUD display */
+export function getSMAAPresetName(preset: SMAAPreset): string {
+    switch (preset) {
+        case SMAAPreset.LOW: return 'LOW';
+        case SMAAPreset.MEDIUM: return 'MEDIUM';
+        case SMAAPreset.HIGH: return 'HIGH';
+        case SMAAPreset.ULTRA: return 'ULTRA';
+        default: return 'MEDIUM';
+    }
+}
+
 // ─── Adaptive quality ─────────────────────────────────────────────────────────
 
 const FRAME_WINDOW = 30;
@@ -79,22 +90,25 @@ function applySMAAPreset(preset: SMAAPreset): void {
 }
 
 function adaptQuality(now: number): void {
+  // [v17.0] Decision Loop (Every 2 seconds)
   if (now < state.warmupUntil) return;
   if (now - state.lastQualityCheck < state.qualityCheckInterval) return;
   state.lastQualityCheck = now;
+
   const avg = rollingAvg();
   if (avg === 0) return;
   const currentIdx = QUALITY_LADDER.indexOf(state.currentSMAAPreset);
   
-  // User Requested Adaptive Scaling (v11):
-  // Ultra: > 48 FPS (< 20.8ms)
-  // High:  40 - 48 FPS (20.8ms - 25ms)
-  // Medium: < 40 FPS (> 25ms)
+  // [v17.0] Reference Project Math:
+  // Ultra -> High: 46.5 FPS (21.5ms)
+  // High -> Medium: 38.5 FPS (26.0ms)
+  // Medium -> High: 44.5 FPS (22.5ms)
+  // High -> Ultra: 54.0 FPS (18.5ms)
 
   if (currentIdx === 2) { // Currently ULTRA
     if (avg > 21.5) applySMAAPreset(QUALITY_LADDER[1]); // Drop to High if < 46.5 FPS
   } else if (currentIdx === 1) { // Currently HIGH
-    if (avg > 26) applySMAAPreset(QUALITY_LADDER[0]);    // Drop to Medium if < 38.5 FPS
+    if (avg > 26.0) applySMAAPreset(QUALITY_LADDER[0]);  // Drop to Medium if < 38.5 FPS
     if (avg < 18.5) applySMAAPreset(QUALITY_LADDER[2]);  // Return to Ultra if > 54 FPS
   } else if (currentIdx === 0) { // Currently MEDIUM
     if (avg < 22.5) applySMAAPreset(QUALITY_LADDER[1]);  // Return to High if > 44.5 FPS

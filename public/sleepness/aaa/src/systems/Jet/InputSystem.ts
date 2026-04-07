@@ -101,7 +101,7 @@ class JetInputSystem {
                 -1, 1
             ),
             yaw: THREE.MathUtils.clamp(
-                this.sYaw + (isTouch ? (touch.jetYawRight ? 1 : touch.jetYawLeft ? -1 : 0) : 0),
+                this.sYaw + (isTouch ? (touch.jetYawLeft ? 1 : touch.jetYawRight ? -1 : 0) : 0),
                 -1, 1
             ),
             afterburner: !!(this.keys['ShiftLeft'] || this.keys['ShiftRight'] || (isTouch && touch.jetBoost)),

@@ -11,7 +11,6 @@ let interactPressed = false;
 let touchInteractPressed = false;  // rising-edge for mobile USE button
 let lastInteractState = false;      // [NEW] Rising-edge detector for mobile
 let jetPressed = false;
-let reloadPressed = false;
 let punchPressed = false;
 let kickPressed = false;
 
@@ -19,7 +18,6 @@ window.addEventListener('keydown', (e: KeyboardEvent) => {
     if (e.code === 'Space' && !keys['Space']) jumpPressed = true;
     if (e.code === 'KeyE' && !keys['KeyE']) interactPressed = true;
     if (e.code === 'KeyT' && !keys['KeyT']) jetPressed = true;
-    if (e.code === 'KeyR' && !keys['KeyR']) reloadPressed = true;
     if (e.code === 'KeyF' && !keys['KeyF']) punchPressed = true;
     if (e.code === 'KeyG' && !keys['KeyG']) kickPressed = true;
     keys[e.code] = true;
@@ -111,22 +109,24 @@ export const inputSystem = defineSystem((world: IWorld) => {
         // Shoot / Aim
         InputIntents.shootRequest[id] = (keys['Mouse0'] || touchControls.isFiring) ? 1 : 0;
         InputIntents.aimRequest[id] = (keys['Mouse2']) ? 1 : 0;
-        InputIntents.reloadRequest[id] = (reloadPressed || touchControls.isReloading) ? 1 : 0;
         InputIntents.aimYaw[id] = mouseX;
         InputIntents.aimPitch[id] = mouseY;
         InputIntents.crouch[id] = (keys['KeyC']) ? 1 : 0;
 
-        // Jump / Interact
+        // Jump / Interact / Jet
         InputState.jump[id] = (jumpPressed || touchControls.isJumping) ? 1 : 0;
-        // Mobile: rising edge only (touchInteractPressed resets after use)
-        InputState.interact[id] = (interactPressed || touchInteractPressed) ? 1 : 0;
-        InputIntents.jetRequest[id] = (jetPressed || touchControls.isJetting) ? 1 : 0;
+        
+        // Mobile: Unified "USE" button triggers BOTH intents.
+        // Desktop: Split into E (Interact) and T (Jet).
+        const isMobileInteract = touchInteractPressed || touchControls.isInteracting;
+        
+        InputState.interact[id] = (interactPressed || isMobileInteract) ? 1 : 0;
+        InputIntents.jetRequest[id] = (jetPressed || isMobileInteract || touchControls.isJetting) ? 1 : 0;
     }
     jumpPressed = false;
     interactPressed = false;
     touchInteractPressed = false;   // reset after one frame
     jetPressed = false;
-    reloadPressed = false;
     punchPressed = false;
     kickPressed = false;
     return world;

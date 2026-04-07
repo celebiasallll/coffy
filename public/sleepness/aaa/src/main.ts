@@ -73,7 +73,7 @@ import { EntityId } from './ecs/types.js';
 import { initSky, updateClouds, skyMesh } from './core/sky.js';
 import { initBVH } from './core/bvh.js';
 import { createWater, updateWater, WATER_LEVEL } from './world/water.js';
-import { initPostprocessing, renderComposer, setSMAAPreset, getComposer, getCurrentSMAA } from './core/postprocessing.js';
+import { initPostprocessing, renderComposer, setSMAAPreset, getComposer, getCurrentSMAA, getSMAAPresetName } from './core/postprocessing.js';
 import { SMAAPreset } from 'postprocessing';
 import { DebugPanel } from './core/DebugPanel.js';
 import { WorldStreamer } from './core/WorldStreamer.js';
@@ -312,7 +312,7 @@ async function init(playerType: number) {
 
   // [v80.1]: Portal System — Single ENIGMA portal (optimized)
   portalSystem = new PortalSystem(scene);
-  portalSystem.createPortal('p_enigma', 475, 470, 'puzzle', 0x00d4ff); // Cyan only
+  portalSystem.createPortal('p_enigma', 475, 470, 'puzzle', 0xa0aab2); // Modern Graphite/Silver theme
 
   // Spawn 10 NPC Quest Givers
   const npcPromises = [];
@@ -430,6 +430,7 @@ async function init(playerType: number) {
   const underwaterFog = new THREE.FogExp2(0x005577, 0.05);
   const underwaterColor = new THREE.Color(0x005577);
   const hemiUnderwater = new THREE.Color(0x003344);
+  const clearColorBlack = new THREE.Color(0x000000);
 
   // ── Helper: launches PuzzleGame after pointer lock is confirmed released ──
   function launchPuzzleGame() {
@@ -479,11 +480,15 @@ async function init(playerType: number) {
   gameState.weaponVisual = weaponVisualSystem(camera, scene);
 
   function handleJetAndVehicleInput(dt: number) {
-    const interactPressed = InputState.interact[playerId] === 1;
-    const jetPressed = InputIntents.jetRequest[playerId] === 1;
+    const interactPressed = InputState.interact[playerId] === 1; // KeyE (Browser)
+    const jetPressed = InputIntents.jetRequest[playerId] === 1; // KeyT (Browser)
+    
+    const isMobile = isMobileDevice();
 
-    if (exitVehicleTimer <= 0 && (interactPressed || jetPressed) && getNearestNPC() === null) {
+    if (exitVehicleTimer <= 0 && getNearestNPC() === null) {
+      // 1. EXIT LOGIC
       if (inJet) {
+        // [FIX] Only allow exit via Jet Key (T) to avoid KeyE/Yaw conflict in browser
         if (jetPressed) {
           const exitAlt = getJetAltitude();
           const exitPos = exitJet();
@@ -507,6 +512,7 @@ async function init(playerType: number) {
           }
         }
       } else if (occupiedVehicle) {
+        // [FIX] Standard vehicles use KeyE
         if (interactPressed) {
           const exitPos = exitVehicle(occupiedVehicle);
           const rb = entityPhysicsBodies.get(playerId);
@@ -523,26 +529,36 @@ async function init(playerType: number) {
           useGameStore.getState().setOccupiedVehicle(null);
           exitVehicleTimer = 0.5;
         }
-      } else {
+      } 
+      // 2. ENTER LOGIC
+      else {
         const playerMesh = entityMeshes.get(playerId);
         if (playerMesh) {
-          if (jetPressed && tryEnterJet(playerMesh.position)) {
-            inJet = true;
-            useGameStore.getState().setInJet(true);
-            InputState.isDriving[playerId] = 1;
-            const rb = entityPhysicsBodies.get(playerId);
-            if (rb) {
-              // @ts-ignore
-              if (rb.setEnabled) rb.setEnabled(false);
+          let vehicleEnteredThisFrame = false;
+          // Try Jet Only if Jet Key (T) is pressed
+          if (jetPressed) {
+            if (tryEnterJet(playerMesh.position)) {
+              inJet = true;
+              useGameStore.getState().setInJet(true);
+              InputState.isDriving[playerId] = 1;
+              const rb = entityPhysicsBodies.get(playerId);
+              if (rb) {
+                // @ts-ignore
+                if (rb.setEnabled) rb.setEnabled(false);
+              }
+              if (playerMesh) playerMesh.visible = false;
+              showJetHUD(true);
+              exitVehicleTimer = 0.5;
+              audioManager.playSFX('assets/sounds/freesound_community-f16-fighter-jet-start-upaif-14690.mp3', 0.06);
+              vehicleEnteredThisFrame = true;
             }
-            if (playerMesh) playerMesh.visible = false;
-            showJetHUD(true);
-            exitVehicleTimer = 0.5;
-            audioManager.playSFX('assets/sounds/freesound_community-f16-fighter-jet-start-upaif-14690.mp3', 0.06);
-          } else if (interactPressed) {
-            occupiedVehicle = tryEnterVehicle(playerMesh.position);
-            useGameStore.getState().setOccupiedVehicle(occupiedVehicle);
-            if (occupiedVehicle) {
+          }
+          // Try Vehicle Only if Interact Key (E) is pressed
+          if (!vehicleEnteredThisFrame && interactPressed) {
+            const nearVehicle = tryEnterVehicle(playerMesh.position);
+            if (nearVehicle) {
+              occupiedVehicle = nearVehicle;
+              useGameStore.getState().setOccupiedVehicle(occupiedVehicle);
               InputState.isDriving[playerId] = 1;
               const rb = entityPhysicsBodies.get(playerId);
               if (rb) {
@@ -551,11 +567,13 @@ async function init(playerType: number) {
               }
               const mesh = entityMeshes.get(playerId);
               if (mesh) mesh.visible = false;
+              exitVehicleTimer = 0.5;
             }
           }
         }
       }
       
+      // Cleanup intents
       const _pMeshForClear = entityMeshes.get(playerId);
       const _nearPortalNow = _pMeshForClear && portalSystem ? portalSystem.checkProximity(_pMeshForClear.position) : null;
       if (!_nearPortalNow) {
@@ -565,13 +583,13 @@ async function init(playerType: number) {
     }
 
     const vInput = occupiedVehicle ? {
-      throttle: -InputState.moveZ[playerId], // Raw analog throttle (-1 to 1)
-      steer: InputState.moveX[playerId],    // Raw analog steer (-1 to 1)
+      throttle: -InputState.moveZ[playerId],
+      steer: InputState.moveX[playerId],
       brake: !!vehicleKeys['Space'],
     } : { throttle: 0, steer: 0, brake: false };
     
     updateVehicles(dt, vInput);
-    updateJet(dt, scene, camera); // [Analog inside via JetInputSystem]
+    updateJet(dt, scene, camera);
   }
 
   function handlePortalInput() {
@@ -583,8 +601,7 @@ async function init(playerType: number) {
           const mobile = isMobileDevice();
           const interactEl = document.getElementById('interact');
           if (interactEl) {
-            const key = mobile ? '<span class="kbd">USE</span>' : '<span class="kbd">E</span>';
-            interactEl.innerHTML = `${key} <b style="color:#00e5ff">PORTAL</b> · Enter Dimension`;
+            interactEl.innerHTML = mobile ? 'TOUCH 🔑' : `USE PORTAL <span class="kbd" style="font-size:0.7em; margin-left:6px; opacity:0.8;">PRESS E</span>`;
             interactEl.style.display = 'block';
           }
           if (InputState.interact[playerId] === 1) {
@@ -670,15 +687,16 @@ async function init(playerType: number) {
         const vNear = getNearestVehicleInfo(pPos);
         const jNear = pMesh ? getJetNearInfo(pMesh.position) : null;
         const mobile = isMobileDevice();
-        const eKey = mobile ? '<span class="kbd">USE</span>' : '<span class="kbd">E</span>';
-        const tKey = mobile ? '<span class="kbd">USE</span>' : '<span class="kbd">T</span>';
+        
+        const eKeyDesktop = '<span class="kbd" style="font-size:0.7em; margin-left:6px; opacity:0.8;">PRESS E</span>';
+        const tKeyDesktop = '<span class="kbd" style="font-size:0.7em; margin-left:6px; opacity:0.8;">PRESS T</span>';
 
         if (inJet || occupiedVehicle) interactEl.style.display = 'none';
         else if (jNear && !isDialogueOpen()) {
-          interactEl.innerHTML = `${tKey} <b style="color:#00e5ff">F-16 FIGHTER JET</b> · Enter`;
+          interactEl.innerHTML = mobile ? `TOUCH 🔑` : `USE F-16 ${tKeyDesktop}`;
           interactEl.style.display = 'block';
         } else if (vNear && !isDialogueOpen()) {
-          interactEl.innerHTML = `${eKey} ${vNear.type.toUpperCase()} · Enter`;
+          interactEl.innerHTML = mobile ? `TOUCH 🔑` : `USE ${vNear.type.toUpperCase()} ${eKeyDesktop}`;
           interactEl.style.display = 'block';
         } else interactEl.style.display = 'none';
       }
@@ -702,7 +720,7 @@ async function init(playerType: number) {
     } else if (!isCameraUnderwater && isUnderwater) {
       isUnderwater = false;
       scene.fog = null;
-      renderer.setClearColor(0x000000, 1);
+      renderer.setClearColor(clearColorBlack, 1);
       if (underwaterSound && underwaterSound.isPlaying) underwaterSound.stop();
     }
 
@@ -733,7 +751,7 @@ async function init(playerType: number) {
     if (occupiedVehicle) { const vv = occupiedVehicle.controller.rigidBody.linvel(); speedLabel = Math.hypot(vv.x, vv.z); }
     else speedLabel = speed2D;
     
-    updateHUD(dt, { pos: camFollowPos, speed: speedLabel, fps: Math.round(1/dt), quality: SMAAPreset[getCurrentSMAA()] });
+    updateHUD(dt, { pos: camFollowPos, speed: speedLabel, fps: Math.round(1/dt), quality: getSMAAPresetName(getCurrentSMAA()) });
 
     const hpValue = Health.current[playerId] ?? 100;
     const hpHud = document.getElementById('hp-hud');
@@ -770,7 +788,7 @@ async function init(playerType: number) {
       return; // Skip all AI/Physics/Survival
     }
 
-    if (isInputBlocked() || inJet || currentGameState === GameState.MINIGAME) {
+    if (isInputBlocked()) {
       InputState.moveX[playerId] = 0;
       InputState.moveZ[playerId] = 0;
       InputState.jump[playerId] = 0;
@@ -887,17 +905,6 @@ async function init(playerType: number) {
     const crosshairEl = document.getElementById('crosshair');
     if (crosshairEl) crosshairEl.style.display = (inJet || occupiedVehicle) ? 'none' : 'block';
 
-    const ammoTextEl = document.getElementById('ammo-text');
-    const reloadMsgEl = document.getElementById('ammo-reload-msg');
-    if (ammoTextEl) {
-      ammoTextEl.textContent = `${Weapon.ammo[playerId]} / ${Weapon.maxAmmo[playerId]}`;
-      const isReloading = WeaponState.state[playerId] === 2;
-      if (reloadMsgEl) {
-        if (isReloading) reloadMsgEl.classList.add('visible');
-        else reloadMsgEl.classList.remove('visible');
-    }
-  }
-
     const newSunDir = updateDayNight(dt, sun, hemi, ambient, renderer, scene, camFollowPos);
 
     if (optimizer) {
@@ -1009,6 +1016,11 @@ async function init(playerType: number) {
         const requestFS = docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.mozRequestFullScreen || docEl.msRequestFullscreen;
         
         if (requestFS) {
+            // [v26.0] Request PointerLock IMMEDIATELY within the click event to satisfy browser security
+            if (window.innerWidth > 1024) {
+               try { document.body.requestPointerLock(); } catch(e) {}
+            }
+
             requestFS.call(docEl).then(() => {
                 // Try to lock orientation to landscape
                 if (screen.orientation && (screen.orientation as any).lock) {
@@ -1016,13 +1028,6 @@ async function init(playerType: number) {
                         console.log('Orientation lock not supported or failed');
                     });
                 }
-                // Wait a tiny bit for fullscreen transition then lock pointer (desktop)
-                setTimeout(() => {
-                    const minigameOpen = !!document.getElementById('pg-overlay');
-                    if (!minigameOpen) {
-                        try { document.body.requestPointerLock(); } catch(e) {}
-                    }
-                }, 200);
             }).catch(() => {});
         }
     } catch(e) {

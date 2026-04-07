@@ -1,4 +1,4 @@
-﻿import * as THREE from 'three';
+import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -475,7 +475,7 @@ export function spawnVehicles(scene: THREE.Scene): void {
     });
     scene.add(atvGroup);
     const atvEngine = audioManager.createEngineSound('assets/sounds/engine_sound.mp3', 0);
-    vehicles.push({ type: 'atv', controller: atv, isOccupied: false, enterRadius: 10, engineSound: atvEngine });
+    vehicles.push({ type: 'atv', controller: atv, isOccupied: false, enterRadius: 8, engineSound: atvEngine });
 
     // ─── JEEP ─────────────────────────────────────────────────────────────────
     const jeepGroup = new THREE.Group();
@@ -666,7 +666,7 @@ export function spawnVehicles(scene: THREE.Scene): void {
 
     scene.add(jeepGroup);
     const jeepEngine = audioManager.createEngineSound('assets/sounds/engine_sound.mp3', 0);
-    vehicles.push({ type: 'jeep', controller: jeep, isOccupied: false, enterRadius: 25, engineSound: jeepEngine });
+    vehicles.push({ type: 'jeep', controller: jeep, isOccupied: false, enterRadius: 8, engineSound: jeepEngine });
 
     // ─── DRIFTER TRUCK (GLB) ───
     // Silindi.
@@ -799,6 +799,6 @@ export function getNearestVehicleInfo(playerPos: THREE.Vector3): { dist: number;
         const d = Math.hypot(p.x - playerPos.x, p.z - playerPos.z);
         if (d < best) { best = d; nearest = v; }
     }
-    if (nearest && best < 5.0) return { dist: best, type: nearest.type };
+    if (nearest && best < 8.0) return { dist: best, type: nearest.type };
     return null;
 }

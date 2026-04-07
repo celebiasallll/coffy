@@ -9,11 +9,10 @@ export class TouchControls {
     public isJumping = false;
     public isSprinting = false;
     public isInteracting = false;
-    public isReloading = false;
     public isAiming = false;
     
     // Jet specific
-    public isJetting = false;
+    public isJetting = false; // [v22.0] Restored for EXIT JET button
     public jetThrottleUp = false;
     public jetThrottleDown = false;
     public jetPitchUp = false;
@@ -78,9 +77,7 @@ export class TouchControls {
         // Character Actions
         this.bindButton('btn-fire', 'isFiring');
         this.bindButton('btn-jump', 'isJumping');
-        this.bindButton('btn-reload', 'isReloading');
         this.bindButton('btn-interact', 'isInteracting');
-        this.bindButton('btn-jet', 'isJetting');
         
         // Jet Controls
         this.bindButton('btn-jet-up', 'jetPitchUp');
@@ -91,7 +88,7 @@ export class TouchControls {
         this.bindButton('btn-jet-thr-down', 'jetThrottleDown');
         this.bindButton('btn-jet-boost', 'jetBoost');
         this.bindButton('btn-jet-fire', 'jetFire');
-        this.bindButton('btn-jet-exit', 'isJetting');
+        this.bindButton('btn-jet-exit', 'isJetting'); // [v22.0] Re-bound
         this.bindButton('btn-camera-top', 'isChangingCamera'); // [NEW] Top bar camera
     }
 
@@ -106,19 +103,17 @@ export class TouchControls {
         this.validateTouches(e);
         // Process all active touches for better multi-touch sync (Point 5)
         Array.from(e.touches).forEach(touch => {
-            // Left half: Dynamic Joystick
+            // Left half: Fixed Joystick
             if (touch.clientX < window.innerWidth / 2 && this.joystickTouchId === null) {
                 const target = touch.target as HTMLElement;
                 if (target.closest && target.closest('.mobile-btn')) return;
 
                 this.joystickTouchId = touch.identifier;
-                this.touchStartX = touch.clientX;
-                this.touchStartY = touch.clientY;
-
+                // Fixed center: use joystick zone's center position
                 if (this.joystickZone) {
-                    this.joystickZone.style.display = 'block';
-                    this.joystickZone.style.left = `${touch.clientX}px`;
-                    this.joystickZone.style.top = `${touch.clientY}px`;
+                    const rect = this.joystickZone.getBoundingClientRect();
+                    this.touchStartX = rect.left + rect.width / 2;
+                    this.touchStartY = rect.top + rect.height / 2;
                 }
             } 
             // Right half: Camera Look
@@ -165,24 +160,12 @@ export class TouchControls {
                 const dist = Math.sqrt(dx * dx + dy * dy);
                 const maxDist = 50;
 
-                // Floating Joystick Drift logic (Point 3)
-                if (dist > maxDist) {
-                    const extra = dist - maxDist;
-                    this.touchStartX += (dx / dist) * extra;
-                    this.touchStartY += (dy / dist) * extra;
-                    dx = touch.clientX - this.touchStartX;
-                    dy = touch.clientY - this.touchStartY;
-                    if (this.joystickZone) {
-                        this.joystickZone.style.left = `${this.touchStartX}px`;
-                        this.joystickZone.style.top = `${this.touchStartY}px`;
-                    }
-                }
-                
-                const currentDist = Math.sqrt(dx * dx + dy * dy);
-                if (currentDist === 0) return; // NaN Protection (Pro Fix 1)
+                // Fixed joystick: clamp movement, no drift
+                const clampedDist = Math.min(dist, maxDist);
+                if (dist === 0) return; // NaN Protection
 
-                const moveX = (dx / currentDist) * Math.min(currentDist, maxDist);
-                const moveY = (dy / currentDist) * Math.min(currentDist, maxDist);
+                const moveX = (dx / dist) * clampedDist;
+                const moveY = (dy / dist) * clampedDist;
 
                 if (this.joystickHandle) {
                     this.joystickHandle.style.transform = `translate(calc(-50% + ${moveX}px), calc(-50% + ${moveY}px))`;
@@ -192,10 +175,15 @@ export class TouchControls {
                 this.rawJoystick.y = moveY / maxDist;
 
                 // Auto-sprint if pushing joystick far enough (e.g. > 85%)
-                this.isSprinting = (currentDist / maxDist) > 0.85;
+                this.isSprinting = (clampedDist / maxDist) > 0.85;
+
+                // Visual sprint feedback on joystick base
+                if (this.joystickBase) {
+                    this.joystickBase.classList.toggle('sprinting', this.isSprinting);
+                }
 
                 // Joystick deadzone (Point 10)
-                if (currentDist < 10) {
+                if (dist < 10) {
                     this.rawJoystick.x = 0;
                     this.rawJoystick.y = 0;
                 }
@@ -250,7 +238,8 @@ export class TouchControls {
         this.rawJoystick.x = 0;
         this.rawJoystick.y = 0;
         this.isSprinting = false;
-        if (this.joystickZone) this.joystickZone.style.display = 'none';
+        // Don't hide joystick — it's always visible now
+        if (this.joystickBase) this.joystickBase.classList.remove('sprinting');
         if (this.joystickHandle) this.joystickHandle.style.transform = 'translate(-50%, -50%)';
     }
 

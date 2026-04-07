@@ -8,11 +8,24 @@ import { WATER_LEVEL } from '../../world/terrain.js';
 import { isSpaceOccupied, getSlopeAngle } from '../../world/environment.js';
 import { getPhysicsWorld } from '../../core/physics.js';
 import { findPath } from '../../systems/NavMeshSystem.js';
+import { clearAnimState } from './AnimationSystem.js';
+import { spawnImpact } from './ImpactSystem.js';
 
 // --- NavMesh Path Storage ---
 const enemyPaths = new Map<EntityId, THREE.Vector3[]>();
 const pathUpdateTimer = new Map<EntityId, number>();
 const pathIndex = new Map<EntityId, number>();
+
+/**
+ * [SAFE OPTIMIZATION] Deep cleans all internal Map data for an entity.
+ */
+function clearAIState(id: EntityId) {
+    enemyPaths.delete(id);
+    pathUpdateTimer.delete(id);
+    pathIndex.delete(id);
+    enemyAttackTimer.delete(id);
+    clearAnimState(id);
+}
 
 const enemyQuery = defineQuery([EnemyTag, Position, Rotation, AnimState, AIController, Health]);
 const playerQuery = defineQuery([PlayerTag, Position, Health]);
@@ -145,6 +158,7 @@ export const aiSystem = defineSystem((world: IWorld) => {
                     entityMixers.delete(id);
                     entityActions.delete(id);
                     deadEnemies.delete(id); // ID recycle güvenliği: Set'ten temizle
+                    clearAIState(id);      // [SAFE OPTIMIZATION v17.0] Deep Map cleanup
                     removeEntity(world, id);
                 }, 3500);
             }
@@ -246,10 +260,8 @@ export const aiSystem = defineSystem((world: IWorld) => {
                         (gameWorld as any).playerHitTimer = 0.3;
 
                         // Kan efekti: Zombi ve Kurt saldırısında oyuncuda kan çıkması (User Request)
-                        import('./ImpactSystem.js').then(({ spawnImpact }) => {
-                            const sc = (gameWorld as any).scene as THREE.Scene;
-                            if (sc) spawnImpact(sc, _playerPos, 1 /* ImpactType.FLESH */);
-                        });
+                        const sc = (gameWorld as any).scene as THREE.Scene;
+                        if (sc) spawnImpact(sc, _playerPos, 1 /* ImpactType.FLESH */);
                     }
                 }
             }

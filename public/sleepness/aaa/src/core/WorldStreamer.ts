@@ -62,11 +62,18 @@ export class WorldStreamer {
             const mesh = obj as THREE.Mesh;
             mesh.geometry?.dispose();
 
+            // [BUG-FIX v17.0]: Safely dispose of non-shared materials to prevent GPU memory leaks
+            const disposeMaterial = (material: THREE.Material) => {
+                if (!material.userData.shared) {
+                    material.dispose();
+                }
+            };
+
             const mat = mesh.material;
             if (Array.isArray(mat)) {
-                mat.forEach((m) => m?.dispose());
+                mat.forEach((m) => disposeMaterial(m));
             } else {
-                mat?.dispose();
+                disposeMaterial(mat);
             }
         });
     }

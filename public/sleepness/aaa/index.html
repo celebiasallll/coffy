@@ -26,12 +26,42 @@
       -webkit-tap-highlight-color: transparent;
     }
 
+    :root {
+      /* Safe Area Defaults */
+      --sa-top: env(safe-area-inset-top, 0px);
+      --sa-bottom: env(safe-area-inset-bottom, 0px);
+      --sa-left: env(safe-area-inset-left, 0px);
+      --sa-right: env(safe_area-inset-right, 0px);
+
+      --ui-margin: 24px;
+      --ui-margin-mobile: 16px;
+      
+      /* Dynamic Responsive Margins */
+      --margin-t: calc(var(--ui-margin-mobile) + var(--sa-top));
+      --margin-b: calc(var(--ui-margin-mobile) + var(--sa-bottom));
+      --margin-l: calc(var(--ui-margin-mobile) + var(--sa-left));
+      --margin-r: calc(var(--ui-margin-mobile) + var(--sa-right));
+
+      --ui-bg: rgba(15, 20, 30, 0.65);
+      --ui-border: 1.5px solid rgba(255, 255, 255, 0.25);
+      --ui-blur: blur(12px);
+      --ui-radius: 16px;
+      --ui-shadow: 0 1px 3px rgba(0, 0, 0, 0.8), 0 0 10px rgba(0, 0, 0, 0.4);
+      --accent: #00e5ff;
+      --accent-glow: rgba(0, 229, 255, 0.4);
+      --gold: #ffd700;
+      --gold-glow: rgba(255, 215, 0, 0.4);
+      --danger: #ff4b2b;
+    }
+
     body, canvas {
       background: #000;
       overflow: hidden;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       /* Prevent system gestures / zoom / lag (Pro Fix 5) */
       touch-action: none;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
 
     canvas {
@@ -163,18 +193,18 @@
     /* ─── Modern Ammo HUD ───────────────────────────────────────────────── */
     #ammo-hud {
       position: absolute;
-      bottom: 30px;
-      right: 30px;
+      bottom: var(--ui-margin);
+      right: var(--ui-margin);
       display: flex;
       flex-direction: column;
       align-items: flex-end;
       gap: 2px;
-      padding: 10px 18px;
-      background: rgba(4, 8, 16, 0.82);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 14px;
-      backdrop-filter: blur(14px);
-      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      padding: 12px 20px;
+      background: var(--ui-bg);
+      border: var(--ui-border);
+      border-radius: var(--ui-radius);
+      backdrop-filter: var(--ui-blur);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
       pointer-events: none;
       min-width: 120px;
     }
@@ -276,24 +306,24 @@
     /* Score / level box */
     #score-box {
       position: absolute;
-      top: 16px;
-      right: 16px;
+      top: var(--margin-t);
+      right: var(--margin-r);
       text-align: right;
-      padding: 10px 18px;
-      border-radius: 16px;
-      background: rgba(0, 8, 18, 0.78);
-      border: 1px solid rgba(0, 229, 255, 0.2);
-      backdrop-filter: blur(14px);
-      box-shadow: 0 8px 24px rgba(0,0,0,0.5), inset 0 0 12px rgba(0,229,255,0.04);
+      padding: 12px 20px;
+      border-radius: var(--ui-radius);
+      background: var(--ui-bg);
+      border: var(--ui-border);
+      backdrop-filter: var(--ui-blur);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
       pointer-events: none;
     }
 
     #score-num {
-      color: #a0aab2;
-      font-size: 30px;
+      color: var(--accent);
+      font-size: 32px;
       font-weight: 900;
       letter-spacing: 2px;
-      text-shadow: 0 0 16px rgba(160, 170, 178, 0.5), 0 0 40px rgba(160, 170, 178, 0.2);
+      text-shadow: 0 0 15px var(--accent-glow);
     }
 
     #score-lbl {
@@ -312,19 +342,19 @@
 
     #coin-box {
       position: absolute;
-      top: 25px;
-      right: 25px;
-      display: flex;
+      top: var(--ui-margin);
+      right: var(--ui-margin);
+      display: none; /* [FIX] Hidden in desktop by default, mobile uses it */
       align-items: center;
-      gap: 8px;
-      padding: 8px 14px;
-      background: rgba(30, 35, 45, 0.4);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 16px;
-      backdrop-filter: blur(20px);
-      box-shadow: 0 8px 32px rgba(0,0,0,0.35), inset 0 0 12px rgba(255,255,255,0.03);
+      gap: 10px;
+      padding: 8px 16px;
+      background: var(--ui-bg);
+      border: var(--ui-border);
+      border-radius: var(--ui-radius);
+      backdrop-filter: var(--ui-blur);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
       transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-      pointer-events: auto; /* ENABLED for camera button */
+      pointer-events: auto;
     }
 
     #coin-icon {
@@ -333,10 +363,10 @@
     }
 
     #coin-num {
-      color: #ffd700;
+      color: var(--gold);
       font-size: 20px;
       font-weight: 800;
-      text-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
+      text-shadow: 0 0 10px var(--gold-glow);
     }
 
     /* XP bar */
@@ -380,16 +410,17 @@
     /* Kill feed, combo, popup */
     #kill-feed {
       position: absolute;
-      top: 80px;
-      right: 18px;
+      top: calc(var(--margin-t) + 65px);
+      right: var(--margin-r);
       text-align: right;
-      font-size: 12px;
-      color: rgba(255, 120, 60, 0.95);
-      text-shadow: 0 0 8px #f40;
+      font-size: 13px;
+      color: var(--danger);
+      text-shadow: 0 0 8px var(--danger);
       pointer-events: none;
       display: flex;
       flex-direction: column;
       gap: 2px;
+      font-weight: 600;
     }
 
     #combo {
@@ -590,16 +621,18 @@
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      padding: 5px 16px;
-      background: rgba(0, 255, 170, .06);
-      border: 1px solid rgba(0, 255, 170, .2);
-      border-radius: 20px;
-      font-size: 10px;
-      letter-spacing: 3px;
-      color: rgba(0, 255, 170, .65);
+      padding: 6px 20px;
+      background: rgba(0, 225, 255, 0.1);
+      border: 1px solid rgba(0, 225, 255, 0.3);
+      border-radius: var(--ui-radius);
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: var(--accent);
       text-transform: uppercase;
-      margin-bottom: 28px;
+      margin-bottom: 24px;
       animation: ld-fadein .7s .05s ease both;
+      font-weight: 700;
+      text-shadow: var(--ui-shadow);
     }
 
     #ld-char-badge::before {
@@ -612,21 +645,23 @@
     #ld-title {
       font-size: 72px;
       font-weight: 900;
-      letter-spacing: 10px;
+      letter-spacing: 12px;
       color: #fff;
       text-transform: uppercase;
-      text-shadow: 0 0 80px rgba(0, 255, 170, .2), 0 0 160px rgba(0, 255, 170, .08);
-      margin-bottom: 4px;
+      text-shadow: 0 0 30px var(--accent-glow), 0 5px 20px rgba(0,0,0,0.8);
+      margin-bottom: 8px;
       animation: ld-title .9s .1s cubic-bezier(.2, 1, .3, 1) both;
     }
 
     #ld-tagline {
-      font-size: 11px;
-      letter-spacing: 5px;
-      color: rgba(255, 255, 255, .2);
+      font-size: 12px;
+      letter-spacing: 6px;
+      color: rgba(255, 255, 255, 0.4);
       text-transform: uppercase;
       margin-bottom: 56px;
       animation: ld-fadein .7s .3s ease both;
+      font-weight: 600;
+      text-shadow: var(--ui-shadow);
     }
 
     /* Progress alanı */
@@ -668,10 +703,10 @@
     #load-bar {
       height: 100%;
       width: 0%;
-      background: linear-gradient(90deg, #343a40, #6c757d, #a0aab2);
+      background: linear-gradient(90deg, var(--accent), #00b8d4);
       border-radius: 2px;
       position: relative;
-      box-shadow: 0 0 10px rgba(160, 170, 178, .5);
+      box-shadow: 0 0 15px var(--accent-glow);
     }
 
     /* Kayan parlaklık */
@@ -957,15 +992,15 @@
     /* ─────────────────────── SURVIVAL BARS (AAA) ─────────────────────── */
     #survival-box {
       position: absolute;
-      top: 25px;
-      left: 25px;
+      top: var(--ui-margin);
+      left: var(--ui-margin);
       display: flex;
       gap: 14px;
       pointer-events: none;
-      background: rgba(30, 35, 45, 0.4);
-      backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), inset 0 0 15px rgba(255, 255, 255, 0.04);
+      background: var(--ui-bg);
+      backdrop-filter: var(--ui-blur);
+      border: var(--ui-border);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
       padding: 10px 18px;
       border-radius: 30px;
       z-index: 1000;
@@ -1078,11 +1113,11 @@
     }
 
     #char-select h1 {
-      font-size: 48px;
+      font-size: 52px;
       font-weight: 900;
-      letter-spacing: 8px;
-      color: #e0e4e8;
-      text-shadow: 0 0 60px rgba(160, 170, 178, 0.2);
+      letter-spacing: 10px;
+      color: #fff;
+      text-shadow: 0 0 40px var(--accent-glow), 0 5px 15px rgba(0,0,0,0.8);
       margin-bottom: 0;
       animation: cs-in .6s .05s ease both;
     }
@@ -1161,27 +1196,29 @@
     .char-btn {
       position: relative;
       width: 220px;
-      /* Büyütüldü (v18.0) */
       padding: 0;
-      background: rgba(6, 12, 24, 0.95);
-      border: 1px solid rgba(255, 255, 255, 0.07);
-      border-radius: 14px;
+      background: var(--ui-bg);
+      backdrop-filter: var(--ui-blur);
+      border: var(--ui-border);
+      border-radius: var(--ui-radius);
       cursor: pointer;
-      transition: transform .2s cubic-bezier(.2, 1, .3, 1), border-color .2s, box-shadow .2s;
+      transition: transform 0.3s cubic-bezier(.2, 1, .3, 1), border-color 0.3s, box-shadow 0.3s;
       overflow: hidden;
       text-align: left;
       outline: none;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
     }
 
     .char-btn:hover {
-      transform: translateY(-4px);
-      border-color: rgba(160, 170, 178, 0.25);
+      transform: translateY(-8px);
+      border-color: var(--accent);
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6), 0 0 20px var(--accent-glow);
     }
 
     .char-btn.selected {
-      transform: translateY(-8px);
-      border: 2px solid #a0aab2;
-      box-shadow: 0 16px 50px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(160, 170, 178, 0.1), 0 0 30px rgba(160, 170, 178, 0.15);
+      transform: translateY(-12px);
+      border: 2px solid var(--accent);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), 0 0 30px var(--accent-glow);
     }
 
     .char-btn-shine {
@@ -1328,25 +1365,29 @@
     .cs-start-btn {
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 13px 34px;
-      background: rgba(160, 170, 178, 0.1);
-      border: 1px solid rgba(160, 170, 178, 0.35);
-      border-radius: 10px;
-      color: #a0aab2;
-      font-size: 13px;
-      font-weight: 700;
-      letter-spacing: 3px;
+      gap: 12px;
+      padding: 14px 40px;
+      background: var(--ui-bg);
+      border: 2px solid var(--accent);
+      border-radius: 12px;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 4px;
       text-transform: uppercase;
       cursor: pointer;
       pointer-events: all;
-      transition: background .2s, box-shadow .2s, transform .1s;
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      backdrop-filter: var(--ui-blur);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 15px var(--accent-glow);
+      text-shadow: var(--ui-shadow);
     }
 
     .cs-start-btn:hover {
-      background: rgba(160, 170, 178, 0.18);
-      box-shadow: 0 0 24px rgba(160, 170, 178, 0.2);
-      transform: translateY(-1px);
+      background: var(--accent);
+      color: #000;
+      transform: translateY(-2px) scale(1.05);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5), 0 0 25px var(--accent);
     }
 
     .cs-start-btn .kbd {
@@ -1390,27 +1431,27 @@
     #mission-hud {
       position: absolute;
       top: 100px;
-      left: 25px;
+      left: var(--ui-margin);
       width: auto;
-      max-width: 312px; /* 20% Bigger max width */
+      max-width: 320px;
       display: flex;
       flex-direction: column;
       justify-content: flex-start;
       align-items: flex-start;
       text-align: left;
-      padding: 18px 24px;
-      background: rgba(30, 35, 45, 0.4);
-      border-radius: 16px;
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-left: 4px solid rgba(160, 170, 178, 0.7);
+      padding: 20px 24px;
+      background: var(--ui-bg);
+      border-radius: var(--ui-radius);
+      border: var(--ui-border);
+      border-left: 5px solid var(--accent);
       color: #fff;
-      font-family: 'Rajdhani', sans-serif;
+      font-family: 'Outfit', sans-serif;
       z-index: 900;
       pointer-events: none;
-      backdrop-filter: blur(20px);
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+      backdrop-filter: var(--ui-blur);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
       opacity: 0;
-      scale: 1.2; /* 20% Bigger */
+      transform: scale(1.1);
       transform-origin: top left;
       transition: opacity 0.4s ease, transform 0.2s ease;
     }
@@ -1441,11 +1482,11 @@
     }
     
     #mission-progress {
-      font-size: 12px;
-      font-weight: 600;
-      color: #ffd700;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--gold);
       letter-spacing: 1px;
-      text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+      text-shadow: 0 0 10px var(--gold-glow);
     }
 
     /* Restored Popup & Pulse */
@@ -1801,28 +1842,27 @@
       }
 
       #ammo-hud {
-        right: calc(8px + env(safe-area-inset-right));
-        bottom: calc(250px + env(safe-area-inset-bottom));
-        scale: 0.65;
+        right: var(--margin-r);
+        bottom: calc(230px + var(--sa-bottom));
+        scale: 0.8;
         transform-origin: bottom right;
-        padding: 8px 14px !important;
-        background: rgba(4, 8, 16, 0.75) !important;
-        border: 1px solid rgba(255,215,0,0.15) !important;
-        border-radius: 12px !important;
-        backdrop-filter: blur(12px) !important;
+        background: var(--ui-bg) !important;
+        border: var(--ui-border) !important;
+        border-radius: var(--ui-radius) !important;
+        backdrop-filter: var(--ui-blur) !important;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
       }
 
       #coin-box {
-        top: calc(12px + env(safe-area-inset-top)) !important;
-        right: calc(12px + env(safe-area-inset-right)) !important;
-        scale: 0.75;
+        top: var(--margin-t) !important;
+        right: var(--margin-r) !important;
+        scale: 0.85;
         transform-origin: top right;
-        background: rgba(30, 35, 45, 0.4) !important;
-        border: 1px solid rgba(255,255,255,0.15) !important;
-        border-radius: 18px !important;
-        backdrop-filter: blur(20px) !important;
-        -webkit-backdrop-filter: blur(20px) !important;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.35), inset 0 1px 2px rgba(255,255,255,0.05) !important;
+        background: var(--ui-bg) !important;
+        border: var(--ui-border) !important;
+        border-radius: 20px !important;
+        backdrop-filter: var(--ui-blur) !important;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
         padding: 6px 14px !important;
         position: fixed !important;
       }
@@ -1832,39 +1872,37 @@
       }
 
       #mission-hud {
-        top: calc(60px + env(safe-area-inset-top));
-        left: calc(12px + env(safe-area-inset-left));
+        top: calc(75px + var(--sa-top));
+        left: var(--margin-l);
         right: auto;
-        scale: 0.72; /* Enlarger 20% from 0.6 */
+        scale: 0.8;
         transform-origin: top left;
-        background: rgba(30, 35, 45, 0.4) !important;
-        border: 1px solid rgba(255, 255, 255, 0.15) !important;
-        border-left: 3px solid rgba(160, 170, 178, 0.7) !important;
-        backdrop-filter: blur(20px) !important;
-        -webkit-backdrop-filter: blur(20px) !important;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.35) !important;
-        width: 170px !important;
+        background: var(--ui-bg) !important;
+        border: var(--ui-border) !important;
+        border-left: 5px solid var(--accent) !important;
+        backdrop-filter: var(--ui-blur) !important;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.4) !important;
+        width: 220px !important;
         height: auto !important;
-        padding: 14px !important;
-        border-radius: 16px !important;
+        padding: 16px !important;
+        border-radius: var(--ui-radius) !important;
         opacity: 0;
         transition: opacity 0.4s ease, transform 0.2s ease;
         pointer-events: none !important;
       }
 
       #survival-box {
-        top: calc(12px + env(safe-area-inset-top));
-        left: calc(12px + env(safe-area-inset-left));
-        scale: 0.68; /* Shrunk by 20% */
+        top: var(--margin-t);
+        left: var(--margin-l);
+        scale: 0.85;
         transform-origin: top left;
         gap: 12px !important;
-        background: rgba(30, 35, 45, 0.4);
+        background: var(--ui-bg);
         padding: 8px 16px;
-        border-radius: 26px;
-        border: 1px solid rgba(255,255,255,0.15);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        box-shadow: 0 8px 32px rgba(0,0,0,0.35), inset 0 1px 2px rgba(255,255,255,0.05);
+        border-radius: 30px;
+        border: var(--ui-border);
+        backdrop-filter: var(--ui-blur);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
       }
       
       /* Pro Fix: Global UI Layer Passivity (Net Solution) */
@@ -1991,26 +2029,26 @@
           <div id="joystick-handle"></div>
         </div>
       </div>
-      <!-- Yaw Controls (Mobile Only) - Moved 20% higher for visibility -->
+      <!-- Yaw Controls (Mobile Only) - Relocated to left to prevent right-side clashes -->
       <div id="jet-yaw-controls"
-        style="display:none; position:fixed; left:calc(20px + 10%); top:150px; z-index:1000; flex-direction:row-reverse; gap:12px;">
-        <button id="btn-jet-yaw-r" class="mobile-btn mini"
-          style="width:56px; height:56px; font-size:20px;">►</button>
+        style="display:none; position:fixed; left:var(--margin-l); bottom:calc(var(--margin-b) + 160px); z-index:1000; flex-direction:row; gap:12px;">
         <button id="btn-jet-yaw-l" class="mobile-btn mini"
-          style="width:56px; height:56px; font-size:20px;">◄</button>
+          style="width:14vmin; height:14vmin; max-width:60px; max-height:60px; font-size:20px;">◄</button>
+        <button id="btn-jet-yaw-r" class="mobile-btn mini"
+          style="width:14vmin; height:14vmin; max-width:60px; max-height:60px; font-size:20px;">►</button>
         <button id="btn-jet-boost" class="mobile-btn mini" 
-          style="width:56px; height:56px; font-size:20px;">⚡</button>
+          style="width:14vmin; height:14vmin; max-width:60px; max-height:60px; font-size:20px;">⚡</button>
       </div>
 
       <div id="action-zone">
-        <div id="char-actions" style="position: relative; width: 230px; height: 180px; margin-bottom: 25px; margin-right: 15px;">
-          <button id="btn-fire" class="mobile-btn" style="position: absolute; right: 86px; bottom: 86px;">
+        <div id="char-actions" style="position: relative; width: 50vmin; height: 40vmin; max-width: 230px; max-height: 180px; margin-bottom: 25px;">
+          <button id="btn-fire" class="mobile-btn" style="position: absolute; right: 20vmin; bottom: 20vmin; width: 18vmin; height: 18vmin; max-width: 82px; max-height: 82px;">
             <span class="fire-reticle"></span>
           </button>
-          <button id="btn-jump" class="mobile-btn mini" style="position: absolute; right: 10px; bottom: 35px; width:56px; height:56px; font-size:24px; color:#a0aab2;">
+          <button id="btn-jump" class="mobile-btn mini" style="position: absolute; right: 2vmin; bottom: 8vmin; width: 14vmin; height: 14vmin; max-width: 56px; max-height: 56px; font-size: 24px; color: #a0aab2;">
             ⇪
           </button>
-          <button id="btn-interact" class="mobile-btn mini" style="position: absolute; right: 98px; bottom: 10px; width:76px; height:48px; font-size:18px; border-radius:24px !important; color:#a0aab2;">
+          <button id="btn-interact" class="mobile-btn mini" style="position: absolute; right: 22vmin; bottom: 2vmin; width: 18vmin; height: 12vmin; max-width: 76px; max-height: 48px; font-size: 18px; border-radius: 24px !important; color: #a0aab2;">
             🔑
           </button>
         </div>
@@ -2019,22 +2057,22 @@
         <div id="jet-controls-mobile"
           style="display:none; flex-direction:column; gap:12px; align-items:flex-end; padding-top:10px;">
           
-          <div style="display:flex; gap:20px; align-items:center;">
+          <div style="display:flex; gap:5vmin; align-items:center;">
             <!-- Column 1: Pitch -->
-            <div style="display:flex; flex-direction:column; gap:12px;">
-              <button id="btn-jet-up" class="mobile-btn mini" style="width:56px; height:56px; font-size:18px;">▲<span class="btn-label">PITCH</span></button>
-              <button id="btn-jet-down" class="mobile-btn mini" style="width:56px; height:56px; font-size:18px;">▼<span class="btn-label">PITCH</span></button>
+            <div style="display:flex; flex-direction:column; gap:3vmin;">
+              <button id="btn-jet-up" class="mobile-btn mini" style="width:14vmin; height:14vmin; max-width:56px; max-height:56px; font-size:18px;">▲<span class="btn-label">PITCH</span></button>
+              <button id="btn-jet-down" class="mobile-btn mini" style="width:14vmin; height:14vmin; max-width:56px; max-height:56px; font-size:18px;">▼<span class="btn-label">PITCH</span></button>
             </div>
 
             <!-- Column 2: Throttle -->
-            <div style="display:flex; flex-direction:column; gap:12px;">
-              <button id="btn-jet-thr-up" class="mobile-btn mini" style="width:56px; height:56px; font-size:18px;">▲<span class="btn-label">THR</span></button>
-              <button id="btn-jet-thr-down" class="mobile-btn mini" style="width:56px; height:56px; font-size:18px;">▼<span class="btn-label">THR</span></button>
+            <div style="display:flex; flex-direction:column; gap:3vmin;">
+              <button id="btn-jet-thr-up" class="mobile-btn mini" style="width:14vmin; height:14vmin; max-width:56px; max-height:56px; font-size:18px;">▲<span class="btn-label">THR</span></button>
+              <button id="btn-jet-thr-down" class="mobile-btn mini" style="width:14vmin; height:14vmin; max-width:56px; max-height:56px; font-size:18px;">▼<span class="btn-label">THR</span></button>
             </div>
           </div>
 
           <!-- Exit Button -->
-          <button id="btn-jet-exit" class="mobile-btn mini" style="width:90px; height:40px; margin-top:25px; margin-right: 15px; font-weight:bold; letter-spacing:1px; font-size:10px;">🚪 EXIT JET</button>
+          <button id="btn-jet-exit" class="mobile-btn mini" style="width:22vmin; height:10vmin; max-width:90px; max-height:40px; margin-top:5vmin; font-weight:bold; letter-spacing:1px; font-size:10px;">🚪 EXIT JET</button>
         </div>
       </div>
     </div>
@@ -2044,8 +2082,8 @@
     /* ═══ MODERN fixed JOYSTICK ═══ */
     #joystick-zone {
       position: fixed;
-      bottom: calc(40px + env(safe-area-inset-bottom));
-      left: calc(60px + env(safe-area-inset-left));
+      bottom: var(--margin-b);
+      left: var(--margin-l);
       width: 140px;
       height: 140px;
       pointer-events: none;
@@ -2099,8 +2137,8 @@
 
     #action-zone {
       position: absolute;
-      bottom: calc(35px + env(safe-area-inset-bottom));
-      right: calc(30px + env(safe-area-inset-right));
+      bottom: var(--margin-b);
+      right: var(--margin-r);
       display: none;
       flex-direction: column;
       align-items: flex-end;
@@ -2116,19 +2154,19 @@
 
     /* ═══ MODERN MOBILE BUTTONS ═══ */
     .mobile-btn {
-      background: rgba(30, 35, 45, 0.4) !important;
-      border: 1px solid rgba(255, 255, 255, 0.15) !important;
+      background: var(--ui-bg) !important;
+      border: var(--ui-border) !important;
       border-radius: 50%;
       color: #fff;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-direction: column;
-      font-family: 'Rajdhani', sans-serif;
+      font-family: 'Outfit', sans-serif;
       font-weight: 700;
-      backdrop-filter: blur(20px) !important;
-      -webkit-backdrop-filter: blur(20px) !important;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), inset 0 1px 2px rgba(255, 255, 255, 0.1) !important;
+      backdrop-filter: var(--ui-blur) !important;
+      -webkit-backdrop-filter: var(--ui-blur) !important;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
       user-select: none;
       -webkit-tap-highlight-color: transparent;
       pointer-events: auto !important;
@@ -2136,6 +2174,7 @@
       transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s ease, background 0.15s ease, border-color 0.15s ease;
       position: relative;
       overflow: hidden;
+      text-shadow: var(--ui-shadow);
     }
 
     /* Glassmorphism highlight */

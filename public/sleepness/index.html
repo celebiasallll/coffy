@@ -2109,8 +2109,9 @@
           <div id="joystick-handle"></div>
         </div>
       </div>
+      <!-- Yaw Controls (Mobile Only) - Relocated to follow the joystick's 15vw offset -->
       <div id="jet-yaw-controls"
-        style="display:none; position:fixed; left:calc(20vw + var(--margin-l)); bottom:calc(10vh + var(--margin-b) + min(140px, 30vmin) + 20px); z-index:1000; flex-direction:row; gap:12px;">
+        style="display:none; position:fixed; left:calc(15vw + var(--margin-l)); bottom:calc(10vh + var(--margin-b) + min(140px, 30vmin) + 20px); z-index:1000; flex-direction:row; gap:12px;">
         <button id="btn-jet-boost" class="mobile-btn mini"
           style="width:14vmin; height:14vmin; max-width:60px; max-height:60px; font-size:20px;">⚡</button>
         <button id="btn-jet-yaw-l" class="mobile-btn mini"
@@ -2189,7 +2190,7 @@
     #joystick-zone {
       position: fixed;
       bottom: calc(10vh + var(--margin-b));
-      left: calc(20vw + var(--margin-l));
+      left: calc(15vw + var(--margin-l));
       width: min(140px, 30vmin);
       height: min(140px, 30vmin);
       pointer-events: none;

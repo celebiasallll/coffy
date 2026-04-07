@@ -35,9 +35,13 @@ if (isMobile) {
         }).catch(() => {});
       }
     } catch (e) {}
+    // Safari optimization: scroll to hide bars
+    window.scrollTo(0, 1);
     document.removeEventListener('click', triggerImmersive);
+    document.removeEventListener('touchstart', triggerImmersive);
   };
   document.addEventListener('click', triggerImmersive);
+  document.addEventListener('touchstart', triggerImmersive);
 }
 
 import { createRenderer, createSceneAndCamera, setupResize, setupLights } from './core/renderer.js';

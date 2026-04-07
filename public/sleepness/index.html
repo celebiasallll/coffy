@@ -40,9 +40,9 @@
       --margin-l: calc(var(--ui-margin-mobile) + var(--sa-left));
       --margin-r: calc(var(--ui-margin-mobile) + var(--sa-right));
 
-      --ui-bg: rgba(15, 20, 30, 0.65);
-      --ui-border: 1.5px solid rgba(255, 255, 255, 0.25);
-      --ui-blur: blur(12px);
+      --ui-bg: rgba(15, 20, 30, 0.2);
+      --ui-border: 1.5px solid rgba(255, 255, 255, 0.15);
+      --ui-blur: blur(16px);
       --ui-radius: 16px;
       --ui-shadow: 0 1px 3px rgba(0, 0, 0, 0.8), 0 0 10px rgba(0, 0, 0, 0.4);
       --accent: #00e5ff;
@@ -50,16 +50,39 @@
       --gold: #ffd700;
       --gold-glow: rgba(255, 215, 0, 0.4);
       --danger: #ff4b2b;
+      --gas: rgba(0, 255, 100, 0.4);
+      --brake: rgba(255, 50, 0, 0.4);
     }
 
     body, canvas {
       background: #000;
       overflow: hidden;
       font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      /* Prevent system gestures / zoom / lag (Pro Fix 5) */
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100% !important;
+      height: 100% !important;
+      display: block;
       touch-action: none;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
+      z-index: 1;
+    }
+
+    #hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 2;
+      pointer-events: none;
     }
 
     canvas {
@@ -1967,7 +1990,7 @@
       }
     }
   </style>
-  <script type="module" crossorigin src="./assets/index-CAQGo-FT.js"></script>
+  <script type="module" crossorigin src="./assets/index-6lg0H5bS.js"></script>
 </head>
 
 <body>
@@ -2096,6 +2119,16 @@
 
   <style>
     /* ═══ MODERN fixed JOYSTICK ═══ */
+    /* [v82.0]: Gas/Brake Details (toz gibi) */
+    #btn-jet-thr-up, #btn-jet-up {
+      box-shadow: inset 0 0 20px var(--gas), 0 0 10px rgba(0,255,100,0.1) !important;
+      border-color: rgba(0, 255, 100, 0.4) !important;
+    }
+    #btn-jet-thr-down, #btn-jet-down {
+      box-shadow: inset 0 0 20px var(--brake), 0 0 10px rgba(255,50,0,0.1) !important;
+      border-color: rgba(255, 50, 0, 0.4) !important;
+    }
+
     #joystick-zone {
       position: fixed;
       bottom: var(--margin-b);

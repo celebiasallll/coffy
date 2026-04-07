@@ -68,8 +68,12 @@ const nextConfig = {
       },
       // Yeni yönlendirme
       {
-        source: '/lapse',  // Bu, kullanıcıların gireceği URL
-        destination: 'https://coffylapse.vercel.app', // Vercel'deki oyun linki
+        source: '/lapse',
+        destination: 'https://coffylapse.vercel.app'
+      },
+      {
+        source: '/sleepness',
+        destination: '/sleepness/index.html'
       }
     ]
   }

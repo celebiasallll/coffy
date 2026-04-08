@@ -9,6 +9,7 @@ class AudioManager {
   private isInitialized: boolean = false;
   private bufferCache: Map<string, AudioBuffer> = new Map();
   private namedSounds: Map<string, THREE.Audio> = new Map();
+  private _loggedErrors: Set<string> = new Set();
 
   constructor() {
     this.listener = new THREE.AudioListener();
@@ -32,7 +33,7 @@ class AudioManager {
             // Transient error like ERR_NETWORK_CHANGED, try one more time silently
             console.debug(`[Audio] Potential network glitch, retrying: ${url}`);
             setTimeout(() => {
-                this.loadBuffer(url, false).then(resolve).catch(reject);
+              this.loadBuffer(url, false).then(resolve).catch(reject);
             }, 800);
           } else {
             // Silencing the error to 'debug' level to avoid "Console Scare" for the user
@@ -70,7 +71,7 @@ class AudioManager {
       if (!this.bgm) return;
       this.bgm.setBuffer(buffer);
       this.bgm.setVolume(0.04);
-      this.bgm.setLoop(true);
+      this.bgm.setLoop(false); // [FIX] Must be false for onEnded to trigger playlist rotation
       this.bgm.play();
 
       // When this one ends, play the next one
@@ -154,6 +155,13 @@ class AudioManager {
 
       sound.play();
 
+      // [FIX] Memory Leak: Cleanup named sound once finished
+      sound.onEnded = () => {
+        if (name && this.namedSounds.get(name) === sound) {
+          this.namedSounds.delete(name);
+        }
+      };
+
       if (duration > 0) {
         setTimeout(() => {
           if (sound.isPlaying) {
@@ -171,12 +179,11 @@ class AudioManager {
       sound.setLoop(true); // Loop for continuous engine sound
       sound.setVolume(volume);
     }).catch((err) => {
-        // Only log once per asset URL to prevent console flood
-        if (!(this as any)._loggedErrors) (this as any)._loggedErrors = new Set();
-        if (!(this as any)._loggedErrors.has(url)) {
-            console.warn(`[Audio] Asset failed to load: ${url}. Performance may be affected by multiple fetch attempts.`, err);
-            (this as any)._loggedErrors.add(url);
-        }
+      // [FIX] Use class property instead of (this as any)
+      if (!this._loggedErrors.has(url)) {
+        console.warn(`[Audio] Asset failed to load: ${url}. Performance may be affected by multiple fetch attempts.`, err);
+        this._loggedErrors.add(url);
+      }
     });
     return sound;
   }
@@ -212,6 +219,8 @@ class AudioManager {
 
   public stopAll(): void {
     if (this.bgm && this.bgm.isPlaying) this.bgm.stop();
+    this.bgm = null; // [FIX] Ensure state is fully reset
+
     this.namedSounds.forEach((s) => {
       if (s.isPlaying) s.stop();
     });
@@ -220,15 +229,15 @@ class AudioManager {
 
   public skipBGM(): void {
     if (!this.isInitialized) return;
-    
+
     // Stop current track
     if (this.bgm && this.bgm.isPlaying) {
-        this.bgm.stop();
+      this.bgm.stop();
     }
-    
+
     // Increment index
     this.currentBgmIndex = (this.currentBgmIndex + 1) % this.bgmPool.length;
-    
+
     // Play next
     void this.loadNextBGM();
     console.log(`[Audio] Skipping to BGM: ${this.bgmPool[this.currentBgmIndex]}`);

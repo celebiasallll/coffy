@@ -497,8 +497,9 @@ export async function spawnWolf(scene: THREE.Scene, x: number, z: number): Promi
         colliderToEntity.set(collider.handle, id);
 
         // Positional Audio (Reduced distance: 4m ref, 50% volume)
-        const wolfSound = audioManager.createPositionalAudio('assets/sounds/freesound_community-angry-dog-14473.mp3', 4, 0.2);
-        wolfSound.setDistanceModel('exponential');
+        const wolfSound = audioManager.createPositionalAudio('assets/sounds/freesound_community-angry-dog-14473.mp3', 3, 0.16);
+        wolfSound.setDistanceModel('linear');
+        wolfSound.setMaxDistance(40);
         wolfPivot.add(wolfSound);
         // Store for cleanup if needed, but Three.js will handle most of it if we just stop it on death
         (wolfPivot as any)._audio = wolfSound;
@@ -612,8 +613,9 @@ export async function spawnZombie(scene: THREE.Scene, x: number, z: number): Pro
         entityMeshes.set(id, pivot);
 
         // Positional Audio (Reduced distance: 5m ref, 50% volume)
-        const zombieSound = audioManager.createPositionalAudio('assets/sounds/freesound_community-zombie-sounds-95180.mp3', 5, 0.175);
-        zombieSound.setDistanceModel('exponential');
+        const zombieSound = audioManager.createPositionalAudio('assets/sounds/freesound_community-zombie-sounds-95180.mp3', 4, 0.14);
+        zombieSound.setDistanceModel('linear');
+        zombieSound.setMaxDistance(45);
         pivot.add(zombieSound);
         // Store for cleanup in AISystem
         (pivot as any)._audio = zombieSound;

@@ -256,6 +256,17 @@ async function init(playerType: number) {
   document.addEventListener('pointerdown', resumeAudio);
   document.addEventListener('keydown', resumeAudio);
 
+  // [v84.5]: BGM Skip Controller (M Key & Mobile Button)
+  document.getElementById('btn-music-skip')?.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    audioManager.skipBGM();
+  });
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'KeyM') {
+      audioManager.skipBGM();
+    }
+  });
+
   // Gökyüzü (mevcut)
   const { sun: sunPos } = initSky(scene);
   scene.fog = null;

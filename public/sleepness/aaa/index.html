@@ -1945,6 +1945,7 @@
       #coin-box {
         top: var(--margin-t) !important;
         right: var(--margin-r) !important;
+        display: flex !important; /* [RESTORED] Missing display property made it hidden */
         scale: 0.8 !important;
         transform-origin: top right;
         background: var(--ui-bg) !important;
@@ -1961,10 +1962,10 @@
       }
 
       #mission-hud {
-        top: calc(75px + var(--sa-top));
+        top: calc(75px + var(--sa-top) + 2vh); /* Moved 2% further down */
         left: var(--margin-l);
         right: auto;
-        scale: 0.8;
+        scale: 0.46; /* Shrunk by another 30% (from 0.65) */
         transform-origin: top left;
         background: var(--ui-bg) !important;
         border: var(--ui-border) !important;
@@ -2026,7 +2027,7 @@
       #pauseMenu,
       #pauseMenu button,
       #settings-menu {
-        pointer-events: auto;
+        pointer-events: auto !important; /* Ensure Game Over buttons are ALWAYS interactive */
       }
     }
   </style>
@@ -2113,7 +2114,7 @@
       </div>
       <!-- Yaw Controls (Mobile Only) - Relocated to follow the joystick's 15vw offset -->
       <div id="jet-yaw-controls"
-        style="display:none; position:fixed; left:calc(5vw + var(--margin-l)); bottom:calc(5vh + var(--margin-b) + min(140px, 30vmin) + 20px); z-index:1000; flex-direction:row; gap:12px;">
+        style="display:none; position:fixed; left:calc(2vw + var(--margin-l)); bottom:calc(2vh + var(--margin-b) + min(140px, 30vmin) + 20px); z-index:1000; flex-direction:row; gap:12px;">
         <button id="btn-jet-boost" class="mobile-btn mini"
           style="width:14vmin; height:14vmin; max-width:60px; max-height:60px; font-size:20px;">⚡</button>
         <button id="btn-jet-yaw-l" class="mobile-btn mini"
@@ -2126,7 +2127,7 @@
         <div id="char-actions"
           style="position: relative; width: 50vmin; height: 40vmin; max-width: 230px; max-height: 180px; margin-bottom: 25px;">
           <button id="btn-fire" class="mobile-btn"
-            style="position: absolute; right: 23vmin; bottom: 20vmin; width: 18vmin; height: 18vmin; max-width: 82px; max-height: 82px;">
+            style="position: absolute; right: 28vmin; bottom: 20vmin; width: 18vmin; height: 18vmin; max-width: 82px; max-height: 82px;">
             <span class="fire-reticle"></span>
           </button>
           <button id="btn-jump" class="mobile-btn mini"
@@ -2191,8 +2192,8 @@
 
     #joystick-zone {
       position: fixed;
-      bottom: calc(5vh + var(--margin-b));
-      left: calc(5vw + var(--margin-l));
+      bottom: calc(var(--margin-b) - 2.5vh); /* Moved another 1% (total 2.5%) further down */
+      left: calc(4vw + var(--margin-l)); /* Moved 4% right per user request */
       width: min(140px, 30vmin);
       height: min(140px, 30vmin);
       pointer-events: none;

@@ -5,6 +5,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#000000">
   <title>Open World AAA Prototype v1.0.1</title>
   <link rel="icon" href="data:;base64,iVBORw0KGgo=">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -25,15 +29,30 @@
       -webkit-tap-highlight-color: transparent;
     }
 
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      position: fixed;
+      inset: 0;
+      overscroll-behavior: none;
+    }
+
     :root {
+      --vh: 100vh;
       /* Safe Area Defaults */
       --sa-top: env(safe-area-inset-top, 0px);
       --sa-bottom: env(safe-area-inset-bottom, 0px);
       --sa-left: env(safe-area-inset-left, 0px);
-      --sa-right: env(safe_area-inset-right, 0px);
+      --sa-right: env(safe-area-inset-right, 0px);
 
       --ui-margin: 24px;
-      --ui-margin-mobile: 16px;
+      --ui-margin-mobile: 22px;
 
       /* Dynamic Responsive Margins */
       --margin-t: calc(var(--ui-margin-mobile) + var(--sa-top));
@@ -72,15 +91,21 @@
       margin: 0;
       padding: 0;
       width: 100vw;
-      height: 100vh;
+      height: var(--vh);
+      position: fixed;
+      left: 0;
+      top: 0;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+      outline: none;
     }
 
     canvas {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw !important;
-      height: 100vh !important;
+      position: absolute !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
       display: block;
       touch-action: none;
       z-index: var(--z-canvas);
@@ -109,7 +134,7 @@
       z-index: var(--z-hud);
       color: #fff;
       font-size: 12px;
-      padding: var(--sa-top) var(--sa-right) var(--sa-bottom) var(--sa-left);
+      padding: 0;
     }
 
     #hud>div {
@@ -403,8 +428,8 @@
 
     #coin-box {
       position: absolute;
-      top: var(--ui-margin);
-      right: var(--ui-margin);
+      top: var(--margin-t);
+      right: var(--margin-r);
       display: none;
       /* [FIX] Hidden in desktop by default, mobile uses it */
       align-items: center;
@@ -858,7 +883,7 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      z-index: var(--z-overlay);
+      z-index: var(--z-top);
       color: #fff;
       overflow: hidden;
       pointer-events: auto;
@@ -1939,7 +1964,8 @@
       #coin-box {
         top: var(--margin-t) !important;
         right: var(--margin-r) !important;
-        scale: 0.85;
+        display: flex !important; /* [RESTORED] Missing display property made it hidden */
+        scale: 0.8 !important;
         transform-origin: top right;
         background: var(--ui-bg) !important;
         border: var(--ui-border) !important;
@@ -1956,10 +1982,10 @@
       }
 
       #mission-hud {
-        top: calc(75px + var(--sa-top));
+        top: calc(75px + var(--sa-top) + 2vh); /* Moved 2% further down */
         left: var(--margin-l);
         right: auto;
-        scale: 0.5;
+        scale: 0.46; /* Shrunk by another 30% (from 0.65) */
         transform-origin: top left;
         background: var(--ui-bg) !important;
         border: var(--ui-border) !important;
@@ -2023,11 +2049,11 @@
       #pauseMenu,
       #pauseMenu button,
       #settings-menu {
-        pointer-events: auto;
+        pointer-events: auto !important; /* Ensure Game Over buttons are ALWAYS interactive */
       }
     }
   </style>
-  <script type="module" crossorigin src="./assets/index-6lg0H5bS.js"></script>
+  <script type="module" crossorigin src="./assets/index-C5iVt9F7.js"></script>
 </head>
 
 <body>
@@ -2111,7 +2137,7 @@
       </div>
       <!-- Yaw Controls (Mobile Only) - Relocated to follow the joystick's 15vw offset -->
       <div id="jet-yaw-controls"
-        style="display:none; position:fixed; left:calc(5vw + var(--margin-l)); bottom:calc(5vh + var(--margin-b) + min(140px, 30vmin) + 20px); z-index:1000; flex-direction:row; gap:12px;">
+        style="display:none; position:fixed; left:calc(2vw + var(--margin-l)); bottom:calc(2vh + var(--margin-b) + min(140px, 30vmin) + 20px); z-index:1000; flex-direction:row; gap:12px;">
         <button id="btn-jet-boost" class="mobile-btn mini"
           style="width:14vmin; height:14vmin; max-width:60px; max-height:60px; font-size:20px;">⚡</button>
         <button id="btn-jet-yaw-l" class="mobile-btn mini"
@@ -2124,7 +2150,7 @@
         <div id="char-actions"
           style="position: relative; width: 50vmin; height: 40vmin; max-width: 230px; max-height: 180px; margin-bottom: 25px;">
           <button id="btn-fire" class="mobile-btn"
-            style="position: absolute; right: 23vmin; bottom: 20vmin; width: 18vmin; height: 18vmin; max-width: 82px; max-height: 82px;">
+            style="position: absolute; right: 28vmin; bottom: 20vmin; width: 20vmin; height: 20vmin; max-width: 90px; max-height: 90px;">
             <span class="fire-reticle"></span>
           </button>
           <button id="btn-jump" class="mobile-btn mini"
@@ -2189,8 +2215,8 @@
 
     #joystick-zone {
       position: fixed;
-      bottom: calc(5vh + var(--margin-b));
-      left: calc(5vw + var(--margin-l));
+      bottom: calc(var(--margin-b) - 2.5vh); /* Moved another 1% (total 2.5%) further down */
+      left: calc(4vw + var(--margin-l)); /* Moved 4% right per user request */
       width: min(140px, 30vmin);
       height: min(140px, 30vmin);
       pointer-events: none;
@@ -2340,8 +2366,8 @@
 
     /* ── Fire Button ── */
     #btn-fire {
-      width: 82px;
-      height: 82px;
+      width: 90px;
+      height: 90px;
       font-size: 34px;
       background: radial-gradient(circle at 40% 40%, rgba(255, 80, 40, 0.25), rgba(255, 30, 0, 0.1));
       border: 2px solid rgba(255, 80, 40, 0.45);
@@ -2397,8 +2423,8 @@
 
     /* ── Fire Button Sizing ── */
     #btn-fire {
-      width: 72px;
-      height: 72px;
+      width: 80px;
+      height: 80px;
       font-size: 34px;
     }
 
@@ -2767,6 +2793,21 @@
       // Mobile camera button — also show badge on mobile via global hook
       window.__showCameraMode = showCameraMode;
     })();
+  </script>
+  <script>
+    // [v84.1]: Mobile Viewport Height Fix — Prevents 'cropping' on browser chrome change
+    function updateViewportHeight() {
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh * 100}px`);
+    }
+    window.addEventListener('resize', updateViewportHeight);
+    window.addEventListener('orientationchange', () => {
+      updateViewportHeight();
+      // Tarayıcının yeni boyutları hesaplaması için zaman tanı ve Three.js'i uyar
+      setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 100);
+      setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 400);
+    });
+    updateViewportHeight();
   </script>
 </body>
 

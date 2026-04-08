@@ -58,8 +58,7 @@ class JetAudio {
 
     public update(throttle: number, speed: number, afterburner: boolean, isOccupied: boolean) {
         if (!isOccupied) {
-            if (this.engine?.isPlaying) this.engine.stop();
-            if (this.wind?.isPlaying) this.wind.stop();
+            this.stop();
             return;
         }
         if (!this.initialized) {
@@ -133,7 +132,7 @@ export function spawnJet(scene: THREE.Scene, world: RAPIER.World, pos: THREE.Vec
     // [LIGHTING v1.0] Find/create the specific light groups
     const navLights: THREE.Object3D[] = [];
     const strobeLights: THREE.Object3D[] = [];
-    
+
     // Add Landing Light (Spotlight) to the Nose Gear Strut
     // [SMOOTHER] Reduced intensity (45), increased penumbra (0.8) and decay (2.0)
     const landingLight = new THREE.SpotLight(0xfff5ee, 0, 150, Math.PI / 6, 0.8, 2.0);
@@ -282,7 +281,7 @@ export function updateJet(dt: number, scene: THREE.Scene, camera: THREE.Perspect
             const isThrusting = jet.state.throttle > 0.4; // High throttle
             const isStationary = jet.state.speed < 5.0;  // Very low speed
             const isVerticalBug = Math.abs(_fwd.y) > 0.9 && jet.state.speed < 10.0; // Pointing straight up/down while slow
-            
+
             if (isThrusting && (isStationary || isVerticalBug)) {
                 jetStuckTimer += dt;
             } else {
@@ -323,8 +322,8 @@ export function updateJet(dt: number, scene: THREE.Scene, camera: THREE.Perspect
                 shouldCrash = true;
                 crashReason = `Ground Penetration`;
             }
-        // [EVOLVED]: expensive contactPairsWith polling loop REMOVED.
-        // Collision detection is now handled by handleJetCollisionEvent (Event-Driven).
+            // [EVOLVED]: expensive contactPairsWith polling loop REMOVED.
+            // Collision detection is now handled by handleJetCollisionEvent (Event-Driven).
 
             if (shouldCrash && jet.state.exitCooldown <= 0) {
                 jet.state.isCrashed = true;
@@ -354,7 +353,7 @@ export function updateJet(dt: number, scene: THREE.Scene, camera: THREE.Perspect
 
 function updateFX(j: NonNullable<typeof jet>, dt: number): void {
     const time = performance.now();
-    
+
     // 1. Afterburner & Exhaust Glow
     const targetExhaust = j.state.afterburner ? 130 : (j.state.throttle > 0.1 ? 25 : 0);
     j.exhaustLight.intensity = THREE.MathUtils.lerp(j.exhaustLight.intensity, targetExhaust, dt * 6.0);
@@ -406,11 +405,11 @@ export function tryEnterJet(playerPos: THREE.Vector3): boolean {
     if (!jet || jet.isOccupied) return false;
     const p = jet.rb.translation();
     const dist = Math.hypot(p.x - playerPos.x, p.z - playerPos.z);
-    if (dist < 8) { 
-        jet.isOccupied = true; 
+    if (dist < 8) {
+        jet.isOccupied = true;
         jetCamera.needsImmediateSnap = true;
-        showJetHUD(true); 
-        return true; 
+        showJetHUD(true);
+        return true;
     }
     return false;
 }
@@ -421,6 +420,7 @@ export function exitJet(): THREE.Vector3 {
         jet.state.throttle = 0;      // [v26.0] KILL ENGINES
         jet.state.afterburner = false;
         jet.state.exitCooldown = 0.8; // [v26.0] 0.8s safety buffer for the bail-out transition
+        jetAudio.stop();             // [FIX] Stop engine sound immediately on exit
         showJetHUD(false);
         const p = jet.rb.translation();
         return new THREE.Vector3(p.x + 5, p.y + 1, p.z);
@@ -522,10 +522,10 @@ function buildF16Mesh(scene: THREE.Scene): THREE.Group {
         const rail = new THREE.CylinderGeometry(0.045, 0.045, 0.59, 8);
         rail.rotateZ(Math.PI / 2); rail.translate(side * 4.8, -0.28, 0.56);
         darkGeos.push(rail);
-        
+
         // Navigation Light Mesh
         const navLight = new THREE.Mesh(
-            new THREE.SphereGeometry(0.07, 8, 8), 
+            new THREE.SphereGeometry(0.07, 8, 8),
             new THREE.MeshBasicMaterial({ color: side === 1 ? 0x22ff44 : 0xff2200, transparent: true, opacity: 0.1 })
         );
         navLight.name = 'NavLight';
@@ -604,18 +604,18 @@ function buildF16Mesh(scene: THREE.Scene): THREE.Group {
     for (let i = 0; i < gearDefs.length; i++) {
         const def = gearDefs[i];
         const isFront = i === 0;
-        
+
         // Ön tekerlek %20 daha büyük ve uzun, böylece uçak pistte burnu havaya kalkık durur
         const scaleMul = isFront ? 1.2 : 1.0;
         const strutLength = 0.75 * scaleMul;
-        const strutY = -strutLength; 
+        const strutY = -strutLength;
 
         const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.045 * scaleMul, 0.045 * scaleMul, strutLength, 8), strutMat);
         strut.name = 'GearPart_Strut'; strut.position.set(def.pos.x, strutY, def.pos.z); strut.frustumCulled = false;
-        
+
         const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.27 * scaleMul, 0.27 * scaleMul, 0.17 * scaleMul, 14), wheelMat);
         wheel.name = 'GearPart_Wheel'; wheel.rotation.z = Math.PI / 2; wheel.position.set(def.pos.x, strutY - (strutLength / 2) - 0.05, def.pos.z); wheel.frustumCulled = false;
-        
+
         group.add(strut, wheel);
     }
 
@@ -762,7 +762,7 @@ function updateJetHUD(s: number, a: number, ab: boolean, thr: number, g: number,
 
 export function handleJetCollisionEvent(h1: number, h2: number): void {
     if (!jet || jet.state.isCrashed || jet.state.exitCooldown > 0) return;
-    
+
     // RAPiER Collision Events provide COLLIDER handles, not RigidBody handles.
     const isFuselage = (h1 === jet.fuseColliderHandle || h2 === jet.fuseColliderHandle);
     const isWing = jet.wheelColliderHandles.slice(3).includes(h1) || jet.wheelColliderHandles.slice(3).includes(h2);
@@ -772,7 +772,7 @@ export function handleJetCollisionEvent(h1: number, h2: number): void {
         const vel = jet.rb.linvel();
         const verticalVelocity = Math.abs(vel.y);
         const totalSpeed = Math.sqrt(vel.x * vel.x + vel.y * vel.y + vel.z * vel.z);
-        
+
         // [REALISM v11.0] Lowered thresholds for immediate explosion
         // 100 km/h impact is approx 27.7 units. 
         // 35.0 total speed (~126 km/h) is now lethal. 15.0 vertical (~54 km/h) is lethal.
@@ -787,7 +787,7 @@ export function handleJetCollisionEvent(h1: number, h2: number): void {
             }
         }
 
-    } else if (isWheel && jet.state.prevSpeed > 80) { 
+    } else if (isWheel && jet.state.prevSpeed > 80) {
         // [REALISM v11.0] Hard landing limit reduced from 220 to 80 units (~280 km/h)
         jet.state.isCrashed = true;
         console.error(`[JET CRASH] Hard Landing / High Speed Wheel Impact`);
@@ -843,6 +843,7 @@ function handleJetCrash(j: NonNullable<typeof jet>, scene: THREE.Scene): void {
     } catch (e) { }
 
     j.mesh.visible = false;
+    jetAudio.stop(); // [FIX] Ensure engine sound stops during the crash sequence
 
     import('../score.js').then(({ triggerGameOver }) => {
         setTimeout(() => triggerGameOver(), 3500);

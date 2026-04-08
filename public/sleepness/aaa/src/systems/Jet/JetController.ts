@@ -52,18 +52,17 @@ let lastTailStrikeLogTime = 0; // [NEW] Cooldown for tail-strike logs to prevent
 
 
 class JetAudio {
-    private engine: THREE.Audio | null = null;
+    private engine: THREE.PositionalAudio | null = null;
     private wind: THREE.Audio | null = null;
     private initialized = false;
 
-    public update(throttle: number, speed: number, afterburner: boolean, isOccupied: boolean) {
-        if (!isOccupied) {
-            this.stop();
-            return;
-        }
-        if (!this.initialized) {
-            this.engine = audioManager.createEngineSound('assets/sounds/engine_loop.mp3', 0);
+    public update(throttle: number, speed: number, afterburner: boolean, isOccupied: boolean, mesh?: THREE.Group) {
+        if (!this.initialized && !isOccupied) return;
+
+        if (!this.initialized && mesh) {
+            this.engine = audioManager.createPositionalEngineSound('assets/sounds/engine_loop.mp3', 35);
             this.wind = audioManager.createAmbientSound('assets/sounds/ambient.mp3', 0);
+            mesh.add(this.engine);
             this.initialized = true;
         }
         if (this.engine && !this.engine.isPlaying) {
@@ -88,6 +87,17 @@ class JetAudio {
     public stop() {
         this.engine?.stop();
         this.wind?.stop();
+    }
+
+    public reset() {
+        if (this.engine) {
+            this.engine.stop();
+            if (this.engine.parent) this.engine.parent.remove(this.engine);
+        }
+        if (this.wind) this.wind.stop();
+        this.engine = null;
+        this.wind = null;
+        this.initialized = false;
     }
 }
 const jetAudio = new JetAudio();
@@ -179,6 +189,7 @@ export function spawnJet(scene: THREE.Scene, world: RAPIER.World, pos: THREE.Vec
 
     jet = jetObj;
     crashTriggered = false;
+    jetAudio.reset(); // [NEW] Ensure audio is fresh and attached to the new mesh
     jetPrevVel.set(0, 0, 0);
     initJetHUD();
 }
@@ -233,7 +244,7 @@ export function updateJet(dt: number, scene: THREE.Scene, camera: THREE.Perspect
 
         if (!jet) return;
         updateFlightPhysics(jet.rb, dt, jet.state, input, groundY);
-        jetAudio.update(jet.state.throttle, jet.state.speed, jet.state.afterburner, jet.isOccupied);
+        jetAudio.update(jet.state.throttle, jet.state.speed, jet.state.afterburner, jet.isOccupied, jet.mesh);
 
         // Gear retraction
         const LANDING_GEAR_THRESHOLD = 20.0;
@@ -344,7 +355,7 @@ export function updateJet(dt: number, scene: THREE.Scene, camera: THREE.Perspect
             { throttleUp: false, throttleDown: false, pitch: 0, roll: 0, yaw: 0, afterburner: false, descend: false },
             groundY
         );
-        jetAudio.update(0, jet.state.speed, false, false);
+        jetAudio.update(0, jet.state.speed, false, false, jet.mesh);
         const r = jet.rb.rotation();
         jet.mesh.position.set(p.x, p.y, p.z);
         jet.mesh.quaternion.set(r.x, r.y, r.z, r.w);

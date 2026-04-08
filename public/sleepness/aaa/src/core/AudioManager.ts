@@ -172,6 +172,23 @@ class AudioManager {
     }).catch((err) => console.error(`SFX Error [${url}]:`, err));
   }
 
+  public createPositionalEngineSound(url: string, refDist: number = 30): THREE.PositionalAudio {
+    const sound = new THREE.PositionalAudio(this.listener);
+    void this.loadBuffer(url).then((buffer) => {
+      sound.setBuffer(buffer);
+      sound.setLoop(true);
+      sound.setVolume(0);
+      sound.setRefDistance(refDist);
+      sound.setDistanceModel('linear'); // Use linear distance model for clearer drop-off
+    }).catch((err) => {
+      if (!this._loggedErrors.has(url)) {
+        console.warn(`[Audio] Asset failed to load: ${url}`, err);
+        this._loggedErrors.add(url);
+      }
+    });
+    return sound;
+  }
+
   public createEngineSound(url: string, volume: number = 0.5): THREE.Audio {
     const sound = new THREE.Audio(this.listener);
     void this.loadBuffer(url).then((buffer) => {

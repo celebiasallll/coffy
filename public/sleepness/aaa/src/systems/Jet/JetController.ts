@@ -277,24 +277,22 @@ export function updateJet(dt: number, scene: THREE.Scene, camera: THREE.Perspect
 
         updateFX(jet, dt);
 
-        // [STUCK DETECTION v10.9] - If thrusting but stationary (e.g. nose in wall)
+        // [STUCK DETECTION v11.0] - If thrusting but stationary (e.g. nose in wall or vertical bug)
         if (jet.isOccupied && !jet.state.isCrashed) {
             const isThrusting = jet.state.throttle > 0.4; // High throttle
-            const isStationary = jet.state.speed < 4.0;  // Very low speed
+            const isStationary = jet.state.speed < 5.0;  // Very low speed
+            const isVerticalBug = Math.abs(_fwd.y) > 0.9 && jet.state.speed < 10.0; // Pointing straight up/down while slow
             
-            if (isThrusting && isStationary) {
+            if (isThrusting && (isStationary || isVerticalBug)) {
                 jetStuckTimer += dt;
             } else {
                 jetStuckTimer = 0;
             }
 
-            if (jetStuckTimer > 2.5) {
+            if (jetStuckTimer > 4.0) {
                 jetStuckTimer = 0;
-                // Auto-recover instead of blowing up: gentle upward and backward pop
-                const currentFwd = new THREE.Vector3(0, 0, -1).applyQuaternion(jet.mesh.quaternion).normalize();
-                jet.rb.setLinvel({ x: -currentFwd.x * 20, y: 15, z: -currentFwd.z * 20 }, true);
-                jet.state.speed = 0;
-                console.warn(`[JET] Stuck detected. Auto-recovery triggered (bounce back).`);
+                jet.state.isCrashed = true;
+                console.error(`[JET] Stuck/Vertical Bug detected. Exploding after 4s timeout.`);
             }
         }
 
@@ -307,11 +305,11 @@ export function updateJet(dt: number, scene: THREE.Scene, camera: THREE.Perspect
             let shouldCrash = false;
             let crashReason = '';
 
-            // [FIXED] Frame-rate independent velocity drop check.
+            // [REALISM v11.0] Lowered DeltaV limits for better impact feel
             const deltaV = jet.state.prevSpeed - jet.state.speed;
             const isNoseUp = _fwd.y > 0.1;
             const isAtAlt = jet.state.altitude > 10.0;
-            const deltaVLimit = isAtAlt ? 80 : (isNoseUp ? 50 : 200);
+            const deltaVLimit = isAtAlt ? 40 : (isNoseUp ? 25 : 100);
 
             if (deltaV > deltaVLimit) {
                 shouldCrash = true;
@@ -775,9 +773,10 @@ export function handleJetCollisionEvent(h1: number, h2: number): void {
         const verticalVelocity = Math.abs(vel.y);
         const totalSpeed = Math.sqrt(vel.x * vel.x + vel.y * vel.y + vel.z * vel.z);
         
-        // [CRASH v10.6] Increased thresholds to prevent "Sudden Ejection" during scrapes
-        // Crash only on EXTREME impact (> 90.0 total speed or > 45.0 vertical)
-        if (verticalVelocity > 45.0 || totalSpeed > 90.0) {
+        // [REALISM v11.0] Lowered thresholds for immediate explosion
+        // 100 km/h impact is approx 27.7 units. 
+        // 35.0 total speed (~126 km/h) is now lethal. 15.0 vertical (~54 km/h) is lethal.
+        if (verticalVelocity > 15.0 || totalSpeed > 35.0) {
             jet.state.isCrashed = true;
             console.error(`[JET CRASH] Critical Impact (Speed: ${totalSpeed.toFixed(1)}, Vert: ${verticalVelocity.toFixed(1)})`);
         } else {
@@ -788,8 +787,8 @@ export function handleJetCollisionEvent(h1: number, h2: number): void {
             }
         }
 
-    } else if (isWheel && jet.state.prevSpeed > 220) { 
-        // [2026] Increased wheel impact threshold (220)
+    } else if (isWheel && jet.state.prevSpeed > 80) { 
+        // [REALISM v11.0] Hard landing limit reduced from 220 to 80 units (~280 km/h)
         jet.state.isCrashed = true;
         console.error(`[JET CRASH] Hard Landing / High Speed Wheel Impact`);
     }

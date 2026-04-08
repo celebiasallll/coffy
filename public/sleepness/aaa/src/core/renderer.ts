@@ -5,6 +5,21 @@ import * as THREE from 'three';
 let _resizeAttached = false;
 let _currentComposer: any = null;
 
+// [v84.4]: Layout-based dimension helper - Best for notch and URL-bar scenarios
+function getLayoutDimensions() {
+  if (!document.body) {
+    return {
+      width: Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0),
+      height: Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0)
+    };
+  }
+  const rect = document.body.getBoundingClientRect();
+  // On some mobile browsers, rect.width might be 0 during early initialization
+  const w = rect.width > 0 ? rect.width : (document.documentElement.clientWidth || window.innerWidth);
+  const h = rect.height > 0 ? rect.height : (document.documentElement.clientHeight || window.innerHeight);
+  return { width: w, height: h };
+}
+
 export function createRenderer(): THREE.WebGLRenderer {
   const renderer = new THREE.WebGLRenderer({
     antialias: false,
@@ -14,10 +29,12 @@ export function createRenderer(): THREE.WebGLRenderer {
     depth: true,
   });
 
-  // [v17.0] Optimized DPR and Shadows for 'Perfect Balance'
-  const initialDPR = Math.min(window.devicePixelRatio, 1.6);
+  // [v84.4]: Initial setup using layout dimensions
+  const { width, height } = getLayoutDimensions();
+  const isMobile = width < 1024;
+  const initialDPR = Math.min(window.devicePixelRatio, isMobile ? 1.2 : 1.6);
   renderer.setPixelRatio(initialDPR);
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(width, height, false);
 
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -40,9 +57,10 @@ export function createSceneAndCamera(): {
   const scene = new THREE.Scene();
   scene.fog = null;
 
+  const { width, height } = getLayoutDimensions();
   const camera = new THREE.PerspectiveCamera(
     65,
-    window.innerWidth / window.innerHeight,
+    width / height,
     0.3,
     5000
   );
@@ -99,21 +117,27 @@ export function setupResize(
   _resizeAttached = true;
 
   const handleResize = () => {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
+    // [v84.4]: Get ACTUAL visible parent area
+    const { width, height } = getLayoutDimensions();
 
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
 
-    renderer.setSize(width, height);
+    // DİKKAT: 3. parametre 'false' yazmak ZORUNLU! Yetkiyi CSS'e bırakır.
+    renderer.setSize(width, height, false);
 
-    const maxDPR = width < 768 ? 1.4 : 2.0; 
+    // [v84.2]: Mobilde 3D render çözünürlüğünü düşür, UI'ı net bırak (DPR 1.15)
+    const maxDPR = width < 1024 ? 1.15 : 2.0; 
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxDPR));
     if (_currentComposer) _currentComposer.setSize(width, height);
   };
 
   window.addEventListener('resize', handleResize);
   window.addEventListener('orientationchange', () => {
+    // Safari/Chrome'un ekran döndüğünde yeni boyutları hesaplaması zaman alır.
     setTimeout(handleResize, 100);
+    setTimeout(handleResize, 400); 
   });
+  
+  handleResize(); // İlk yüklemede ve setup anında tetikle
 }

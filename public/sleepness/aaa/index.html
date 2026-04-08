@@ -5,6 +5,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#000000">
   <title>Open World AAA Prototype v1.0.1</title>
   <link rel="icon" href="data:;base64,iVBORw0KGgo=">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -36,6 +40,9 @@
       background: #000;
       overflow: hidden;
       font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      position: fixed;
+      inset: 0;
+      overscroll-behavior: none;
     }
 
     :root {
@@ -44,7 +51,7 @@
       --sa-top: env(safe-area-inset-top, 0px);
       --sa-bottom: env(safe-area-inset-bottom, 0px);
       --sa-left: env(safe-area-inset-left, 0px);
-      --sa-right: env(safe_area-inset-right, 0px);
+      --sa-right: env(safe-area-inset-right, 0px);
 
       --ui-margin: 24px;
       --ui-margin-mobile: 22px;
@@ -96,11 +103,11 @@
     }
 
     canvas {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw !important;
-      height: 100vh !important;
+      position: absolute !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
       display: block;
       touch-action: none;
       z-index: var(--z-canvas);
@@ -2127,7 +2134,7 @@
         <div id="char-actions"
           style="position: relative; width: 50vmin; height: 40vmin; max-width: 230px; max-height: 180px; margin-bottom: 25px;">
           <button id="btn-fire" class="mobile-btn"
-            style="position: absolute; right: 28vmin; bottom: 20vmin; width: 18vmin; height: 18vmin; max-width: 82px; max-height: 82px;">
+            style="position: absolute; right: 28vmin; bottom: 20vmin; width: 20vmin; height: 20vmin; max-width: 90px; max-height: 90px;">
             <span class="fire-reticle"></span>
           </button>
           <button id="btn-jump" class="mobile-btn mini"
@@ -2340,8 +2347,8 @@
 
     /* ── Fire Button ── */
     #btn-fire {
-      width: 82px;
-      height: 82px;
+      width: 90px;
+      height: 90px;
       font-size: 34px;
       background: radial-gradient(circle at 40% 40%, rgba(255, 80, 40, 0.25), rgba(255, 30, 0, 0.1));
       border: 2px solid rgba(255, 80, 40, 0.45);
@@ -2397,8 +2404,8 @@
 
     /* ── Fire Button Sizing ── */
     #btn-fire {
-      width: 72px;
-      height: 72px;
+      width: 80px;
+      height: 80px;
       font-size: 34px;
     }
 
@@ -2773,7 +2780,12 @@
       document.documentElement.style.setProperty('--vh', `${vh * 100}px`);
     }
     window.addEventListener('resize', updateViewportHeight);
-    window.addEventListener('orientationchange', updateViewportHeight);
+    window.addEventListener('orientationchange', () => {
+      updateViewportHeight();
+      // Tarayıcının yeni boyutları hesaplaması için zaman tanı ve Three.js'i uyar
+      setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 100);
+      setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 400);
+    });
     updateViewportHeight();
   </script>
   <script type="module" src="./src/main.ts"></script>

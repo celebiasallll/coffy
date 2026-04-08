@@ -27,12 +27,20 @@ if (isMobile) {
     try {
       const docEl = document.documentElement as any;
       const requestFS = docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.mozRequestFullScreen || docEl.msRequestFullscreen;
-      if (requestFS) {
+      
+      const isMobileDeviceNow = window.innerWidth <= 1024 || navigator.maxTouchPoints > 0;
+
+      // [FIX]: Android Chrome requestFullscreen adds forced black bars (letterboxing) on notched phones.
+      // We skip Fullscreen API on mobile and rely on PWA/Address-Bar-Hiding.
+      if (requestFS && !isMobileDeviceNow) {
         requestFS.call(docEl).then(() => {
           if (screen.orientation && (screen.orientation as any).lock) {
             (screen.orientation as any).lock('landscape').catch(() => { });
           }
         }).catch(() => { });
+      } else if (isMobileDeviceNow && screen.orientation && (screen.orientation as any).lock) {
+        // Just try to lock orientation on mobile without forcing Fullscreen API
+        (screen.orientation as any).lock('landscape').catch(() => { });
       }
     } catch (e) { }
     // Safari optimization: scroll to hide bars

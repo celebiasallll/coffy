@@ -52,7 +52,7 @@ if (isMobile) {
   document.addEventListener('touchstart', triggerImmersive);
 }
 
-import { createRenderer, createSceneAndCamera, setupResize, setupLights } from './core/renderer.js';
+import { createRenderer, createSceneAndCamera, setupResize, setupLights, initHDRI } from './core/renderer.js';
 import { createTerrain, getHeight } from './world/terrain.js';
 import { populateEnvironment, updateEnvironment, isSpaceOccupied, isNearLake, optimizer } from './world/environment.js';
 import { initBuildingSystem } from './world/BuildingSystem.js';
@@ -282,6 +282,9 @@ async function init(playerType: number) {
   // ── Yeni sistemleri başlat ────────────────────────────────────────────────
   initDayNight(0.30);        // sabah 7:12 ile başla
   initWeather(scene);        // yağmur sistemi (T tuşuyla toggle)
+
+  // ── HDRI Ortam Haritası — PBR yansımalar için (sıfır runtime maliyeti) ────
+  initHDRI(scene, renderer); // async, arka planda yüklenir
 
   initPostprocessing(scene, camera, renderer);
   const composerObject = getComposer();

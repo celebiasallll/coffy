@@ -39,11 +39,56 @@ export function isNearLake(x: number, z: number, margin = 30): boolean {
 // ── Geometri / materyal önbellekleri (procedural ağaçlar) ───────────────────
 
 const trunkGeo = new THREE.CylinderGeometry(0.2, 0.4, 2.5, 8);
-const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5a3010, roughness: 0.95 });
+// [AAA] Gövde: koyu kahve, pürüzlü kabuk hissi, hafif envMap yansıması
+const trunkMat = new THREE.MeshStandardMaterial({
+  color: 0x3d2212,
+  roughness: 0.98,
+  metalness: 0.0,
+  envMapIntensity: 0.15,
+});
+
+// [AAA] Yaprak: subsurface scattering taklidi (arka ışıkta yarı saydam görünüm)
+// + Rüzgar sallantısı shader enjeksiyonu
+function createLeafMaterial(color: number): THREE.MeshStandardMaterial {
+  const mat = new THREE.MeshStandardMaterial({
+    color,
+    roughness: 0.82,
+    metalness: 0.0,
+    envMapIntensity: 0.25,
+    // Hafif transparan = güneş ışığı yapraktan geçerken subsurface hissi
+    transparent: true,
+    opacity: 0.92,
+    side: THREE.DoubleSide,
+  });
+
+  // ── [RÜZGAR] Vertex shader enjeksiyonu — neredeyse sıfır GPU maliyeti ─────
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uWindTime = { value: 0 };
+    // Vertex: rüzgar sallantısı (sin dalgası, Y yüksekliğine bağlı)
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <common>',
+      `#include <common>
+      uniform float uWindTime;`
+    );
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <begin_vertex>',
+      `#include <begin_vertex>
+      // Rüzgar: yükseldikçe daha fazla sallanır (ağaç tepesi çok, gövde az)
+      float windStrength = smoothstep(0.0, 3.0, position.y) * 0.35;
+      transformed.x += sin(uWindTime * 1.8 + position.x * 0.5 + position.z * 0.3) * windStrength;
+      transformed.z += cos(uWindTime * 1.3 + position.z * 0.4) * windStrength * 0.6;`
+    );
+    // Shader referansını sakla — update'te kullanacağız
+    (mat as any)._windShader = shader;
+  };
+  mat.customProgramCacheKey = () => 'leaf-wind-v1';
+  return mat;
+}
+
 const leafMats = [
-  new THREE.MeshStandardMaterial({ color: 0x1e5a1e, roughness: 0.9 }),
-  new THREE.MeshStandardMaterial({ color: 0x2a7020, roughness: 0.9 }),
-  new THREE.MeshStandardMaterial({ color: 0x358528, roughness: 0.9 }),
+  createLeafMaterial(0x1e5a1e),
+  createLeafMaterial(0x2a7020),
+  createLeafMaterial(0x358528),
 ];
 
 // ── GLB Loader (ortak) ───────────────────────────────────────────────────────
@@ -138,7 +183,14 @@ function addRocksInstanced(scene: THREE.Scene): void {
   if (!optimizer) return;
   const physicsWorld = getPhysicsWorld();
   const rockGeo  = new THREE.IcosahedronGeometry(1, 2);
-  const rockMat  = new THREE.MeshStandardMaterial({ color: 0x888877, roughness: 0.95, metalness: 0.05 });
+  // [AAA] Kaya: zengin gri-kahve, hafif ıslak parlaklık, doğal envMap
+  const rockMat  = new THREE.MeshStandardMaterial({
+    color: 0x6a6658,
+    roughness: 0.88,
+    metalness: 0.08,
+    envMapIntensity: 0.4,
+    flatShading: true,  // Kayalara keskin yüzey hissi → daha gerçekçi
+  });
   const rockData : { x: number; y: number; z: number; sx: number; sy: number; sz: number; rot: THREE.Euler }[] = [];
 
   for (let i = 0; i < 100; i++) {
@@ -319,4 +371,10 @@ export function populateEnvironment(scene: THREE.Scene): void {
 
 export function updateEnvironment(dt: number, time: number): void {
   updateBirds(dt, time);
+
+  // ── [RÜZGAR] Yaprak shader'larının zamanını güncelle ─────────────────────
+  for (const mat of leafMats) {
+    const shader = (mat as any)._windShader;
+    if (shader) shader.uniforms.uWindTime.value = time;
+  }
 }

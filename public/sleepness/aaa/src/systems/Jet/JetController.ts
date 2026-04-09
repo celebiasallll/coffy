@@ -65,22 +65,31 @@ class JetAudio {
             mesh.add(this.engine);
             this.initialized = true;
         }
-        if (this.engine && !this.engine.isPlaying) {
-            try { this.engine.play(); } catch (e) { }
-        }
-        if (this.wind && !this.wind.isPlaying) {
-            try { this.wind.play(); } catch (e) { }
-        }
-        if (this.engine) {
-            const basePitch = 0.65 + throttle * 0.55;
-            const abPitch = afterburner ? 0.15 : 0;
-            this.engine.setPlaybackRate(basePitch + abPitch);
-            this.engine.setVolume(0.14 + throttle * 0.16 + (afterburner ? 0.25 : 0));
-        }
-        if (this.wind) {
-            const windVol = Math.min(speed / 400, 1.0) * 0.42;
-            this.wind.setVolume(windVol);
-            this.wind.setPlaybackRate(0.7 + (speed / 400) * 0.6);
+
+        // Only play if occupied OR if the plane is still moving fast
+        const shouldPlay = isOccupied || speed > 10;
+
+        if (shouldPlay) {
+            if (this.engine && !this.engine.isPlaying) {
+                try { this.engine.play(); } catch (e) { }
+            }
+            if (this.wind && !this.wind.isPlaying) {
+                try { this.wind.play(); } catch (e) { }
+            }
+            if (this.engine) {
+                const basePitch = 0.65 + throttle * 0.55;
+                const abPitch = afterburner ? 0.15 : 0;
+                this.engine.setPlaybackRate(basePitch + abPitch);
+                this.engine.setVolume(0.14 + throttle * 0.16 + (afterburner ? 0.25 : 0));
+            }
+            if (this.wind) {
+                const windVol = Math.min(speed / 400, 1.0) * 0.42;
+                this.wind.setVolume(windVol);
+                this.wind.setPlaybackRate(0.7 + (speed / 400) * 0.6);
+            }
+        } else {
+            if (this.engine?.isPlaying) this.engine.stop();
+            if (this.wind?.isPlaying) this.wind.stop();
         }
     }
 

@@ -67,6 +67,7 @@ export const weaponVisualSystem = (camera: THREE.PerspectiveCamera, scene: THREE
                 const now = performance.now();
                 if (now - lastMuzzleTime > 60) {
                     lastMuzzleTime = now;
+
                     let mX = Position.x[id], mY = Position.y[id] + 1.2, mZ = Position.z[id];
 
                     const playerMesh = entityMeshes.get(id);

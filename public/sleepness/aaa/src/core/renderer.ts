@@ -1,11 +1,9 @@
 import * as THREE from 'three';
+import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 
-// Track whether resize listener is attached to prevent double-binding
-// (postprocessing.ts also adds one — this ensures they don't conflict)
 let _resizeAttached = false;
 let _currentComposer: any = null;
 
-// [v84.4]: Layout-based dimension helper - Best for notch and URL-bar scenarios
 function getLayoutDimensions() {
   if (!document.body) {
     return {
@@ -14,7 +12,6 @@ function getLayoutDimensions() {
     };
   }
   const rect = document.body.getBoundingClientRect();
-  // On some mobile browsers, rect.width might be 0 during early initialization
   const w = rect.width > 0 ? rect.width : (document.documentElement.clientWidth || window.innerWidth);
   const h = rect.height > 0 ? rect.height : (document.documentElement.clientHeight || window.innerHeight);
   return { width: w, height: h };
@@ -29,7 +26,6 @@ export function createRenderer(): THREE.WebGLRenderer {
     depth: true,
   });
 
-  // [v84.4]: Initial setup using layout dimensions
   const { width, height } = getLayoutDimensions();
   const isMobile = width < 1024;
   const initialDPR = Math.min(window.devicePixelRatio, isMobile ? 1.2 : 1.6);
@@ -40,8 +36,11 @@ export function createRenderer(): THREE.WebGLRenderer {
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.shadowMap.autoUpdate = true;
 
+  // ── [CINEMATIC] Tone mapping & exposure ──────────────────────────────────
+  // ACESFilmic: filmic contrast, crushed blacks, bright highlights
+  // Exposure 0.92: slightly brighter than default → natural outdoor feel
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 0.72;
+  renderer.toneMappingExposure = 0.92;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   const hud = document.getElementById('hud');
@@ -74,37 +73,55 @@ export function setupLights(scene: THREE.Scene): {
   fill: THREE.DirectionalLight;
   ambient: THREE.AmbientLight;
 } {
-  const ambient = new THREE.AmbientLight(0xffffff, 0.7);
+  // ── Ambient — minimal taban ışığı ─────────────────────────────────────────
+  // Daha düşük ambient → gölgeler daha derin, daha sinematik
+  const ambient = new THREE.AmbientLight(0xfff0e8, 0.55);
   scene.add(ambient);
 
-  const hemi = new THREE.HemisphereLight(0x87ceeb, 0x4a7c40, 1.0);
+  // ── HemisphereLight — gökyüzü/zemin GI simülasyonu ───────────────────────
+  // Gökyüzü: açık mavi | Zemin: ıslak yaprak yeşili
+  const hemi = new THREE.HemisphereLight(0x9ac8e8, 0x3d6b35, 1.0);
   scene.add(hemi);
 
-  const sun = new THREE.DirectionalLight(0xfff4e0, 2.6);
+  // ── Sun (DirectionalLight) ────────────────────────────────────────────────
+  // Hafif sarı-beyaz (öğle) — DayNightCycle her frame günceller
+  const sun = new THREE.DirectionalLight(0xfff8e8, 2.8);
   sun.position.set(50, 80, 30);
   sun.castShadow = true;
 
-  // [v17.0] 1024 Shadow Resolution (User Preference for Performance/Quality balance)
-  const shadowRes = 1024;
+  // ── [CINEMATIC] Shadow kalitesi: 2048 → keskin kenarlı gölgeler ──────────
+  // 2048: mobilde performans kaybı olabilir, ancak oyun masaüstü hedefli
+  const shadowRes = isMobileDevice() ? 1024 : 2048;
   sun.shadow.mapSize.set(shadowRes, shadowRes);
 
-  sun.shadow.camera.near = 1.0;
-  sun.shadow.camera.far = 400;
-  sun.shadow.camera.left = -40;
-  sun.shadow.camera.right = 40;
-  sun.shadow.camera.top = 40;
-  sun.shadow.camera.bottom = -40;
-  sun.shadow.bias = -0.0003;
-  sun.shadow.normalBias = 0.02;
-  sun.shadow.radius = 2;
+  // ── Shadow frustum: oyuncu etrafındaki ~100x100m alan ────────────────────
+  // Daha dar frustum → piksel başına daha yüksek shadow çözünürlüğü
+  sun.shadow.camera.near = 0.5;
+  sun.shadow.camera.far = 450;
+  sun.shadow.camera.left = -55;
+  sun.shadow.camera.right = 55;
+  sun.shadow.camera.top = 55;
+  sun.shadow.camera.bottom = -55;
+
+  // Bias: shadow acne'yi önler, normalBias yüzey offset
+  sun.shadow.bias = -0.00025;
+  sun.shadow.normalBias = 0.018;
+  sun.shadow.radius = 2.5;   // Yumuşak penumbra
   scene.add(sun);
   scene.add(sun.target);
 
-  const fill = new THREE.DirectionalLight(0x8899cc, 0.3);
-  fill.position.set(-50, 30, -30);
+  // ── Fill light: karşı yönden soğuk mavi dolgu ────────────────────────────
+  // Güneşin aydınlatmadığı yüzeylere mavi-mor atmosfer tonu katar
+  const fill = new THREE.DirectionalLight(0x6688bb, 0.22);
+  fill.position.set(-50, 25, -30);
   scene.add(fill);
 
   return { sun, hemi, fill, ambient };
+}
+
+function isMobileDevice(): boolean {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    || (navigator.maxTouchPoints > 0 && window.innerWidth < 1024);
 }
 
 export function setupResize(
@@ -117,27 +134,83 @@ export function setupResize(
   _resizeAttached = true;
 
   const handleResize = () => {
-    // [v84.4]: Get ACTUAL visible parent area
     const { width, height } = getLayoutDimensions();
 
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
 
-    // DİKKAT: 3. parametre 'false' yazmak ZORUNLU! Yetkiyi CSS'e bırakır.
     renderer.setSize(width, height, false);
 
-    // [v84.2]: Mobilde 3D render çözünürlüğünü düşür, UI'ı net bırak (DPR 1.15)
-    const maxDPR = width < 1024 ? 1.15 : 2.0; 
+    const maxDPR = width < 1024 ? 1.15 : 2.0;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxDPR));
     if (_currentComposer) _currentComposer.setSize(width, height);
   };
 
   window.addEventListener('resize', handleResize);
   window.addEventListener('orientationchange', () => {
-    // Safari/Chrome'un ekran döndüğünde yeni boyutları hesaplaması zaman alır.
     setTimeout(handleResize, 100);
-    setTimeout(handleResize, 400); 
+    setTimeout(handleResize, 400);
   });
-  
-  handleResize(); // İlk yüklemede ve setup anında tetikle
+
+  handleResize();
+}
+
+// ── HDRI Environment Map — load-time'da işlenir, runtime'da sıfır maliyet ────
+export async function initHDRI(scene: THREE.Scene, renderer: THREE.WebGLRenderer): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    pmrem.compileEquirectangularShader();
+
+    new RGBELoader().load(
+      // Doğal dış mekan HDRI — Poly Haven (CC0, bedava)
+      'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/rustig_koppie_1k.hdr',
+      (texture) => {
+        const envMap = pmrem.fromEquirectangular(texture).texture;
+        scene.environment = envMap;
+        // Yansıma şiddetini düşür: siyahların üzerine binen beyaz parlamayı engeller
+        if ('environmentIntensity' in scene) (scene as any).environmentIntensity = 0.18;
+        texture.dispose();
+        pmrem.dispose();
+        console.debug('[HDRI] Environment map loaded → PBR reflections active');
+        resolve();
+      },
+      undefined,
+      () => { pmrem.dispose(); resolve(); } // HDRI başarısız — sessizce devam et
+    );
+  });
+}
+
+// ── AAA Material Upgrade — PBR assetleri canlandırır ────────────────────────
+export function upgradeMaterials(object: THREE.Object3D): void {
+  object.traverse((child) => {
+    if ((child as any).isMesh) {
+      const mesh = child as THREE.Mesh;
+      if (Array.isArray(mesh.material)) {
+        mesh.material.forEach(m => polishMaterial(m));
+      } else {
+        polishMaterial(mesh.material);
+      }
+    }
+  });
+}
+
+function polishMaterial(mat: THREE.Material): void {
+  if (!(mat instanceof THREE.MeshStandardMaterial)) return;
+
+  // HDRI Yansıma Gücü — aşırı parlamayı engelle
+  mat.envMapIntensity = 0.8;
+
+  // Anisotropy — uzaktan texture keskinliği
+  if (mat.map) {
+    mat.map.anisotropy = 4;
+    mat.map.needsUpdate = true;
+  }
+
+  // "Plastik" görünümü engelle: minimum roughness
+  mat.roughness = Math.max(0.45, mat.roughness);
+
+  // Metalik yüzeylerde yansımayı biraz artır
+  if (mat.metalness > 0.3) {
+    mat.envMapIntensity = 1.1;
+  }
 }

@@ -15,8 +15,10 @@ export function initSky(scene: THREE.Scene): { sky: THREE.Mesh; sun: THREE.Vecto
     map: texture,
     side: THREE.BackSide,
     // color: beyaz = texture rengi bozulmadan gösterilir;
+    // color: beyaz = texture rengi bozulmadan gösterilir;
     // DayNightCycle bu color'ı koyulaştırarak gece/şafak efekti yapar
     color: new THREE.Color(1, 1, 1),
+    fog: true, // Kullanıcı isteği üzerine atmosferik derinlik için sis gökyüzünü etkilemeye devam etmeli (ancak DayNightCycle'da yoğunluğu düşürüldü)
   });
 
   skyMesh = new THREE.Mesh(geometry, skyMaterial);

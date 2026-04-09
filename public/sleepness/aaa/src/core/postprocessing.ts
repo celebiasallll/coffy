@@ -7,6 +7,8 @@ import {
   BloomEffect,
   BlendFunction,
   SMAAPreset,
+  HueSaturationEffect,
+  BrightnessContrastEffect,
 } from 'postprocessing';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -16,11 +18,14 @@ interface PostFXState {
   smaaEffect: SMAAEffect | null;
   mainPass: EffectPass | null;
   bloomEffect: BloomEffect | null;
+  hueSatEffect: HueSaturationEffect | null;
+  bcEffect: BrightnessContrastEffect | null;
   currentSMAAPreset: SMAAPreset;
   frameTimes: number[];
   lastQualityCheck: number;
   qualityCheckInterval: number;
   warmupUntil: number;
+  lastSwitchTime: number;          // [A] Histerezis: son kalite değişim zamanı
   resizeHandler: (() => void) | null;
   renderer: THREE.WebGLRenderer | null;
 }
@@ -32,36 +37,47 @@ const state: PostFXState = {
   smaaEffect: null,
   mainPass: null,
   bloomEffect: null,
+  hueSatEffect: null,
+  bcEffect: null,
   currentSMAAPreset: SMAAPreset.HIGH,
   renderer: null,
   frameTimes: [],
   lastQualityCheck: 0,
   qualityCheckInterval: 2000,
   warmupUntil: 0,
+  lastSwitchTime: 0,               // [A] Histerezis
   resizeHandler: null,
 };
 
-// ─── Public Exports (for main.ts compatibility) ───────────────────────────────
+// ─── [C] Mobil algılama ───────────────────────────────────────────────────────
+const IS_MOBILE_HW = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  || (navigator.maxTouchPoints > 0 && window.innerWidth < 1024);
+
+// ─── [C] Adaptif Frame Window: mobil 15, PC 30 ──────────────────────────────
+const FRAME_WINDOW = IS_MOBILE_HW ? 15 : 30;
+
+// ─── [A] Histerezis cooldown süresi (ms) ─────────────────────────────────────
+const HYSTERESIS_COOLDOWN = 4000;
+
+// ─── Public exports ───────────────────────────────────────────────────────────
 export let composer: EffectComposer | null = null;
 export let smaaEffect: SMAAEffect | null = null;
 
 export function getComposer(): EffectComposer | null { return state.composer; }
 export function getCurrentSMAA(): SMAAPreset { return state.currentSMAAPreset; }
 
-/** [v17.0] Restored robust name mapping for HUD display */
 export function getSMAAPresetName(preset: SMAAPreset): string {
-    switch (preset) {
-        case SMAAPreset.LOW: return 'LOW';
-        case SMAAPreset.MEDIUM: return 'MEDIUM';
-        case SMAAPreset.HIGH: return 'HIGH';
-        case SMAAPreset.ULTRA: return 'ULTRA';
-        default: return 'MEDIUM';
-    }
+  switch (preset) {
+    case SMAAPreset.LOW: return 'LOW';
+    case SMAAPreset.MEDIUM: return 'MEDIUM';
+    case SMAAPreset.HIGH: return 'HIGH';
+    case SMAAPreset.ULTRA: return 'ULTRA';
+    default: return 'MEDIUM';
+  }
 }
 
 // ─── Adaptive quality ─────────────────────────────────────────────────────────
 
-const FRAME_WINDOW = 30;
 const QUALITY_LADDER: SMAAPreset[] = [
   SMAAPreset.MEDIUM, SMAAPreset.HIGH, SMAAPreset.ULTRA,
 ];
@@ -76,42 +92,41 @@ function applySMAAPreset(preset: SMAAPreset): void {
   state.smaaEffect.applyPreset(preset);
   state.currentSMAAPreset = preset;
 
-  // Dynamic DPR based on quality tier (Optimized for 60 FPS)
-  // Medium: ~1.1, High: ~1.5, Ultra: ~1.7 (Balanced for High-DPI)
+  // [A] Histerezis: geçiş zamanını kaydet
+  state.lastSwitchTime = performance.now();
+
+  // ── DPR: kalite seviyesine göre ayarla ────────────────────────────────────
+  // Cinematic hedef: HIGH en iyi denge, ULTRA yalnızca yüksek GPU'da
   let dprTarget = 1.1;
   if (preset === SMAAPreset.HIGH) dprTarget = 1.5;
   if (preset === SMAAPreset.ULTRA) dprTarget = 1.7;
 
   const finalDPR = Math.min(window.devicePixelRatio, dprTarget);
   state.renderer.setPixelRatio(finalDPR);
-  
-  // Console feedback for developers
-  console.debug(`[Quality] Switched to ${SMAAPreset[preset]} (DPR: ${finalDPR.toFixed(2)})`);
+
+  console.debug(`[Quality] → ${SMAAPreset[preset]} (DPR: ${finalDPR.toFixed(2)})`);
 }
 
 function adaptQuality(now: number): void {
-  // [v17.0] Decision Loop (Every 2 seconds)
   if (now < state.warmupUntil) return;
   if (now - state.lastQualityCheck < state.qualityCheckInterval) return;
   state.lastQualityCheck = now;
 
+  // [A] Histerezis: son geçişten beri yeterli süre geçmediyse atla
+  if (now - state.lastSwitchTime < HYSTERESIS_COOLDOWN) return;
+
   const avg = rollingAvg();
   if (avg === 0) return;
-  const currentIdx = QUALITY_LADDER.indexOf(state.currentSMAAPreset);
-  
-  // [v17.0] Reference Project Math:
-  // Ultra -> High: 46.5 FPS (21.5ms)
-  // High -> Medium: 38.5 FPS (26.0ms)
-  // Medium -> High: 44.5 FPS (22.5ms)
-  // High -> Ultra: 54.0 FPS (18.5ms)
+  const idx = QUALITY_LADDER.indexOf(state.currentSMAAPreset);
 
-  if (currentIdx === 2) { // Currently ULTRA
-    if (avg > 21.5) applySMAAPreset(QUALITY_LADDER[1]); // Drop to High if < 46.5 FPS
-  } else if (currentIdx === 1) { // Currently HIGH
-    if (avg > 26.0) applySMAAPreset(QUALITY_LADDER[0]);  // Drop to Medium if < 38.5 FPS
-    if (avg < 18.5) applySMAAPreset(QUALITY_LADDER[2]);  // Return to Ultra if > 54 FPS
-  } else if (currentIdx === 0) { // Currently MEDIUM
-    if (avg < 22.5) applySMAAPreset(QUALITY_LADDER[1]);  // Return to High if > 44.5 FPS
+  // Biraz daha agresif kalite koruma: önce ULTRA'dan düşme
+  if (idx === 2) {       // ULTRA
+    if (avg > 20.0) applySMAAPreset(QUALITY_LADDER[1]); // < 50 FPS → HIGH
+  } else if (idx === 1) { // HIGH
+    if (avg > 25.0) applySMAAPreset(QUALITY_LADDER[0]); // < 40 FPS → MEDIUM
+    if (avg < 17.5) applySMAAPreset(QUALITY_LADDER[2]); // > 57 FPS → ULTRA
+  } else {                // MEDIUM
+    if (avg < 21.5) applySMAAPreset(QUALITY_LADDER[1]); // > 46 FPS → HIGH
   }
 }
 
@@ -128,27 +143,46 @@ export function initPostprocessing(
 
   state.warmupUntil = performance.now() + warmupMs;
   state.currentSMAAPreset = initialPreset;
+  state.lastSwitchTime = performance.now(); // [A] İlk warmup'ta da cooldown uygula
 
   const newComposer = new EffectComposer(renderer, {
     frameBufferType: THREE.HalfFloatType,
   });
   newComposer.addPass(new RenderPass(scene, camera));
 
+  // ── [CINEMATIC] Bloom ayarları ────────────────────────────────────────────
+  // luminanceThreshold düşük → daha fazla bright surface bloom yakalanır
+  // mipmapBlur: true → geniş, filmik diffuse glow
+  // intensity 0.65: güneş ve parlak objeler için doğal halo
+  // radius 0.55: daha geniş yayılım → sinematik lens flare hissi
   const bloomEffect = new BloomEffect({
     blendFunction: BlendFunction.SCREEN,
     mipmapBlur: true,
-    luminanceThreshold: 0.9,
-    luminanceSmoothing: 0.1,
-    intensity: 0.4,
-    radius: 0.4,
+    luminanceThreshold: 0.82,  // 0.9 → 0.82: daha fazla alan yakalar
+    luminanceSmoothing: 0.05,  // 0.1 → 0.05: keskin threshold kenarı
+    intensity: 0.65,  // 0.4 → 0.65: daha belirgin sinematik glow
+    radius: 0.55,  // 0.4 → 0.55: geniş halo
+  });
+
+  // ── [E] Sinematik Color Grading — sıfır ek draw-call maliyeti ─────────────
+  // Hue/Saturation: doğanın renklerini %15 daha canlı yapar
+  const hueSatEffect = new HueSaturationEffect({
+    blendFunction: BlendFunction.NORMAL,
+    saturation: 0.15,        // Hafif doygunluk artışı → doğa fotoğrafı hissi
+  });
+
+  // Brightness/Contrast: S-curve benzeri derinlik, gölgelerde daha fazla ton ayrımı
+  const bcEffect = new BrightnessContrastEffect({
+    brightness: 0.0,         // Parlaklık değişmez
+    contrast: 0.10,          // +10% kontrast → sinematik derinlik
   });
 
   const newSmaaEffect = new SMAAEffect({ preset: initialPreset });
-  const mainPass = new EffectPass(camera, bloomEffect, newSmaaEffect);
+
+  // ── Tek EffectPass'te hepsi birden — ekstra pass maliyeti yok ─────────────
+  const mainPass = new EffectPass(camera, bloomEffect, hueSatEffect, bcEffect, newSmaaEffect);
   newComposer.addPass(mainPass);
 
-  // [BUG-FIX] Single resize handler owned by postprocessing
-  // renderer.ts no longer double-binds when composer is passed to setupResize
   const resizeHandler = () => {
     newComposer.setSize(window.innerWidth, window.innerHeight);
   };
@@ -159,6 +193,8 @@ export function initPostprocessing(
     smaaEffect: newSmaaEffect,
     mainPass,
     bloomEffect,
+    hueSatEffect,
+    bcEffect,
     resizeHandler,
     renderer,
     frameTimes: [],
@@ -170,16 +206,27 @@ export function initPostprocessing(
   (window as any).composer = newComposer;
 }
 
+// ── [B] Geliştirilmiş Dispose — her efekti ayrı ayrı temizle ────────────────
 export function disposePostprocessing(): void {
   if (state.resizeHandler) {
     window.removeEventListener('resize', state.resizeHandler);
     state.resizeHandler = null;
   }
-  state.composer?.dispose();
+
+  // [B] Her efekti tek tek dispose et → mobilde bellek sızıntısını önler
+  try { state.bloomEffect?.dispose(); } catch { /* safe */ }
+  try { state.smaaEffect?.dispose(); } catch { /* safe */ }
+  try { state.hueSatEffect?.dispose(); } catch { /* safe */ }
+  try { state.bcEffect?.dispose(); } catch { /* safe */ }
+  try { state.mainPass?.dispose(); } catch { /* safe */ }
+  try { state.composer?.dispose(); } catch { /* safe */ }
+
   state.composer = null;
   state.smaaEffect = null;
   state.mainPass = null;
   state.bloomEffect = null;
+  state.hueSatEffect = null;
+  state.bcEffect = null;
   state.frameTimes = [];
   composer = null;
   smaaEffect = null;
@@ -202,28 +249,28 @@ export function renderComposer(delta: number): void {
 }
 
 /**
- * [REMOVED DEAD CODE] updateABVFX previously tracked an `abFactor` lerp value
- * that was never actually read by any effect (ChromaticAberration was removed).
- * This function was called every frame for nothing.
- *
- * If you re-add ChromaticAberration or a similar effect in the future,
- * re-implement this function to actually write to that effect's offset.
- *
- * For callers in JetController.ts — replace the call site with:
- *   updateBloomForState(jet.state.afterburner, jet.state.throttle);
- */
-
-/**
- * Adjusts bloom intensity based on afterburner state.
- * Call this from JetController.ts instead of the old updateABVFX.
+ * Bloom şiddetini ve yayılımını afterburner/throttle durumuna göre ayarlar.
+ * Jet exhaust glow için JetController.ts'den çağrılır.
  */
 export function updateBloomForState(afterburner: boolean, throttle: number): void {
   if (!state.bloomEffect) return;
-  // Afterburner: pump bloom intensity for the jet exhaust glow
-  const targetIntensity = afterburner ? 1.2 : (throttle > 0.5 ? 0.65 : 0.45);
+  // Afterburner: yüksek bloom → ateş glow
+  const targetIntensity = afterburner
+    ? 1.4
+    : (throttle > 0.5 ? 0.80 : 0.65);
   state.bloomEffect.intensity = THREE.MathUtils.lerp(
     state.bloomEffect.intensity,
     targetIntensity,
-    0.08 // Smooth transition
+    0.08
+  );
+
+  // [D] Bloom radius: throttle'a göre geniş halo → sinematik jet glow
+  const targetRadius = afterburner
+    ? 0.70                              // Afterburner: geniş yayılım
+    : (throttle > 0.5 ? 0.60 : 0.55);  // Normal: orta / idle: dar
+  (state.bloomEffect as any).mipmapBlurPass.radius = THREE.MathUtils.lerp(
+    (state.bloomEffect as any).mipmapBlurPass.radius,
+    targetRadius,
+    0.06
   );
 }

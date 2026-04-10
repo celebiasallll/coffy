@@ -115,15 +115,16 @@ export class PerformanceOptimizer {
         // ── ADA LOD: Mesafe bazlı görünürlük ─────────────────────────────
         const distToIsland = cameraPos.distanceTo(this.ISLAND_CENTER);
         
-        if (this.islandVisible && distToIsland > this.MAINLAND_HIDE_DIST) {
+        if (this.islandVisible && distToIsland > this.ISLAND_HIDE_DIST) {
             this.islandVisible = false;
             this.setIslandVisibility(false);
-        } else if (!this.islandVisible && distToIsland < this.MAINLAND_SHOW_DIST) {
+        } else if (!this.islandVisible && distToIsland < this.ISLAND_SHOW_DIST) {
             this.islandVisible = true;
             this.setIslandVisibility(true);
         }
 
-        this.frustumUpdateTimer++;
+        // [FIX-08]: Prevent timer overflow
+        this.frustumUpdateTimer = (this.frustumUpdateTimer + 1) % 600;
         
         // --- PERFORMANCE: ONLY UPDATE FRUSTUM & LOD EVERY 3 FRAMES IF CAMERA DIDN'T MOVE MUCH ---
         const distMovedSq = cameraPos.distanceToSquared(this.lastFrustumPos);

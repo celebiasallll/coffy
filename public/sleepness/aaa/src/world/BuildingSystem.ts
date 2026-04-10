@@ -19,6 +19,12 @@ const houses: HouseData[] = [];
 
 const MAX_HOUSES = 400;
 
+// [FIX-02]: boundaryTex hoisted to top to avoid initialization order issues
+const textureLoader = new THREE.TextureLoader();
+const boundaryTex = textureLoader.load('https://threejs.org/examples/textures/brick_diffuse.jpg');
+boundaryTex.wrapS = boundaryTex.wrapT = THREE.RepeatWrapping;
+boundaryTex.repeat.set(2, 1.5); 
+
 // ── Geometri ─────────────────────────────────────────────────────────────
 const wallGeo = new THREE.BoxGeometry(24, 16, 24);
 const roofGeo = new THREE.ConeGeometry(20, 12, 4);
@@ -26,7 +32,6 @@ const doorGeo = new THREE.BoxGeometry(4, 8, 0.4);
 const windowGeo = new THREE.PlaneGeometry(4, 4);
 
 // ── Materyaller (texture yoksa da crash etmez) ────────────────────────────
-const textureLoader = new THREE.TextureLoader();
 
 const wallTex = textureLoader.load('https://threejs.org/examples/textures/brick_diffuse.jpg');
 wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping;
@@ -87,7 +92,7 @@ export function getBuildingMeshes(): THREE.Object3D[] {
   return meshes;
 }
 
-const dummy = new THREE.Object3D();
+// [FIX-15]: dummy Moved to local scope in updateInstances
 
 function isSpaceOccupiedByHouses(x: number, z: number, minDist: number): boolean {
   // RESERVED FOR VEHICLES (Near Quest House)
@@ -123,6 +128,9 @@ function addColliderForHouse(
 }
 
 function updateInstances(): void {
+  // [FIX-15]: Local dummy for instance updates
+  const dummy = new THREE.Object3D();
+
   if (!roofInstance || !doorInstance || !windowInstance || !marketWallInstance) return;
   if (wallInstances.length === 0) return;
 
@@ -366,9 +374,7 @@ export function initBuildingSystem(
   updateInstances();
 }
 
-const boundaryTex = textureLoader.load('https://threejs.org/examples/textures/brick_diffuse.jpg');
-boundaryTex.wrapS = boundaryTex.wrapT = THREE.RepeatWrapping;
-boundaryTex.repeat.set(2, 1.5); 
+// [FIX-02]: boundaryTex moved to top
 
 function spawnWorldBoundaries(scene: THREE.Scene, physics: RAPIER.World): void {
   if (!boundaryInstance) return;
@@ -396,6 +402,8 @@ function spawnWorldBoundaries(scene: THREE.Scene, physics: RAPIER.World): void {
       const h = getHeight(x, z);
 
       // ── Görsel mesh ────────────────────────────────────────────────────
+      // [FIX-15]: Local dummy (now defined at the top of the parent function or here)
+      const dummy = new THREE.Object3D(); 
       dummy.position.set(x, h + VISUAL_HY - 5.5, z); // Merkez = h + 7 (zemine gömülü)
       dummy.rotation.set(0, rotationY, 0);
       dummy.scale.set(1, 1, 1);

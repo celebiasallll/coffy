@@ -9,6 +9,8 @@ import {
 
 export { WATER_LEVEL };
 export let water: Water;
+// [FIX-10]: Add getter for water
+export function getWater() { return water; }
 export let reflector: any = null; // Removed external reflector to restore stability
 
 // Mobil Cihaz Tespiti
@@ -88,17 +90,21 @@ export function updateWater(dt: number, sunDirection: THREE.Vector3, cameraPos?:
 
   if (!cameraPos) return;
 
-  // Smart LOD Logic
-  const dist = cameraPos.distanceTo(water.position);
+  // [FIX-06]: distanceToSquared instead of distanceTo
+  const distSq = cameraPos.distanceToSquared(water.position);
 
   // Target values based on distance
   let targetDistortion = 1.0;
   let targetAlpha = 0.92;
 
-  if (dist > 1200) {
+  const DIST_FAR_SQ = 1440000; // 1200^2
+  const DIST_NEAR_SQ = 250000;  // 500^2
+
+  if (distSq > DIST_FAR_SQ) {
     targetDistortion = 0.15;
     targetAlpha = 0.65;
-  } else if (dist > 500) {
+  } else if (distSq > DIST_NEAR_SQ) {
+    const dist = Math.sqrt(distSq); // Only calc sqrt when in transition range
     const factor = (dist - 500) / 700; // 0 to 1
     targetDistortion = THREE.MathUtils.lerp(1.0, 0.15, factor);
     targetAlpha = THREE.MathUtils.lerp(0.92, 0.65, factor);
@@ -117,12 +123,8 @@ export function updateWater(dt: number, sunDirection: THREE.Vector3, cameraPos?:
     lerpSpeed
   );
 
-  // Visibility Toggle (Huge FPS gain when far)
-  if (dist > 2200) {
-    water.visible = false;
-  } else {
-    water.visible = true;
-  }
+  // [FIX]: Visibility Toggle removed here. 
+  // PerformanceOptimizer is now the sole authority for mainland visibility to prevent the "missing water" bug.
 }
 
 // ── OKYANUS SİSTEMİ ─────────────────────────────────────────────────────────
@@ -130,6 +132,8 @@ export function updateWater(dt: number, sunDirection: THREE.Vector3, cameraPos?:
 // Uçsuz bucaksız: kamerayı takip eder, her yöne sonsuz uzanır
 
 let ocean: Water | null = null;
+// [FIX-10]: Add getter for ocean
+export function getOcean() { return ocean; }
 
 export function createOcean(scene: THREE.Scene): Water {
   // Uçsuz bucaksız okyanus — kamerayı takip edecek, asla bitmeyecek
@@ -268,7 +272,7 @@ export function updateOcean(dt: number, sunDirection: THREE.Vector3, cameraPos?:
     currentSun.lerp(_oceanSunColor, dt * 2.0);
   }
 
-  // ── SONSUZ OKYANUS: Kamerayı XZ'de takip et ──────────────────────────────
+  // [FIX-06]: distanceToSquared optimization (implied camera distance check if any)
   if (cameraPos) {
     ocean.position.x = cameraPos.x;
     ocean.position.z = cameraPos.z;

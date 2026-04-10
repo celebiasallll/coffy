@@ -110,6 +110,7 @@ import {
 } from './world/WeatherSystem.js';
 
 import { initSurvival, updateSurvival, canSprint, onDeath, isInputBlocked, fillSleep, takeDamage } from './systems/SurvivalSystem.js';
+import { initDebugControls } from './core/DebugControls.js';
 import { useGameStore } from './store/gameStore.js';
 import { PortalSystem } from './systems/PortalSystem.js';
 import { PuzzleGame } from './minigames/PuzzleGame.js';
@@ -119,7 +120,8 @@ const gameState = {
   frameCount: 0,
   adsFactor: 0,
   aimTarget: new THREE.Vector3(),
-  weaponVisual: null as any,
+  // [FIX-03]: Correct type for weaponVisual
+  weaponVisual: null as ReturnType<typeof weaponVisualSystem> | null,
   wasSwimming: false,
   qualityConfidence: 0
 };
@@ -304,17 +306,28 @@ async function init(playerType: number) {
   worldStreamer = new WorldStreamer(scene);
   populateEnvironment(scene);
 
+  // [v12.0]: Pre-compile shaders in backend to prevent startup jank
+  renderer.compile(scene, camera);
+
   // ── ADA: Tropik Ada oluştur ──────────────────────────────────────────────
-  const { mesh: islandMesh } = createIsland(scene);
+  // [FIX-05]: Pass optimizer to createIsland
+  const { mesh: islandMesh } = createIsland(scene, optimizer || undefined);
 
   // ── ANAKARA LOD: Terrain ve göl suyunu optimizer'a kaydet ─────────────────
   if (optimizer) {
     optimizer.registerMainlandObject(terrain);
     if (water) optimizer.registerMainlandObject(water);
-    // Bina instanced mesh'leri
+    
+    // [FIX]: Bina instanced mesh'lerini tek bir grupta toplayıp kaydet (Performans + "Donma" Engelleme)
+    // Ayrı ayrı yüzlerce objeyi toggle etmek yerine tek bir grup üzerinden işlem yapıyoruz.
+    const buildingsGroup = new THREE.Group();
+    buildingsGroup.name = 'MainlandBuildings';
     for (const mesh of getBuildingMeshes()) {
-      optimizer.registerMainlandObject(mesh);
+      buildingsGroup.add(mesh);
     }
+    scene.add(buildingsGroup);
+    optimizer.registerMainlandObject(buildingsGroup);
+
     // Ada LOD kaydı
     optimizer.registerIslandObject(islandMesh);
   }
@@ -425,6 +438,9 @@ async function init(playerType: number) {
   const loadMsgs = ['Initializing...', 'Loading terrain...', 'Spawning assets...', 'Preparing enemies...', 'Almost ready...'];
 
   THREE.DefaultLoadingManager.onProgress = (url, loaded, total) => {
+    // [FIX-01]: Ensure assetsLoaded is true if total is reached in progress
+    if (loaded === total) assetsLoaded = true;
+
     const pct = (loaded / total) * 100;
     if (pctEl) pctEl.textContent = `${Math.round(pct)}%`;
     if (loadBarEl) loadBarEl.style.width = `${pct}%`;
@@ -434,14 +450,18 @@ async function init(playerType: number) {
 
   let assetsLoaded = false;
   let loadingHidden = false;
+  let renderedFrames = 0;
+  const WARMUP_FRAMES = 60; // Render 60 frames behind curtain to compile shaders
 
   THREE.DefaultLoadingManager.onLoad = () => {
+    // [FIX-01]: Reliable loading flag
     assetsLoaded = true;
     checkLoading();
   };
 
   function checkLoading() {
-    if (!loadingHidden && assetsLoaded && loadingEl) {
+    // [FIX]: Ensure assets are loaded AND we have rendered enough frames to "warm up" post-processing/shaders
+    if (!loadingHidden && assetsLoaded && renderedFrames >= WARMUP_FRAMES && loadingEl) {
       loadingHidden = true;
       if (pctEl) pctEl.textContent = '100%';
       if (loadBarEl) loadBarEl.style.width = '100%';
@@ -484,7 +504,6 @@ async function init(playerType: number) {
   const underwaterColor = new THREE.Color(0x005577);
   const hemiUnderwater = new THREE.Color(0x003344);
   const clearColorBlack = new THREE.Color(0x000000);
-
   // ── Helper: launches PuzzleGame after pointer lock is confirmed released ──
   function launchPuzzleGame() {
     if (document.pointerLockElement) {
@@ -528,6 +547,18 @@ async function init(playerType: number) {
       setTimeout(doLaunch, 600);
     }
   }
+
+  // [FIX-12]: Reset inputs when pointer lock is lost to prevent "ghost walking"
+  document.addEventListener('pointerlockchange', () => {
+    if (!document.pointerLockElement && !isDialogueOpen() && !occupiedVehicle && !inJet) {
+      InputState.moveX[playerId] = 0;
+      InputState.moveZ[playerId] = 0;
+      InputState.sprint[playerId] = 0;
+      InputState.attack[playerId] = 0;
+      // Also clear intents
+      InputIntents.shootRequest[playerId] = 0;
+    }
+  });
 
   // weaponVisual initialized once before animate
   gameState.weaponVisual = weaponVisualSystem(camera, scene);
@@ -706,6 +737,11 @@ async function init(playerType: number) {
       camera.rotation.order = 'YXZ';
       camera.rotation.set(-pitch, yaw, 0);
       camera.fov = THREE.MathUtils.lerp(75, 45, adsFactor);
+
+      // [FIX-11]: Camera terrain clip protection
+      const terrainAtCam = getHeight(camera.position.x, camera.position.z);
+      camera.position.y = Math.max(camera.position.y, terrainAtCam + 0.6);
+
       camera.updateProjectionMatrix();
 
       const physicsWorld = getPhysicsWorld();
@@ -826,7 +862,10 @@ async function init(playerType: number) {
 
     if (!gameOver) {
       world.dt = dt;
-      checkLoading();
+      if (!loadingHidden) {
+        renderedFrames++;
+        checkLoading();
+      }
     }
 
     // [FIX-22] Get camFollowPos at start of frame for all systems
@@ -892,7 +931,8 @@ async function init(playerType: number) {
               audioManager.playSFX('assets/sounds/freesound_community-young-man-being-hurt-95628.mp3', 0.09, 0.1);
             }
 
-            gameState.weaponVisual(world);
+            // [FIX-03]: Typed call
+            if (gameState.weaponVisual) gameState.weaponVisual(world);
             handleJetAndVehicleInput(dt);
             handlePortalInput();
 
@@ -951,9 +991,8 @@ async function init(playerType: number) {
               const currentWolves = wolfQ(world);
               const currentZombies = zombieQ(world);
               const currentNPCs = npcQ(world);
-              const entities = [...currentWolves, ...currentZombies, ...currentNPCs];
-
-              entities.forEach(id => {
+              
+              const resetEntityPos = (id: number) => {
                 const dx = Position.x[id] - bubblePx;
                 const dz = Position.z[id] - bubblePz;
                 if (dx * dx + dz * dz > 250000) {
@@ -973,7 +1012,12 @@ async function init(playerType: number) {
                   const rb = entityPhysicsBodies.get(id as any);
                   if (rb) rb.setTranslation({ x: rx, y: Position.y[id], z: rz }, true);
                 }
-              });
+              };
+
+              // [FIX-07]: Removed spread heap allocation, using 3 separate loops
+              for (const id of currentWolves) { resetEntityPos(id); }
+              for (const id of currentZombies) { resetEntityPos(id); }
+              for (const id of currentNPCs) { resetEntityPos(id); }
             }
 
             gameState.frameCount++;
@@ -982,14 +1026,22 @@ async function init(playerType: number) {
 
             updateCamera(dt, camFollowPos);
             updateHUDAndAudio(dt, camFollowPos);
-        }
-    } else if (!loadingHidden) {
-        // Still loading
-        if (renderer && scene && camera) {
-            renderer.render(scene, camera);
+
+            // [FIX-14]: Adaptive DPR (Dynamic Resolution Scaling)
+            if (gameState.frameCount % 120 === 0 && fpsWindow.length >= 30) {
+              const avgFps = fpsWindow.reduce((a, b) => a + b, 0) / fpsWindow.length;
+              const currentDPR = renderer.getPixelRatio();
+              const maxDPR = isMobileDevice() ? 1.2 : 1.6;
+              
+              if (avgFps < 45 && currentDPR > 0.75) {
+                renderer.setPixelRatio(Math.max(0.75, currentDPR - 0.1));
+              } else if (avgFps > 58 && currentDPR < maxDPR) {
+                renderer.setPixelRatio(Math.min(maxDPR, currentDPR + 0.05));
+              }
+            }
         }
     }
-
+    // [FIX]: Always use renderComposer to prevent engine-switch flicker
     renderComposer(dt);
   }
 

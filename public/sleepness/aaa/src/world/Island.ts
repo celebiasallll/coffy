@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { getPhysicsWorld, createTerrainCollider } from '../core/physics.js';
 import { rawHeight, blurHeightmap, registerExtraTerrain, WATER_LEVEL } from './terrain.js';
 import RAPIER from '@dimforge/rapier3d-compat';
+import { PerformanceOptimizer } from '../core/PerformanceOptimizer.js';
 
 export const ISLAND_SIZE = 600; 
 export const ISLAND_SEGS = 64; 
@@ -12,7 +13,7 @@ let wallInstance: THREE.InstancedMesh | null = null;
 
 const textureLoader = new THREE.TextureLoader();
 
-export function createIsland(scene: THREE.Scene): { mesh: THREE.Mesh } {
+export function createIsland(scene: THREE.Scene, optimizer?: PerformanceOptimizer): { mesh: THREE.Mesh } {
     const size = ISLAND_SIZE;
     const segs = ISLAND_SEGS;
     const half = size / 2;
@@ -108,18 +109,19 @@ export function createIsland(scene: THREE.Scene): { mesh: THREE.Mesh } {
         }
     }
     const world = getPhysicsWorld();
-    const rbDesc = RAPIER.RigidBodyDesc.fixed().setTranslation(ISLAND_POS.x, 0, ISLAND_POS.z);
+    // [FIX-04]: Use ISLAND_POS.y in physics translation
+    const rbDesc = RAPIER.RigidBodyDesc.fixed().setTranslation(ISLAND_POS.x, ISLAND_POS.y, ISLAND_POS.z);
     const rb = world.createRigidBody(rbDesc);
     const colliderDesc = RAPIER.ColliderDesc.heightfield(segs - 1, segs - 1, heightsPhysics, { x: size, y: 1.0, z: size });
     world.createCollider(colliderDesc, rb);
 
     // 5) SINIR DUVARLARI (Tam Senkronize)
-    createIslandBoundaries(scene, world);
+    createIslandBoundaries(scene, world, optimizer);
 
     return { mesh: islandMesh };
 }
 
-function createIslandBoundaries(scene: THREE.Scene, world: RAPIER.World) {
+function createIslandBoundaries(scene: THREE.Scene, world: RAPIER.World, optimizer?: PerformanceOptimizer) {
     const wallTex = textureLoader.load('https://threejs.org/examples/textures/brick_diffuse.jpg');
     wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping;
     wallTex.repeat.set(1.5, 1);
@@ -176,8 +178,8 @@ function createIslandBoundaries(scene: THREE.Scene, world: RAPIER.World) {
     wallInstance.count = idx;
     wallInstance.instanceMatrix.needsUpdate = true;
 
-    // @ts-ignore
-    if (window.optimizer) window.optimizer.registerIslandObject(wallInstance);
+    // [FIX-05]: Remove window.optimizer hack
+    if (optimizer) optimizer.registerIslandObject(wallInstance);
 }
 
 export function getIslandMesh() { return islandMesh; }

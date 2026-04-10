@@ -24,6 +24,9 @@ let _heightData: Float32Array | null = null;
 let _segs = TERRAIN_SEGS;
 let _size = TERRAIN_SIZE;
 
+// [FIX-13]: Height cache for optimization
+const _heightCache = new Map<number, number>();
+
 const IS_MOBILE = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
   || (navigator.maxTouchPoints > 0);
 
@@ -84,6 +87,11 @@ export function blurHeightmap(src: Float32Array, segs: number, passes = 3): Floa
 }
 
 export function getHeight(worldX: number, worldZ: number): number {
+  // [FIX-13]: Coordinate-based key for LRU-style cache
+  const key = ((worldX | 0) + 32768) * 65536 + ((worldZ | 0) + 32768);
+  if (_heightCache.has(key)) return _heightCache.get(key)!;
+
+  let result = 0;
   // 1) Önce eklenen diğer bölgeleri kontrol et (Adalar vb.)
   for (const region of _extraRegions) {
     const half = region.size / 2;
@@ -101,7 +109,11 @@ export function getHeight(worldX: number, worldZ: number): number {
       const h10 = region.data[iz * region.segs + (ix + 1)] ?? h00;
       const h01 = region.data[(iz + 1) * region.segs + ix] ?? h00;
       const h11 = region.data[(iz + 1) * region.segs + (ix + 1)] ?? h00;
-      return h00 * (1 - fx) * (1 - fz) + h10 * fx * (1 - fz) + h01 * (1 - fx) * fz + h11 * fx * fz;
+      result = h00 * (1 - fx) * (1 - fz) + h10 * fx * (1 - fz) + h01 * (1 - fx) * fz + h11 * fx * fz;
+      
+      if (_heightCache.size > 1024) _heightCache.clear();
+      _heightCache.set(key, result);
+      return result;
     }
   }
 
@@ -118,7 +130,12 @@ export function getHeight(worldX: number, worldZ: number): number {
   const h10 = _heightData[iz * _segs + (ix + 1)] ?? h00;
   const h01 = _heightData[(iz + 1) * _segs + ix] ?? h00;
   const h11 = _heightData[(iz + 1) * _segs + (ix + 1)] ?? h00;
-  return h00 * (1 - fx) * (1 - fz) + h10 * fx * (1 - fz) + h01 * (1 - fx) * fz + h11 * fx * fz;
+  
+  result = h00 * (1 - fx) * (1 - fz) + h10 * fx * (1 - fz) + h01 * (1 - fx) * fz + h11 * fx * fz;
+  
+  if (_heightCache.size > 1024) _heightCache.clear();
+  _heightCache.set(key, result);
+  return result;
 }
 
 const _terrainNormal = new THREE.Vector3();

@@ -283,6 +283,8 @@ const MODELS_CDN = {
 interface BirdData  { model: THREE.Object3D; mixer: THREE.AnimationMixer; speed: number; waypoints: THREE.Vector3[]; currentWP: number; }
 
 const birdList : BirdData[]  = [];
+// [FIX-09]: birdModelCache added.
+const birdModelCache = new Map<string, { scene: THREE.Group; animations: THREE.AnimationClip[] }>();
 
 function addAnimals(scene: THREE.Scene): void {
   // Kuşlar
@@ -300,27 +302,40 @@ function addAnimals(scene: THREE.Scene): void {
       const wx = Math.cos(wa) * wr, wz = Math.sin(wa) * wr;
       bWPs.push(new THREE.Vector3(wx, getHeight(wx, wz) + rnd(15, 30), wz));
     }
-    birdGltfLoader.load(MODELS_CDN[bType], gltf => {
-      const model = gltf.scene;
-      // Başlangıç: sabit yüksek (uçuş hissi)
-      model.position.set(bx, 50, bz);
-      model.scale.setScalar(0.045);
-      scene.add(model);
-      const mixer = new THREE.AnimationMixer(model);
-      const action = gltf.animations[0] ? mixer.clipAction(gltf.animations[0]) : null;
-      if (action) {
-        // Referans: kanatları daha yavaş (daha doğal uçuş)
-        action.setEffectiveTimeScale(2.0);
-        action.play();
-      }
-      // Birds use default frustum culling (v9.2)
-      model.traverse(o => {
-        const m = o as THREE.Mesh;
-        if (m.isMesh) m.frustumCulled = true;
-      });
+    const url = MODELS_CDN[bType];
 
-      birdList.push({ model, mixer, speed: rnd(24, 48), waypoints: bWPs, currentWP: 0 });
+    // [FIX-09]: Using cache for birds
+    if (birdModelCache.has(url)) {
+      const cached = birdModelCache.get(url)!;
+      setupBird(cached.scene, cached.animations, bType, bx, bz, bWPs);
+    } else {
+      birdGltfLoader.load(url, gltf => {
+        birdModelCache.set(url, { scene: gltf.scene, animations: gltf.animations });
+        setupBird(gltf.scene, gltf.animations, bType, bx, bz, bWPs);
+      });
+    }
+  }
+
+  function setupBird(sceneModel: THREE.Group, animations: THREE.AnimationClip[], bType: string, bx: number, bz: number, bWPs: THREE.Vector3[]) {
+    const model = sceneModel.clone(true);
+    // Başlangıç: sabit yüksek (uçuş hissi)
+    model.position.set(bx, 50, bz);
+    model.scale.setScalar(0.045);
+    scene.add(model);
+    const mixer = new THREE.AnimationMixer(model);
+    const action = animations[0] ? mixer.clipAction(animations[0]) : null;
+    if (action) {
+      // Referans: kanatları daha yavaş (daha doğal uçuş)
+      action.setEffectiveTimeScale(2.0);
+      action.play();
+    }
+    // Birds use default frustum culling (v9.2)
+    model.traverse(o => {
+      const m = o as THREE.Mesh;
+      if (m.isMesh) m.frustumCulled = true;
     });
+
+    birdList.push({ model, mixer, speed: rnd(24, 48), waypoints: bWPs, currentWP: 0 });
   }
 }
 

@@ -357,6 +357,8 @@ function updateBirds(dt: number, time: number): void {
 export function populateEnvironment(scene: THREE.Scene): void {
   occupiedSpaces.length = 0;
   optimizer = new PerformanceOptimizer(scene);
+  // @ts-ignore (Global erişim için)
+  window.optimizer = optimizer;
 
   // Evleri ağaç/kaya/GLB ağaç yerleşiminden ÖNCE rezerve ediyoruz.
   initBuildingSystem(scene, registerOccupiedSpace);

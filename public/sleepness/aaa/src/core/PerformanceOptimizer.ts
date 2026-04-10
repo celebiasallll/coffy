@@ -4,6 +4,19 @@ export class PerformanceOptimizer {
     private lodObjects: { mesh: THREE.Object3D; distance: number; visible: boolean }[] = [];
     private scene: THREE.Scene;
 
+    // ── Anakara LOD sistemi ──────────────────────────────────────────────────
+    private mainlandObjects: THREE.Object3D[] = [];
+    private mainlandVisible: boolean = true;
+    private readonly MAINLAND_HIDE_DIST = 2500;  // Bu mesafeden sonra anakara kaybolur
+    private readonly MAINLAND_SHOW_DIST = 2200;  // Hysteresis: geri gelirken daha yakın
+
+    // ── Ada LOD sistemi ──────────────────────────────────────────────────────
+    private islandObjects: THREE.Object3D[] = [];
+    private islandVisible: boolean = true;
+    private readonly ISLAND_CENTER = new THREE.Vector3(4000, 0, 0); // 1000 birim daha uzağa taşındı
+    private readonly ISLAND_HIDE_DIST = 1200; // Sıkı LOD: Uzaklaşınca hemen gizle
+    private readonly ISLAND_SHOW_DIST = 1000; // Sıkı LOD: Sadece 1km yaklaşınca göster
+
     constructor(scene: THREE.Scene) {
         this.scene = scene;
     }
@@ -32,6 +45,20 @@ export class PerformanceOptimizer {
         this.lodObjects.push({ mesh, distance, visible: true });
     }
 
+    // ── Anakara LOD: Objeleri kaydet ─────────────────────────────────────────
+    registerMainlandObject(obj: THREE.Object3D): void {
+        this.mainlandObjects.push(obj);
+    }
+
+    // ── Ada LOD: Objeleri kaydet ─────────────────────────────────────────────
+    registerIslandObject(obj: THREE.Object3D): void {
+        this.islandObjects.push(obj);
+    }
+
+    isMainlandVisible(): boolean {
+        return this.mainlandVisible;
+    }
+
     private jetMode: boolean = false;
     private altitude: number = 0;
     private frustum = new THREE.Frustum();
@@ -48,6 +75,54 @@ export class PerformanceOptimizer {
 
     update(camera: THREE.PerspectiveCamera) {
         const cameraPos = camera.position;
+
+        // ── ANAKARA LOD: Mesafe bazlı görünürlük ─────────────────────────────
+        const distToMainland = Math.sqrt(cameraPos.x * cameraPos.x + cameraPos.z * cameraPos.z);
+
+        // ── OKYANUS FOG: Hafif, boğmayan ufuk sisi ──────────────────────────
+        // Anakaradan uzaklaştıkça yavaşça fog açılır
+        const FOG_START = 1800;  // Fog başlangıç mesafesi
+        const FOG_FULL  = 2500;  // Tam fog mesafesi
+        const FOG_MAX_DENSITY = 0.00012; // Çok düşük — sadece ufku yumuşatır
+
+        if (distToMainland > FOG_START) {
+            const fogT = Math.min(1, (distToMainland - FOG_START) / (FOG_FULL - FOG_START));
+            const density = fogT * FOG_MAX_DENSITY;
+
+            if (!this.scene.fog || !(this.scene.fog as any)._isOceanFog) {
+                // Yeni okyanus fog'u oluştur
+                const fog = new THREE.FogExp2(0x0a1a2f, density);
+                (fog as any)._isOceanFog = true;
+                this.scene.fog = fog;
+            } else {
+                (this.scene.fog as THREE.FogExp2).density = density;
+            }
+        } else if (this.scene.fog && (this.scene.fog as any)._isOceanFog) {
+            // Anakaraya döndük — okyanus fog'unu kaldır
+            this.scene.fog = null;
+        }
+
+        if (this.mainlandVisible && distToMainland > this.MAINLAND_HIDE_DIST) {
+            // Anakaradan uzaklaştık — gizle
+            this.mainlandVisible = false;
+            this.setMainlandVisibility(false);
+        } else if (!this.mainlandVisible && distToMainland < this.MAINLAND_SHOW_DIST) {
+            // Anakaraya yaklaştık — göster
+            this.mainlandVisible = true;
+            this.setMainlandVisibility(true);
+        }
+
+        // ── ADA LOD: Mesafe bazlı görünürlük ─────────────────────────────
+        const distToIsland = cameraPos.distanceTo(this.ISLAND_CENTER);
+        
+        if (this.islandVisible && distToIsland > this.MAINLAND_HIDE_DIST) {
+            this.islandVisible = false;
+            this.setIslandVisibility(false);
+        } else if (!this.islandVisible && distToIsland < this.MAINLAND_SHOW_DIST) {
+            this.islandVisible = true;
+            this.setIslandVisibility(true);
+        }
+
         this.frustumUpdateTimer++;
         
         // --- PERFORMANCE: ONLY UPDATE FRUSTUM & LOD EVERY 3 FRAMES IF CAMERA DIDN'T MOVE MUCH ---
@@ -71,6 +146,12 @@ export class PerformanceOptimizer {
         // --- DYNAMIC WORLD SIMPLIFICATION (v10.1) ---
         const isHighAlt = this.jetMode && this.altitude > 400;
 
+        // Anakara gizliyse instanced mesh'leri de gizle
+        if (!this.mainlandVisible) {
+            this.instancedMeshes.forEach((imesh) => { imesh.visible = false; });
+            return;
+        }
+
         this.instancedMeshes.forEach((imesh, id) => {
             if (isHighAlt) {
                 // "Paper Map" Mode: Hide all decorative instances at high altitude
@@ -89,6 +170,21 @@ export class PerformanceOptimizer {
             // Frustum culling (buffered)
             imesh.visible = this.frustum.intersectsObject(imesh);
         });
+    }
+
+    // ── Anakara LOD: Tüm anakara objelerinin görünürlüğünü değiştir ─────────
+    private setMainlandVisibility(visible: boolean): void {
+        for (const obj of this.mainlandObjects) {
+            obj.visible = visible;
+        }
+        // Instanced mesh'ler update() içinde ayrıca kontrol ediliyor
+    }
+
+    // ── Ada LOD: Tüm ada objelerinin görünürlüğünü değiştir ─────────────────
+    private setIslandVisibility(visible: boolean): void {
+        for (const obj of this.islandObjects) {
+            obj.visible = visible;
+        }
     }
 
     private lastShadowSize: number = -1;

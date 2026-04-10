@@ -75,6 +75,18 @@ let windowInstance: THREE.InstancedMesh | null = null;
 let marketWallInstance: THREE.InstancedMesh | null = null;
 let boundaryInstance: THREE.InstancedMesh | null = null;
 
+// ── Anakara LOD: Tüm bina instanced mesh'lerini döndür ─────────────────────
+export function getBuildingMeshes(): THREE.Object3D[] {
+  const meshes: THREE.Object3D[] = [];
+  wallInstances.forEach(inst => meshes.push(inst));
+  if (roofInstance) meshes.push(roofInstance);
+  if (doorInstance) meshes.push(doorInstance);
+  if (windowInstance) meshes.push(windowInstance);
+  if (marketWallInstance) meshes.push(marketWallInstance);
+  if (boundaryInstance) meshes.push(boundaryInstance);
+  return meshes;
+}
+
 const dummy = new THREE.Object3D();
 
 function isSpaceOccupiedByHouses(x: number, z: number, minDist: number): boolean {
@@ -365,6 +377,13 @@ function spawnWorldBoundaries(scene: THREE.Scene, physics: RAPIER.World): void {
   const HALF_WORLD = 1505;
   let idx = 0;
 
+  // Görsel geometri: BoxGeometry(60, 25, 8)
+  // Half extents: hx=30, hy=12.5, hz=4
+  const VISUAL_HX = 30;   // Görsel yarı genişlik
+  const VISUAL_HY = 12.5; // Görsel yarı yükseklik
+  const VISUAL_HZ = 4;    // Görsel yarı derinlik
+  const COLLIDER_HY = 40; // Collider yüksekliği yüksek tutulur (jet geçişini engeller)
+
   const spawnSide = (start: THREE.Vector2, end: THREE.Vector2, rotationY: number) => {
     const dir = end.clone().sub(start);
     const len = dir.length();
@@ -376,21 +395,21 @@ function spawnWorldBoundaries(scene: THREE.Scene, physics: RAPIER.World): void {
       const z = start.y + dir.y * t;
       const h = getHeight(x, z);
 
-      // Visual - Moved 1m down
-      dummy.position.set(x, h + 7, z); 
+      // ── Görsel mesh ────────────────────────────────────────────────────
+      dummy.position.set(x, h + VISUAL_HY - 5.5, z); // Merkez = h + 7 (zemine gömülü)
       dummy.rotation.set(0, rotationY, 0);
       dummy.scale.set(1, 1, 1);
       dummy.updateMatrix();
       boundaryInstance!.setMatrixAt(idx++, dummy.matrix);
 
-      // Physics - Moved 1m down and made slightly wider (hx/hz)
-      const hx = rotationY === 0 ? 31 : 5;
-      const hz = rotationY === 0 ? 5 : 31;
-      const hy = 40; // Total height 80m
+      // ── Fizik collider — görsel ile senkronize ─────────────────────────
+      // Rotation'a göre axis-aligned boyutlar
+      const hx = rotationY === 0 ? VISUAL_HX : VISUAL_HZ;
+      const hz = rotationY === 0 ? VISUAL_HZ : VISUAL_HX;
 
       physics.createCollider(
-        RAPIER.ColliderDesc.cuboid(hx, hy, hz)
-          .setTranslation(x, h + hy - 6, z)
+        RAPIER.ColliderDesc.cuboid(hx, COLLIDER_HY, hz)
+          .setTranslation(x, h + VISUAL_HY - 5.5, z)  // Görsel merkez ile aynı Y
           .setRotation({ x: 0, y: Math.sin(rotationY/2), z: 0, w: Math.cos(rotationY/2) })
       );
     }

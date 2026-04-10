@@ -12,6 +12,14 @@ export const LAKE_CENTER_X = 150;
 export const LAKE_CENTER_Z = 120;
 export const LAKE_RADIUS = 420;
 
+export interface TerrainRegion {
+  data: Float32Array;
+  size: number;
+  segs: number;
+  centerPos: THREE.Vector3;
+}
+const _extraRegions: TerrainRegion[] = [];
+
 let _heightData: Float32Array | null = null;
 let _segs = TERRAIN_SEGS;
 let _size = TERRAIN_SIZE;
@@ -24,7 +32,8 @@ function smoothstep(x: number): number {
   return t * t * (3 - 2 * t);
 }
 
-function rawHeight(wx: number, wz: number): number {
+/** [AAA] Orijinal yükseklik matematiği - Dışarıya açıldı */
+export function rawHeight(wx: number, wz: number): number {
   const base =
     noise2D(wx * 0.005, wz * 0.005) * 9 +
     noise2D(wx * 0.018, wz * 0.018) * 3 +
@@ -52,7 +61,8 @@ function rawHeight(wx: number, wz: number): number {
   return h;
 }
 
-function blurHeightmap(src: Float32Array, segs: number, passes = 3): Float32Array {
+/** [AAA] Yükseklik yumuşatma algoritması - Dışarıya açıldı */
+export function blurHeightmap(src: Float32Array, segs: number, passes = 3): Float32Array {
   let data = new Float32Array(src);
   for (let p = 0; p < passes; p++) {
     const out = new Float32Array(data.length);
@@ -74,6 +84,28 @@ function blurHeightmap(src: Float32Array, segs: number, passes = 3): Float32Arra
 }
 
 export function getHeight(worldX: number, worldZ: number): number {
+  // 1) Önce eklenen diğer bölgeleri kontrol et (Adalar vb.)
+  for (const region of _extraRegions) {
+    const half = region.size / 2;
+    const dx = worldX - region.centerPos.x;
+    const dz = worldZ - region.centerPos.z;
+
+    if (Math.abs(dx) <= half && Math.abs(dz) <= half) {
+      const u = (dx + half) / region.size;
+      const v = (dz + half) / region.size;
+      const ix = Math.min(Math.floor(u * (region.segs - 1)), region.segs - 2);
+      const iz = Math.min(Math.floor(v * (region.segs - 1)), region.segs - 2);
+      const fx = u * (region.segs - 1) - ix;
+      const fz = v * (region.segs - 1) - iz;
+      const h00 = region.data[iz * region.segs + ix] ?? 0;
+      const h10 = region.data[iz * region.segs + (ix + 1)] ?? h00;
+      const h01 = region.data[(iz + 1) * region.segs + ix] ?? h00;
+      const h11 = region.data[(iz + 1) * region.segs + (ix + 1)] ?? h00;
+      return h00 * (1 - fx) * (1 - fz) + h10 * fx * (1 - fz) + h01 * (1 - fx) * fz + h11 * fx * fz;
+    }
+  }
+
+  // 2) Default: Anakara (Mainland) kontrolü
   if (!_heightData) return 0;
   const half = _size / 2;
   const u = Math.max(0, Math.min(1, (worldX + half) / _size));
@@ -97,6 +129,11 @@ export function getTerrainNormal(wx: number, wz: number): THREE.Vector3 {
     getHeight(wx, wz) - getHeight(wx, wz + e)
   ).normalize();
   return _terrainNormal;
+}
+
+/** [AAA] Yeni kara parçalarını (ada vb.) global sisteme kaydeder */
+export function registerExtraTerrain(region: TerrainRegion) {
+  _extraRegions.push(region);
 }
 
 export function createTerrain(scene: THREE.Scene): { terrain: THREE.Mesh; size: number } {

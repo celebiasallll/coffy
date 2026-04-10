@@ -55,8 +55,9 @@ if (isMobile) {
 import { createRenderer, createSceneAndCamera, setupResize, setupLights, initHDRI } from './core/renderer.js';
 import { createTerrain, getHeight } from './world/terrain.js';
 import { populateEnvironment, updateEnvironment, isSpaceOccupied, isNearLake, optimizer } from './world/environment.js';
-import { initBuildingSystem } from './world/BuildingSystem.js';
+import { initBuildingSystem, getBuildingMeshes } from './world/BuildingSystem.js';
 import { initPhysics, getPhysicsWorld } from './core/physics.js';
+import { createIsland } from './world/Island.js';
 import { world, initCharacterController } from './ecs/world.js';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { spawnPlayer, spawnWolf, spawnZombie, spawnNPC, spawnRandomNPC, coinInstancedMesh, bgManager } from './ecs/entities.js';
@@ -84,7 +85,7 @@ import { InputState, Health, InputIntents, Position, Rotation, WolfTag, ZombieTa
 import { EntityId } from './ecs/types.js';
 import { initSky, updateClouds, skyMesh } from './core/sky.js';
 import { initBVH } from './core/bvh.js';
-import { createWater, updateWater, WATER_LEVEL } from './world/water.js';
+import { createWater, updateWater, createOcean, updateOcean, water, WATER_LEVEL } from './world/water.js';
 import { initPostprocessing, renderComposer, setSMAAPreset, getComposer, getCurrentSMAA, getSMAAPresetName } from './core/postprocessing.js';
 import { SMAAPreset } from 'postprocessing';
 import { DebugPanel } from './core/DebugPanel.js';
@@ -109,7 +110,6 @@ import {
 } from './world/WeatherSystem.js';
 
 import { initSurvival, updateSurvival, canSprint, onDeath, isInputBlocked, fillSleep, takeDamage } from './systems/SurvivalSystem.js';
-import { initDebugControls } from './core/DebugControls.js';
 import { useGameStore } from './store/gameStore.js';
 import { PortalSystem } from './systems/PortalSystem.js';
 import { PuzzleGame } from './minigames/PuzzleGame.js';
@@ -292,6 +292,7 @@ async function init(playerType: number) {
 
   const { terrain } = createTerrain(scene);
   createWater(scene);
+  createOcean(scene);  // Anakara dışı sonsuz okyanus
 
   try {
     initNavMesh(scene, terrain);
@@ -302,6 +303,21 @@ async function init(playerType: number) {
   // [FIX-22] Initialize WorldStreamer only after scene is ready
   worldStreamer = new WorldStreamer(scene);
   populateEnvironment(scene);
+
+  // ── ADA: Tropik Ada oluştur ──────────────────────────────────────────────
+  const { mesh: islandMesh } = createIsland(scene);
+
+  // ── ANAKARA LOD: Terrain ve göl suyunu optimizer'a kaydet ─────────────────
+  if (optimizer) {
+    optimizer.registerMainlandObject(terrain);
+    if (water) optimizer.registerMainlandObject(water);
+    // Bina instanced mesh'leri
+    for (const mesh of getBuildingMeshes()) {
+      optimizer.registerMainlandObject(mesh);
+    }
+    // Ada LOD kaydı
+    optimizer.registerIslandObject(islandMesh);
+  }
 
   // @ts-ignore
   world.scene = scene;
@@ -922,6 +938,7 @@ async function init(playerType: number) {
             if (envAcc >= ENV_STEP) {
               updateEnvironment(envAcc, clock.getElapsedTime());
               updateWater(envAcc, newSunDir, camera.position);
+              updateOcean(envAcc, newSunDir, camera.position, getTimeOfDay());
               updateClouds(envAcc);
               envAcc = 0;
             }

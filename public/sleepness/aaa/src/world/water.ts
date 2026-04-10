@@ -125,10 +125,173 @@ export function updateWater(dt: number, sunDirection: THREE.Vector3, cameraPos?:
   }
 }
 
+// ── OKYANUS SİSTEMİ ─────────────────────────────────────────────────────────
+// Göl suyundan tamamen farklı: koyu derin okyanus, büyük dalgalar, farklı doku
+// Uçsuz bucaksız: kamerayı takip eder, her yöne sonsuz uzanır
+
+let ocean: Water | null = null;
+
+export function createOcean(scene: THREE.Scene): Water {
+  // Uçsuz bucaksız okyanus — kamerayı takip edecek, asla bitmeyecek
+  const OCEAN_SIZE = 20000;
+  const geo = new THREE.PlaneGeometry(OCEAN_SIZE, OCEAN_SIZE, 1, 1);
+
+  // Farklı normal map — okyanus için daha kaba dalga deseni
+  const oceanNormalTex = new THREE.TextureLoader().load(
+    'https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/water_caustics/water_caustics_nor_gl_2k.jpg',
+    (tex) => {
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.minFilter = THREE.LinearMipmapLinearFilter;
+      tex.magFilter = THREE.LinearFilter;
+    },
+    undefined,
+    // Fallback: eğer Polyhaven yüklenmezse standart texture'ı kullan
+    () => {
+      const fallback = new THREE.TextureLoader().load(
+        'https://threejs.org/examples/textures/waternormals.jpg',
+        (t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; }
+      );
+      if (ocean) ocean.material.uniforms['normalSampler'].value = fallback;
+    }
+  );
+
+  ocean = new Water(geo, {
+    textureWidth: IS_MOBILE ? 256 : 512,
+    textureHeight: IS_MOBILE ? 256 : 512,
+    waterNormals: oceanNormalTex,
+    sunDirection: new THREE.Vector3(0.70707, 0.70707, 0).normalize(),
+    sunColor: 0xccb077,           // Soluk altın yansıma (göl: parlak beyaz)
+    waterColor: 0x000d1a,         // Çok koyu lacivert (göl: 0x003355)
+    distortionScale: 8.0,         // Daha agresif dalga bozulması (göl: 3.7)
+    fog: scene.fog !== undefined,
+    alpha: 1.0,
+  });
+
+  // Büyük dalga ölçeği — devasa okyanus dalgaları (göl: 3.0)
+  ocean.material.uniforms['size'] = { value: 28.0 };
+
+  // ── Custom shader enjeksiyonu — koyu derin okyanus rengi ─────────────────
+  ocean.material.onBeforeCompile = (shader) => {
+    // Fragment shader'a koyu okyanus tonlaması ekle
+    shader.fragmentShader = shader.fragmentShader.replace(
+      'gl_FragColor = vec4( outgoingLight, alpha );',
+      `
+      // ── OKYANUS KOYU TONLAMA ──────────────────────────────────────────
+      // Derin okyanus: su rengi çok daha koyu, yalnız güneş yansıması parlak
+      vec3 deepOcean = vec3(0.002, 0.012, 0.035); // Neredeyse siyah mavi
+      float luminance = dot(outgoingLight, vec3(0.299, 0.587, 0.114));
+
+      // Parlak yansıma noktalarını koru, geri kalanını karart
+      float specMask = smoothstep(0.15, 0.6, luminance);
+      outgoingLight = mix(deepOcean, outgoingLight * 0.7, specMask);
+
+      // Hafif yeşilimsi mavi ton (derin su hissi)
+      outgoingLight += vec3(0.0, 0.008, 0.015);
+
+      gl_FragColor = vec4( outgoingLight, alpha );
+      `
+    );
+  };
+  ocean.material.customProgramCacheKey = () => 'ocean-deep-v1';
+
+  // Z-fighting önleme
+  ocean.material.polygonOffset = true;
+  ocean.material.polygonOffsetFactor = 4;
+  ocean.material.polygonOffsetUnits = 4;
+  ocean.material.transparent = false;
+
+  ocean.rotation.x = -Math.PI / 2;
+  ocean.position.set(0, WATER_LEVEL - 0.5, 0);
+  ocean.frustumCulled = false; // Her zaman görünür — sonsuz plane
+
+  // Render sırası: okyanus önce çizilsin, terrain üstünü kapatır
+  ocean.renderOrder = -1;
+
+  scene.add(ocean);
+  return ocean;
+}
+
+// ── Gün döngüsüne uyumlu okyanus renkleri ──────────────────────────────────
+const _oceanWaterColor = new THREE.Color();
+const _oceanSunColor = new THREE.Color();
+
+export function updateOcean(dt: number, sunDirection: THREE.Vector3, cameraPos?: THREE.Vector3, timeOfDay?: number): void {
+  if (!ocean) return;
+  // Yavaş, ağır dalga hareketi — göl (0.8) vs okyanus (0.25)
+  ocean.material.uniforms['time'].value += dt * 0.25;
+  ocean.material.uniforms['sunDirection'].value.copy(sunDirection).normalize();
+
+  // ── GÜN/GECE UYUMU ──────────────────────────────────────────────────────
+  // Gece: neredeyse siyah su + soğuk ay yansıması
+  // Gündüz: koyu lacivert su + sıcak güneş yansıması
+  // Şafak/alacakaranlık: yumuşak geçiş tonları
+  if (timeOfDay !== undefined) {
+    const t = timeOfDay;
+    const isNight = t < 0.22 || t > 0.79;
+    const isDawn = t >= 0.22 && t <= 0.33;
+    const isDusk = t >= 0.70 && t <= 0.80;
+    const isGolden = (t >= 0.26 && t <= 0.33) || (t >= 0.68 && t <= 0.76);
+
+    if (isNight) {
+      // Gece: neredeyse siyah, sadece ay ışığı yansıması
+      _oceanWaterColor.setRGB(0.002, 0.005, 0.012);
+      _oceanSunColor.setRGB(0.35, 0.42, 0.58); // soğuk gümüş-mavi ay
+      ocean.material.uniforms['distortionScale'].value = 3.0; // Sakin gece dalgaları
+    } else if (isGolden) {
+      // Altın saat: sıcak amber yansımalı koyu su
+      _oceanWaterColor.setRGB(0.008, 0.015, 0.028);
+      _oceanSunColor.setRGB(0.95, 0.72, 0.35); // altın yansıma
+      ocean.material.uniforms['distortionScale'].value = 6.0;
+    } else if (isDawn) {
+      // Şafak: pembe-mor geçiş
+      const p = (t - 0.22) / 0.11;
+      _oceanWaterColor.setRGB(0.003 + p * 0.005, 0.008 + p * 0.008, 0.018 + p * 0.012);
+      _oceanSunColor.setRGB(0.7 + p * 0.25, 0.4 + p * 0.3, 0.3 + p * 0.15);
+      ocean.material.uniforms['distortionScale'].value = 4.0 + p * 4.0;
+    } else if (isDusk) {
+      // Alacakaranlık: turuncu → koyu geçiş
+      const p = (t - 0.70) / 0.10;
+      _oceanWaterColor.setRGB(0.008 - p * 0.006, 0.015 - p * 0.010, 0.028 - p * 0.016);
+      _oceanSunColor.setRGB(0.9 - p * 0.55, 0.6 - p * 0.18, 0.3 + p * 0.28);
+      ocean.material.uniforms['distortionScale'].value = 6.0 - p * 3.0;
+    } else {
+      // Gündüz: normal koyu okyanus
+      _oceanWaterColor.setRGB(0.004, 0.018, 0.04);
+      _oceanSunColor.setRGB(0.80, 0.69, 0.47);
+      ocean.material.uniforms['distortionScale'].value = 8.0;
+    }
+
+    // Yumuşak geçiş — ani renk atlaması olmasın
+    const current = ocean.material.uniforms['waterColor'].value as THREE.Color;
+    current.lerp(_oceanWaterColor, dt * 2.0);
+    const currentSun = ocean.material.uniforms['sunColor'].value as THREE.Color;
+    currentSun.lerp(_oceanSunColor, dt * 2.0);
+  }
+
+  // ── SONSUZ OKYANUS: Kamerayı XZ'de takip et ──────────────────────────────
+  if (cameraPos) {
+    ocean.position.x = cameraPos.x;
+    ocean.position.z = cameraPos.z;
+  }
+}
+
+export { ocean };
+
+// ── OYUNCU SU İÇİNDE Mİ? ────────────────────────────────────────────────────
+
 export function isInWater(playerY: number, playerX: number = 0, playerZ: number = 0): boolean {
   // [FIX-5]: Visual geography is scaled 1.3x on X axis.
   const dx = (playerX - LAKE_CENTER_X) / 1.3;
   const dz = playerZ - LAKE_CENTER_Z;
   const distSq = dx * dx + dz * dz;
-  return distSq < LAKE_RADIUS * LAKE_RADIUS * 0.8 && playerY < WATER_LEVEL + 0.5;
+
+  // Göl içi kontrolü
+  const inLake = distSq < LAKE_RADIUS * LAKE_RADIUS * 0.8 && playerY < WATER_LEVEL + 0.5;
+
+  // Okyanus kontrolü: terrain sınırları dışında ve su seviyesinin altında
+  const HALF_TERRAIN = 1500;
+  const outsideTerrain = Math.abs(playerX) > HALF_TERRAIN || Math.abs(playerZ) > HALF_TERRAIN;
+  const inOcean = outsideTerrain && playerY < WATER_LEVEL;
+
+  return inLake || inOcean;
 }

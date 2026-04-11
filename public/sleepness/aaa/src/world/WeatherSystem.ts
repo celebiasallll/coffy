@@ -15,7 +15,7 @@ import { setWetness } from './environment.js';
 
 // ── Sabitler ─────────────────────────────────────────────────────────────────
 
-const DROP_COUNT = IS_MOBILE ? 2200 : 8000;
+const DROP_COUNT = IS_MOBILE ? 1800 : 6000;
 const RAIN_AREA = IS_MOBILE ? 35 : 50;
 const RAIN_HEIGHT = IS_MOBILE ? 35 : 45;
 const DROP_SPEED = 32;
@@ -24,6 +24,7 @@ const DROP_SPEED_V = 14;
 // ── İç durum ─────────────────────────────────────────────────────────────────
 
 let rainPoints: THREE.Points | null = null;
+let rainMat: THREE.ShaderMaterial | null = null;
 let _intensity = 0;
 let _target = 0;
 let _active = false;
@@ -33,9 +34,9 @@ let _rainProfile = { duration: 0.04, intensity: 1.0 };
 let _lastDayT = 0;
 
 const RAIN_PROFILES = [
-  { duration: 0.10, intensity: 0.55 },
-  { duration: 0.07, intensity: 0.85 },
-  { duration: 0.04, intensity: 1.15 },
+  { duration: 0.10, intensity: 0.4 },
+  { duration: 0.07, intensity: 0.75 },
+  { duration: 0.04, intensity: 1.0 },
 ];
 
 // ── Shader Kaynakları ───────────────────────────────────────────────────────
@@ -143,6 +144,7 @@ export function initWeather(scene: THREE.Scene): void {
   });
 
   rainPoints = new THREE.Points(geo, mat);
+  rainMat = mat;
   rainPoints.frustumCulled = false;
   scene.add(rainPoints);
 
@@ -177,10 +179,10 @@ export function updateWeather(dt: number, camPos: THREE.Vector3, dayT = 0.5): vo
 
   _intensity += (_target - _intensity) * Math.min(dt * 1.5, 1.0); // Faster fade for transitions
 
-  const mat = rainPoints.material as THREE.ShaderMaterial;
+  if (!rainMat) return;
   const finalIntensity = _intensity * 0.85;
-  mat.uniforms.uIntensity.value = finalIntensity;
-  mat.uniforms.uTime.value += dt;
+  rainMat.uniforms.uIntensity.value = finalIntensity;
+  rainMat.uniforms.uTime.value += dt;
 
   // Kamera takibi (Işınlanma hissini yok eder)
   rainPoints.position.copy(camPos);
@@ -199,7 +201,7 @@ export function updateWeather(dt: number, camPos: THREE.Vector3, dayT = 0.5): vo
   // [FIX] Strict visibility threshold to eliminate "white line" ghost particles during zoom
   if (_intensity < 0.08) {
     rainPoints.visible = false;
-    mat.uniforms.uIntensity.value = 0;
+    rainMat.uniforms.uIntensity.value = 0;
   } else {
     rainPoints.visible = true;
   }

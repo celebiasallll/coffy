@@ -57,6 +57,7 @@ let _stallBuffetZ = 0;
 // ── Flight Control State (Persistent Momentum) ────────────────────────────────
 let _sPitch = 0, _sRoll = 0, _sYaw = 0;
 let _sThrust = 0.05;
+let _time = 0; // [FIX] Replaces performance.now() in hot path
 
 export function updateFlightPhysics(
     rb: RAPIER.RigidBody,
@@ -75,6 +76,7 @@ export function updateFlightPhysics(
 ): void {
 
     // ── Gravity Scale Fix ─────────────────────────────────────────────────────
+    _time += dt; // [FIX] Monotonic timer instead of performance.now()
     if (!_initedBodies.has(rb)) {
         // [MODIFIED] Set gravity scale to 0 because we handle gravity manually in the update loop
         // to have absolute control over lift vs weight balance.
@@ -180,7 +182,7 @@ export function updateFlightPhysics(
     // Turbulence
     const TURB_ALT = 50.0;
     if (state.altitude < TURB_ALT && state.speed > 20) {
-        const t = performance.now() * 0.001;
+        const t = _time; // [FIX] No performance.now() per frame
         const turbStr = (1.0 - state.altitude / TURB_ALT) * state.speed * 0.012;
         _v1.x += Math.sin(t * 8.2) * turbStr * dt;
         _v1.y += Math.cos(t * 6.4) * turbStr * dt;

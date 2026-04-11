@@ -443,7 +443,8 @@ export function exitJet(): THREE.Vector3 {
         jetAudio.stop();             // [FIX] Stop engine sound immediately on exit
         showJetHUD(false);
         const p = jet.rb.translation();
-        return new THREE.Vector3(p.x + 5, p.y + 1, p.z);
+        // [FIX] Eject player safely 9 units away to avoid wing overlap causing a physics bounce
+        return new THREE.Vector3(p.x + 9, p.y + 2, p.z + 2);
     }
     return new THREE.Vector3();
 }

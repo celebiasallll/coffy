@@ -196,7 +196,7 @@ export class PortalSystem {
 
     checkProximity(playerPos: THREE.Vector3): Portal | null {
         for (const portal of this.portals) {
-            if (playerPos.distanceTo(portal.position) < portal.radius) return portal;
+            if (playerPos.distanceToSquared(portal.position) < portal.radius * portal.radius) return portal;
         }
         return null;
     }

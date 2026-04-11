@@ -2,6 +2,7 @@
  * DialogueSystem.ts
  * Premium UI overlay for NPC conversations, matching the reference project's aesthetic.
  */
+import { IS_MOBILE } from '../utils/device.js';
 
 export interface Exchange {
     s: string; // Smith
@@ -112,18 +113,18 @@ export function initDialogueUI() {
     dialogueBox.style.cssText = `
         position: fixed;
         left: 50%;
-        bottom: 15%;
+        bottom: ${IS_MOBILE ? '20%' : '15%'};
         transform: translateX(-50%) translateY(20px);
         background: rgba(10, 10, 10, 0.85);
         color: rgba(255, 255, 255, 0.95);
-        padding: 12px 24px;
+        padding: ${IS_MOBILE ? '10px 18px' : '12px 24px'};
         border-radius: 2px;
         font-family: 'Rajdhani', sans-serif;
-        font-size: 14px;
+        font-size: ${IS_MOBILE ? '11px' : '14px'};
         font-weight: 500;
         text-align: center;
-        width: 50%;
-        max-width: 500px;
+        width: ${IS_MOBILE ? '60%' : '50%'};
+        max-width: ${IS_MOBILE ? '350px' : '500px'};
         pointer-events: none;
         display: none;
         z-index: 2000;
@@ -204,11 +205,11 @@ function updateDialogueContent() {
     const text = isNPCPhase ? exchange.n : exchange.s;
     
     const speakerLabel = !isNPCPhase ? 
-        `<span style="color:#ffd700; font-weight:700; font-style:italic; letter-spacing:2px; margin-right:15px; font-size:14px; display:block; margin-bottom:4px;">SMITH</span>` :
-        `<span style="color:#00ffcc; font-weight:700; letter-spacing:2px; margin-right:15px; font-size:14px; display:block; margin-bottom:4px;">VILLAGER</span>`;
+        `<span style="color:#ffd700; font-weight:700; font-style:italic; letter-spacing:2px; margin-right:15px; font-size:${IS_MOBILE ? '11px' : '14px'}; display:block; margin-bottom:4px;">SMITH</span>` :
+        `<span style="color:#00ffcc; font-weight:700; letter-spacing:2px; margin-right:15px; font-size:${IS_MOBILE ? '11px' : '14px'}; display:block; margin-bottom:4px;">VILLAGER</span>`;
         
     dialogueContent.innerHTML = `${speakerLabel} <span style="color:rgba(255,255,255,0.95);">${text}</span>
-        <div style="font-size:10px; color:rgba(255,255,255,0.4); margin-top:10px; letter-spacing:3px; font-weight:700;">[E] CONTINUE</div>`;
+        <div style="font-size:${IS_MOBILE ? '8px' : '10px'}; color:rgba(255,255,255,0.4); margin-top:10px; letter-spacing:3px; font-weight:700;">[E] CONTINUE</div>`;
 }
 
 export function isDialogueOpen(): boolean {

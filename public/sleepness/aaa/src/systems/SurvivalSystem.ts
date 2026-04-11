@@ -53,10 +53,15 @@ let healthFill: HTMLElement | null = null;
 let energyFill: HTMLElement | null = null;
 let hungerFill: HTMLElement | null = null;
 let thirstFill: HTMLElement | null = null;
+let sleepFill: HTMLElement | null = null;
 let healthVal: HTMLElement | null = null;
 let energyVal: HTMLElement | null = null;
 let hungerVal: HTMLElement | null = null;
 let thirstVal: HTMLElement | null = null;
+
+// ── Damage timer IDs ─────────────────────────────────────────────────────────────────
+let _flashTimer: ReturnType<typeof setTimeout> | null = null;
+let _shakeTimer: ReturnType<typeof setTimeout> | null = null;
 
 // ── Warning timers ────────────────────────────────────────────────────────────
 let hungerWarnCooldown = 0;
@@ -75,6 +80,7 @@ export function initSurvival(): void {
   energyFill = document.getElementById('energy-fill');
   hungerFill = document.getElementById('hunger-fill');
   thirstFill = document.getElementById('thirst-fill');
+  sleepFill  = document.getElementById('sleep-fill');
   syncDOM();
 }
 
@@ -165,7 +171,8 @@ export function takeDamage(amount: number): number {
     flash.classList.remove('active');
     void (flash as any).offsetWidth; // Trigger reflow
     flash.classList.add('active');
-    setTimeout(() => flash.classList.remove('active'), 400); // Increased for prominence
+    if (_flashTimer) clearTimeout(_flashTimer);
+    _flashTimer = setTimeout(() => flash.classList.remove('active'), 400);
   }
 
   const hpIcons = document.getElementById('hp-icons');
@@ -178,7 +185,8 @@ export function takeDamage(amount: number): number {
   document.body.classList.remove('shake');
   void (document.body as any).offsetWidth; // Trigger reflow
   document.body.classList.add('shake');
-  setTimeout(() => document.body.classList.remove('shake'), 450);
+  if (_shakeTimer) clearTimeout(_shakeTimer);
+  _shakeTimer = setTimeout(() => document.body.classList.remove('shake'), 450);
 
   return state.health;
 }
@@ -190,38 +198,31 @@ export function setSurvivalHealth(hp: number): void {
 
 // ── Internal ──────────────────────────────────────────────────────────────────
 function syncDOM(): void {
-  const hFill = document.getElementById('health-fill');
-  const tFill = document.getElementById('thirst-fill');
-  const eFill = document.getElementById('energy-fill');
-  const huFill = document.getElementById('hunger-fill');
-  const sFill = document.getElementById('sleep-fill');
+  const hpPct  = Math.min(100, Math.max(0, (state.health / state.maxHealth) * 100));
+  const tPct   = Math.min(100, Math.max(0, (state.thirst / state.maxThirst) * 100));
+  const ePct   = Math.min(100, Math.max(0, (state.energy / state.maxEnergy) * 100));
+  const huPct  = Math.min(100, Math.max(0, (state.hunger / state.maxHunger) * 100));
+  const sPct   = Math.min(100, Math.max(0, (state.sleep  / state.maxSleep)  * 100));
 
-  const hpPct = Math.min(100, Math.max(0, (state.health / state.maxHealth) * 100));
-  const tPct = Math.min(100, Math.max(0, (state.thirst / state.maxThirst) * 100));
-  const ePct = Math.min(100, Math.max(0, (state.energy / state.maxEnergy) * 100));
-  const huPct = Math.min(100, Math.max(0, (state.hunger / state.maxHunger) * 100));
-  const sPct = Math.min(100, Math.max(0, (state.sleep / state.maxSleep) * 100));
-
-  if (hFill) {
-    (hFill as HTMLElement).style.clipPath = `inset(${100 - hpPct}% 0 0 0)`;
-    hFill.parentElement?.classList.toggle('critical', hpPct < 25);
+  if (healthFill) {
+    (healthFill as HTMLElement).style.clipPath = `inset(${100 - hpPct}% 0 0 0)`;
+    healthFill.parentElement?.classList.toggle('critical', hpPct < 25);
   }
-  if (tFill) {
-    (tFill as HTMLElement).style.clipPath = `inset(${100 - tPct}% 0 0 0)`;
-    tFill.parentElement?.classList.toggle('critical', tPct < 25);
+  if (thirstFill) {
+    (thirstFill as HTMLElement).style.clipPath = `inset(${100 - tPct}% 0 0 0)`;
+    thirstFill.parentElement?.classList.toggle('critical', tPct < 25);
   }
-  if (eFill) {
-    (eFill as HTMLElement).style.clipPath = `inset(${100 - ePct}% 0 0 0)`;
-    eFill.parentElement?.classList.toggle('critical', ePct < 25);
+  if (energyFill) {
+    (energyFill as HTMLElement).style.clipPath = `inset(${100 - ePct}% 0 0 0)`;
+    energyFill.parentElement?.classList.toggle('critical', ePct < 25);
   }
-  if (huFill) {
-    (huFill as HTMLElement).style.clipPath = `inset(${100 - huPct}% 0 0 0)`;
-    huFill.parentElement?.classList.toggle('critical', huPct < 25);
+  if (hungerFill) {
+    (hungerFill as HTMLElement).style.clipPath = `inset(${100 - huPct}% 0 0 0)`;
+    hungerFill.parentElement?.classList.toggle('critical', huPct < 25);
   }
-  if (sFill) {
-    (sFill as HTMLElement).style.clipPath = `inset(${100 - sPct}% 0 0 0)`;
-    // Critical pulse for sleep bar is handled inside updateSleepEffects or via class on parent
-    sFill.parentElement?.classList.toggle('critical-pulse', sPct < 15);
+  if (sleepFill) {
+    (sleepFill as HTMLElement).style.clipPath = `inset(${100 - sPct}% 0 0 0)`;
+    sleepFill.parentElement?.classList.toggle('critical-pulse', sPct < 15);
   }
 
   // Health Liquid Sync (Single Heart)

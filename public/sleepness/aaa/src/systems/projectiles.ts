@@ -20,6 +20,8 @@ const activeProjectiles: ProjectileData[] = [];
 const _dummy = new THREE.Object3D();
 const _color = new THREE.Color();
 const _projGeom = new THREE.OctahedronGeometry(0.35, 0);
+const _fireForward = new THREE.Vector3();
+const _fireStart = new THREE.Vector3();
 
 export function initProjectiles(scene: THREE.Scene): void {
   sceneRef = scene;
@@ -42,18 +44,18 @@ export function fireProjectile(camera: THREE.Camera, playerPos: THREE.Vector3): 
   
   if (activeProjectiles.length >= MAX_PROJECTILES) return;
 
-  const forward = new THREE.Vector3();
-  camera.getWorldDirection(forward);
-  forward.y = Math.max(-1, Math.min(1, forward.y + 0.15));
-  forward.normalize();
+  _fireForward.set(0, 0, 0);
+  camera.getWorldDirection(_fireForward);
+  _fireForward.y = Math.max(-1, Math.min(1, _fireForward.y + 0.15));
+  _fireForward.normalize();
 
   const hue = Math.random();
-  const start = playerPos.clone();
-  start.y += 1.4;
+  _fireStart.copy(playerPos);
+  _fireStart.y += 1.4;
 
   activeProjectiles.push({
-    pos: start,
-    vel: forward.multiplyScalar(26),
+    pos: _fireStart.clone(),
+    vel: _fireForward.clone().multiplyScalar(26),
     age: 0,
   });
 
@@ -91,8 +93,8 @@ export function updateProjectiles(dt: number, enemiesRef: Map<EntityId, RigidBod
         const dx = b.pos.x - pos.x;
         const dy = b.pos.y - pos.y;
         const dz = b.pos.z - pos.z;
-        const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
-        if (d < 1.6 + 0.35) {
+        const distSq = dx * dx + dy * dy + dz * dz;
+        if (distSq < 1.95 * 1.95) {
           spawnBurst(b.pos.clone(), 0xFF0000, 10, 3);
           audioManager.playSFX('assets/sounds/damage.wav', 0.2);
           b.vel.multiplyScalar(0.3);

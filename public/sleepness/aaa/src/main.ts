@@ -139,7 +139,7 @@ function isMobileDevice() {
 
 const CAM_DIST_MIN = 5;
 const CAM_DIST_MAX = 60;
-let camDist = isMobileDevice() ? 5 : 9.5; 
+let camDist = isMobileDevice() ? 4.5 : 9.5; 
 let targetCamDist = camDist; // [NEW] For smoothing
 
 // [FIX-22]: CAM_LERP 0.85 (Sub-frame smoothing) helps eliminate micro-jitters
@@ -365,7 +365,6 @@ async function init(playerType: number) {
   portalSystem = new PortalSystem(scene);
   portalSystem.createPortal('p_enigma', 475, 470, 'puzzle', 0xa0aab2); // Modern Graphite/Silver theme
 
-  // Spawn 10 NPC Quest Givers
   const npcPromises = [];
   for (let i = 0; i < 6; i++) {
     npcPromises.push(spawnRandomNPC(scene, px, pz, 250, i % 2 === 0 ? 0 : 1));
@@ -373,7 +372,7 @@ async function init(playerType: number) {
   for (let i = 0; i < 4; i++) {
     npcPromises.push(spawnRandomNPC(scene, px, pz, -1, i % 2 === 0 ? 1 : 0));
   }
-  await Promise.all(npcPromises); // [FIX] Await all NPCs
+  await Promise.all(npcPromises); // [FIX] Wait for ALL NPCs here
 
   onDeath((cause) => {
     if (isGameOver()) return;
@@ -778,7 +777,7 @@ async function init(playerType: number) {
         delete vehicleKeys['KeyC'];
         vehicleCamera.cycleMode();
       }
-      vehicleCamera.update(camera, occupiedVehicle.controller.mesh, occupiedVehicle.controller.rigidBody, dt);
+      vehicleCamera.update(camera, occupiedVehicle.controller.mesh, occupiedVehicle.controller.rigidBody, dt, occupiedVehicle.type);
     } else if (!inJet) {
       const shoulderOffset = 1.3 + 0.6 * adsFactor;
       const sideX = Math.cos(yaw) * shoulderOffset;

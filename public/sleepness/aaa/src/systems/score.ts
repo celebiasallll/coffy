@@ -31,6 +31,10 @@ let popupTO: ReturnType<typeof setTimeout> | null = null;
 let missionHudDom: HTMLElement | null = null;
 let missionHudTO: ReturnType<typeof setTimeout> | null = null;
 
+// ── Kill Feed Pool ─────────────────────────────────────────────────────────────────
+const _killFeedPool: HTMLDivElement[] = [];
+let _killFeedIndex = 0;
+
 function showMissionHudTemporarily(): void {
   if (!missionHudDom) return;
   missionHudDom.style.opacity = '1';
@@ -69,6 +73,17 @@ export function initScoreSystem(): void {
   
   // Show it once at the start to indicate existence
   showMissionHudTemporarily();
+
+  // Build kill feed pool (5 reusable slots, circular)
+  if (killFeedDom && _killFeedPool.length === 0) {
+    for (let i = 0; i < 5; i++) {
+      const el = document.createElement('div');
+      el.style.opacity = '0';
+      el.style.transition = 'opacity 0.3s';
+      killFeedDom.appendChild(el);
+      _killFeedPool.push(el);
+    }
+  }
 }
 
 export function markKill(): void {
@@ -150,16 +165,12 @@ export function showPopup(msg: string, color: string): void {
 }
 
 export function addKillFeed(msg: string): void {
-  if (!killFeedDom) return;
-  const el = document.createElement('div');
+  if (!killFeedDom || _killFeedPool.length === 0) return;
+  const el = _killFeedPool[_killFeedIndex % 5];
+  _killFeedIndex++;
   el.textContent = msg;
-  killFeedDom.prepend(el);
-  setTimeout(() => {
-    if (el.parentNode) el.parentNode.removeChild(el);
-  }, 3500);
-  while (killFeedDom.children.length > 5) {
-    killFeedDom.removeChild(killFeedDom.lastChild as Node);
-  }
+  el.style.opacity = '1';
+  setTimeout(() => { el.style.opacity = '0'; }, 3500);
 }
 
 export function flashDamage(amount: number): void {

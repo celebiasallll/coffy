@@ -294,9 +294,9 @@ function addRocksInstanced(scene: THREE.Scene): void {
     const sx = rnd(0.8, 1.8) * s, sy = rnd(0.4, 1.0) * s, sz = rnd(0.8, 1.8) * s;
     rockData.push({ x, y: h + sy * 0.5, z, sx, sy, sz, rot: new THREE.Euler(rnd(0, Math.PI), rnd(0, Math.PI), rnd(0, Math.PI)) });
     spatialHash.insert(x, z, s * 1.2);
-    physicsWorld.createCollider(
-      RAPIER.ColliderDesc.cuboid(sx * 0.7, sy * 0.7, sz * 0.7).setTranslation(x, h + sy * 0.5, z)
-    );
+    // physicsWorld.createCollider(
+    //   RAPIER.ColliderDesc.cuboid(sx * 0.7, sy * 0.7, sz * 0.7).setTranslation(x, h + sy * 0.5, z)
+    // );
   }
 
   const rockMesh = optimizer.registerInstancedType('rock', rockGeo, rockMat, rockData.length);

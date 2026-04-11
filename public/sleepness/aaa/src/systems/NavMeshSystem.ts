@@ -6,6 +6,8 @@ let navMeshFree: any = null;
 let navMeshHelper: NavMeshHelper | null = null;
 let navMeshQuery: NavMeshQuery | null = null;
 
+const _pathResult: THREE.Vector3[] = [];
+
 export async function initNavMesh(scene: THREE.Scene, terrainMesh: THREE.Mesh) {
   await initRecast();
 
@@ -56,6 +58,9 @@ export async function initNavMesh(scene: THREE.Scene, terrainMesh: THREE.Mesh) {
   }
 }
 
+/**
+ * @returns Shared result array — consume before next findPath call.
+ */
 export function findPath(start: THREE.Vector3, end: THREE.Vector3): THREE.Vector3[] | null {
   if (!navMeshQuery) return null;
   
@@ -65,7 +70,11 @@ export function findPath(start: THREE.Vector3, end: THREE.Vector3): THREE.Vector
       { x: end.x, y: end.y, z: end.z }
     );
     
-    return path.map(p => new THREE.Vector3(p.x, p.y, p.z));
+    _pathResult.length = 0;
+    for (const p of path) {
+      _pathResult.push(new THREE.Vector3(p.x, p.y, p.z));
+    }
+    return _pathResult.length > 0 ? _pathResult : null;
   } catch (e) {
     return null;
   }

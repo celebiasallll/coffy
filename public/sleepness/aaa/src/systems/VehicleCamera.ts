@@ -56,7 +56,8 @@ class VehicleCamera {
         camera: THREE.PerspectiveCamera,
         vehicleMesh: THREE.Group,
         rigidBody: RAPIER.RigidBody,
-        dt: number
+        dt: number,
+        vehicleType: string = 'atv'
     ): void {
         if (this.needsImmediateSnap) {
             this.smoothedQ.copy(vehicleMesh.quaternion);
@@ -70,7 +71,7 @@ class VehicleCamera {
         this.smoothedQ.copy(vehicleMesh.quaternion);
 
         switch (this.mode) {
-            case 'follow':    this._follow(camera, vehicleMesh, dt); break;
+            case 'follow':    this._follow(camera, vehicleMesh, dt, vehicleType); break;
             case 'hood':      this._hood(camera, vehicleMesh, dt); break;
             case 'cinematic': this._cinematic(camera, vehicleMesh, rigidBody, dt); break;
         }
@@ -88,9 +89,10 @@ class VehicleCamera {
         this.prevCamQuat.copy(camera.quaternion);
     }
 
-    private _follow(camera: THREE.PerspectiveCamera, vehicleMesh: THREE.Group, dt: number): void {
+    private _follow(camera: THREE.PerspectiveCamera, vehicleMesh: THREE.Group, dt: number, vehicleType: string = 'atv'): void {
         // [RIGID LOCK]: 1:1 orientation and position
-        const dist = 27.0 + this.zoomValue; // [STRETCHED] 10m more back per user request (v10.7)
+        const baseDist = vehicleType === 'jeep' ? 26.0 : 24.0;
+        const dist = baseDist + this.zoomValue;
         const height = 5.8; // Slightly higher for better FOV
         _offset.set(0, height, dist).applyQuaternion(this.smoothedQ);
         

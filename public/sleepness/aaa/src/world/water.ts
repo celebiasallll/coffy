@@ -144,18 +144,12 @@ export function createOcean(scene: THREE.Scene): Water {
     'https://threejs.org/examples/textures/waternormals.jpg', // Using as placeholder/pattern
     (tex) => {
       tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    }
-  );
-
-  // Farklı normal map — okyanus için daha kaba dalga deseni
-  const oceanNormalTex = new THREE.TextureLoader().load(
-    'https://threejs.org/examples/textures/waternormals.jpg',
-    (tex) => {
-      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
       tex.minFilter = THREE.LinearMipmapLinearFilter;
       tex.magFilter = THREE.LinearFilter;
     }
   );
+  // Aynı texture'ı yeniden yüklemek yerine referansı paylaş
+  const oceanNormalTex = causticsTex;
 
   ocean = new Water(geo, {
     textureWidth: IS_MOBILE ? 256 : 512,

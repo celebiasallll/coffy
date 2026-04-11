@@ -24,7 +24,9 @@
       /* Disable copy/paste menu and text selection */
       -webkit-touch-callout: none;
       -webkit-user-select: none;
+      -khtml-user-select: none;
       -moz-user-select: none;
+      -ms-user-select: none;
       user-select: none;
       -webkit-tap-highlight-color: transparent;
     }
@@ -160,15 +162,14 @@
       transition: box-shadow 0.15s;
     }
 
-    @supports ((-webkit-backdrop-filter: blur(14px)) or (backdrop-filter: blur(14px))) {
+    @supports (backdrop-filter: blur(14px)) {
       #hp-hud {
-        -webkit-backdrop-filter: blur(14px);
-                backdrop-filter: blur(14px);
+        backdrop-filter: blur(14px);
         background: rgba(4, 8, 16, 0.82);
       }
     }
 
-    @supports not ((-webkit-backdrop-filter: blur(14px)) or (backdrop-filter: blur(14px))) {
+    @supports not (backdrop-filter: blur(14px)) {
       #hp-hud {
         background: rgba(15, 20, 30, 0.95);
       }
@@ -275,14 +276,13 @@
       min-width: 120px;
     }
 
-    @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    @supports (backdrop-filter: blur(1px)) {
       #ammo-hud {
-        -webkit-backdrop-filter: var(--ui-blur);
-                backdrop-filter: var(--ui-blur);
+        backdrop-filter: var(--ui-blur);
       }
     }
 
-    @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    @supports not (backdrop-filter: blur(1px)) {
       #ammo-hud {
         background: rgba(15, 20, 30, 0.95);
       }
@@ -392,13 +392,12 @@
       border-radius: var(--ui-radius);
       background: var(--ui-bg);
       border: var(--ui-border);
-      -webkit-backdrop-filter: var(--ui-blur);
-              backdrop-filter: var(--ui-blur);
+      backdrop-filter: var(--ui-blur);
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
       pointer-events: auto;
     }
 
-    @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    @supports not (backdrop-filter: blur(1px)) {
       #score-box {
         background: rgba(15, 20, 30, 0.95);
       }
@@ -438,8 +437,7 @@
       background: var(--ui-bg);
       border: var(--ui-border);
       border-radius: var(--ui-radius);
-      -webkit-backdrop-filter: var(--ui-blur);
-              backdrop-filter: var(--ui-blur);
+      backdrop-filter: var(--ui-blur);
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
       transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
       pointer-events: auto;
@@ -1088,8 +1086,7 @@
       gap: 14px;
       pointer-events: none;
       background: var(--ui-bg);
-      -webkit-backdrop-filter: var(--ui-blur);
-              backdrop-filter: var(--ui-blur);
+      backdrop-filter: var(--ui-blur);
       border: var(--ui-border);
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
       padding: 10px 18px;
@@ -1108,8 +1105,7 @@
       align-items: center;
       justify-content: center;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.8);
-      -webkit-backdrop-filter: blur(4px);
-              backdrop-filter: blur(4px);
+      backdrop-filter: blur(4px);
       overflow: hidden;
     }
 
@@ -1264,9 +1260,7 @@
       color: rgba(255, 255, 255, 0.4);
       background: rgba(255, 255, 255, 0.03);
       transition: border-color .15s, color .15s, background .15s;
-      -webkit-user-select: none;
-         -moz-user-select: none;
-              user-select: none;
+      user-select: none;
     }
 
     .cs-nav-key.active {
@@ -1292,8 +1286,7 @@
       width: 220px;
       padding: 0;
       background: var(--ui-bg);
-      -webkit-backdrop-filter: var(--ui-blur);
-              backdrop-filter: var(--ui-blur);
+      backdrop-filter: var(--ui-blur);
       border: var(--ui-border);
       border-radius: var(--ui-radius);
       cursor: pointer;
@@ -1473,8 +1466,7 @@
       cursor: pointer;
       pointer-events: all;
       transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-      -webkit-backdrop-filter: var(--ui-blur);
-              backdrop-filter: var(--ui-blur);
+      backdrop-filter: var(--ui-blur);
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 15px var(--accent-glow);
       text-shadow: var(--ui-shadow);
     }
@@ -1545,8 +1537,7 @@
       font-family: 'Outfit', sans-serif;
       z-index: 900;
       pointer-events: none;
-      -webkit-backdrop-filter: var(--ui-blur);
-              backdrop-filter: var(--ui-blur);
+      backdrop-filter: var(--ui-blur);
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
       opacity: 0;
       transform: scale(1.1);
@@ -1711,8 +1702,7 @@
       font-family: 'Rajdhani', sans-serif;
       font-weight: 700;
       letter-spacing: 2px;
-      -webkit-backdrop-filter: blur(5px);
-              backdrop-filter: blur(5px);
+      backdrop-filter: blur(5px);
       z-index: 1000;
       opacity: 0;
       transition: opacity 1s;
@@ -1735,8 +1725,7 @@
       width: 200px;
       padding: 20px;
       background: rgba(5, 10, 20, 0.65);
-      -webkit-backdrop-filter: blur(15px);
-              backdrop-filter: blur(15px);
+      backdrop-filter: blur(15px);
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 18px;
       display: flex;
@@ -1956,8 +1945,7 @@
         background: var(--ui-bg) !important;
         border: var(--ui-border) !important;
         border-radius: var(--ui-radius) !important;
-        -webkit-backdrop-filter: var(--ui-blur) !important;
-                backdrop-filter: var(--ui-blur) !important;
+        backdrop-filter: var(--ui-blur) !important;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
       }
 
@@ -1970,8 +1958,7 @@
         background: var(--ui-bg) !important;
         border: var(--ui-border) !important;
         border-radius: 20px !important;
-        -webkit-backdrop-filter: var(--ui-blur) !important;
-                backdrop-filter: var(--ui-blur) !important;
+        backdrop-filter: var(--ui-blur) !important;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
         padding: 6px 14px !important;
         position: fixed !important;
@@ -1990,8 +1977,7 @@
         background: var(--ui-bg) !important;
         border: var(--ui-border) !important;
         border-left: 5px solid var(--accent) !important;
-        -webkit-backdrop-filter: var(--ui-blur) !important;
-                backdrop-filter: var(--ui-blur) !important;
+        backdrop-filter: var(--ui-blur) !important;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
         width: 220px !important;
         height: auto !important;
@@ -2012,8 +1998,7 @@
         padding: 8px 16px;
         border-radius: 30px;
         border: var(--ui-border);
-        -webkit-backdrop-filter: var(--ui-blur);
-                backdrop-filter: var(--ui-blur);
+        backdrop-filter: var(--ui-blur);
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
       }
 
@@ -2053,7 +2038,7 @@
       }
     }
   </style>
-  <script type="module" crossorigin src="./assets/index-DY2Ypm1I.js"></script>
+  <script type="module" crossorigin src="./assets/index-Dhf_YlhW.js"></script>
 </head>
 
 <body>
@@ -2233,8 +2218,7 @@
       border: 2px solid rgba(160, 170, 178, 0.25);
       border-radius: 50%;
       position: relative;
-      -webkit-backdrop-filter: blur(20px);
-              backdrop-filter: blur(20px);
+      backdrop-filter: blur(20px);
       box-shadow: 0 0 25px rgba(160, 170, 178, 0.1), inset 0 0 30px rgba(0, 0, 0, 0.3);
       transition: border-color 0.3s, box-shadow 0.3s;
       opacity: 0.7;
@@ -2305,9 +2289,7 @@
       min-width: 48px;
       min-height: 48px;
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-      -webkit-user-select: none;
-         -moz-user-select: none;
-              user-select: none;
+      user-select: none;
       -webkit-tap-highlight-color: transparent;
       pointer-events: auto;
       touch-action: none;
@@ -2318,14 +2300,14 @@
       z-index: var(--z-mobile-btn);
     }
 
-    @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    @supports (backdrop-filter: blur(1px)) {
       .mobile-btn {
         backdrop-filter: var(--ui-blur) !important;
         -webkit-backdrop-filter: var(--ui-blur) !important;
       }
     }
 
-    @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    @supports not (backdrop-filter: blur(1px)) {
       .mobile-btn {
         background: rgba(15, 20, 30, 0.9) !important;
       }
@@ -2471,14 +2453,13 @@
       transition: opacity 0.4s ease;
     }
 
-    @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    @supports (backdrop-filter: blur(1px)) {
       #camera-mode-badge {
-        -webkit-backdrop-filter: blur(20px);
-                backdrop-filter: blur(20px);
+        backdrop-filter: blur(20px);
       }
     }
 
-    @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    @supports not (backdrop-filter: blur(1px)) {
       #camera-mode-badge {
         background: rgba(30, 35, 45, 0.9) !important;
       }
@@ -2523,8 +2504,7 @@
       background: rgba(0, 0, 0, 0.35) !important;
       border: 1.5px solid rgba(255, 255, 255, 0.15) !important;
       border-radius: 12px !important;
-      -webkit-backdrop-filter: blur(12px) !important;
-              backdrop-filter: blur(12px) !important;
+      backdrop-filter: blur(12px) !important;
       transition: all 0.15s ease;
     }
 

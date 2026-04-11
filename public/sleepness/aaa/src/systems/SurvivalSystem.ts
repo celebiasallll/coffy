@@ -73,6 +73,7 @@ let _syncFrameCounter = 0;
 
 // ── First sync flag ───────────────────────────────────────────────────────────
 let _firstSync = true;
+let _gameGraceTimer = 30.0; // [NEW] 30 seconds grace period at start
 
 // ─────────────────────────────────────────────────────────────────────────────
 export function initSurvival(): void {
@@ -114,6 +115,9 @@ export function updateSurvival(dt: number, sprinting: boolean): SurvivalState {
     _isDead = true;
     if (_deathCallback) _deathCallback('combat');
   }
+
+  // Update Game Grace Timer
+  if (_gameGraceTimer > 0) _gameGraceTimer -= dt;
 
   _syncFrameCounter++;
   if (_syncFrameCounter % 8 === 0) {
@@ -288,8 +292,12 @@ function updateSleepEffects(dt: number, sleep: number, maxSleep: number): void {
   _hallucinationCooldown = Math.max(0, _hallucinationCooldown - dt);
   _microSleepCooldown    = Math.max(0, _microSleepCooldown - dt);
 
-  // ── Hallucination (sleep < 30%) ────────────────────────────────────────────
-  if (pct < 0.30 && pct > 0 && _hallucinationCooldown <= 0) {
+  // ── [SAFETY LOCK] No effects if sleep is actually high (>50%) ───────────────
+  if (pct > 0.50 || _gameGraceTimer > 0) return;
+
+  // ── Hallucination (sleep < 15%) ────────────────────────────────────────────
+  // [ADJUSTED]: 0.30 -> 0.15 for better balance
+  if (pct < 0.15 && pct > 0 && _hallucinationCooldown <= 0) {
     _hallucinationCooldown = 12 + Math.random() * 10;
 
     // CSS shake — costs nothing
@@ -308,7 +316,8 @@ function updateSleepEffects(dt: number, sleep: number, maxSleep: number): void {
     showSurvivalWarning(msgs[Math.floor(Math.random() * msgs.length)], '#cc44ff');
   }
 
-  // ── Micro-sleep (sleep < 15%) ──────────────────────────────────────────────
+  // ── Micro-sleep (sleep < 5%) ──────────────────────────────────────────────
+  // [ADJUSTED]: 0.15 -> 0.05 for high tension only
   if (_microSleepTimer > 0) {
     _microSleepTimer -= dt;
     if (_microSleepTimer <= 0) {
@@ -320,7 +329,7 @@ function updateSleepEffects(dt: number, sleep: number, maxSleep: number): void {
     return; // block further triggers while blacked out
   }
 
-  if (pct < 0.15 && pct > 0 && _microSleepCooldown <= 0) {
+  if (pct < 0.05 && pct > 0 && _microSleepCooldown <= 0) {
     const duration = 1.0 + Math.random() * 1.0; // 1-2 seconds
     _microSleepTimer = duration;
 
@@ -333,10 +342,10 @@ function updateSleepEffects(dt: number, sleep: number, maxSleep: number): void {
     showSurvivalWarning('💤 You blacked out for a moment...', '#cc44ff');
   }
 
-  // ── Sleep bar pulse when critical (pct < 15%) ──────────────────────────────
+  // ── Sleep bar pulse when critical (pct < 10%) ──────────────────────────────
   const sleepBar = document.querySelector('#sleep-bar') as HTMLElement | null;
   if (sleepBar) {
-    sleepBar.classList.toggle('critical-pulse', pct < 0.15);
+    sleepBar.classList.toggle('critical-pulse', pct < 0.10);
   }
 }
 

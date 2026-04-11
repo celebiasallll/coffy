@@ -55,7 +55,7 @@ const lowPolyWallMat = new THREE.MeshStandardMaterial({ color: 0x999999, roughne
 
 const exrLoader = new EXRLoader();
 
-const roofTex = textureLoader.load('assets/roof_3_1k.blend/textures/roof_3_diff_1k.jpg');
+const roofTex = textureLoader.load('textures/house/roof_3_diff_1k.jpg');
 roofTex.wrapS = roofTex.wrapT = THREE.RepeatWrapping;
 roofTex.repeat.set(2, 2);
 
@@ -65,14 +65,14 @@ const roofMat = new THREE.MeshStandardMaterial({
   roughness: 1.0,
 });
 
-exrLoader.load('assets/roof_3_1k.blend/textures/roof_3_nor_gl_1k.exr', (texture) => {
+exrLoader.load('textures/house/roof_3_nor_gl_1k.exr', (texture) => {
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
   texture.repeat.set(2, 2);
   roofMat.normalMap = texture;
   roofMat.needsUpdate = true;
 });
 
-textureLoader.load('assets/roof_3_1k.blend/textures/roof_3_rough_1k.jpg', (texture) => {
+textureLoader.load('textures/house/roof_3_rough_1k.jpg', (texture) => {
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
   texture.repeat.set(2, 2);
   roofMat.roughnessMap = texture;

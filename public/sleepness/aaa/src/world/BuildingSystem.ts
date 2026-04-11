@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { EXRLoader } from 'three/examples/jsm/loaders/EXRLoader.js';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { getHeight, getTerrainNormal, WATER_LEVEL } from './terrain.js';
 import { getPhysicsWorld } from '../core/physics.js';
@@ -9,6 +11,8 @@ export interface HouseData {
   scale: number;
   isSpawned: boolean;
   variant: number;
+  hasRoof: boolean;
+  heightScale: number;
 }
 
 // Sadece evleri eklemek için minimum, risk almayan kurulum.
@@ -27,7 +31,9 @@ boundaryTex.repeat.set(2, 1.5);
 
 // ── Geometri ─────────────────────────────────────────────────────────────
 const wallGeo = new THREE.BoxGeometry(24, 16, 24);
-const roofGeo = new THREE.ConeGeometry(20, 12, 4);
+const roofGeo = new THREE.ConeGeometry(20, 14, 4);
+roofGeo.translate(0, 7, 0); // Move origin to base
+roofGeo.rotateY(Math.PI / 4); // Align square base with axes
 const doorGeo = new THREE.BoxGeometry(4, 8, 0.4);
 const windowGeo = new THREE.PlaneGeometry(4, 4);
 
@@ -37,12 +43,6 @@ const wallTex = textureLoader.load('https://threejs.org/examples/textures/brick_
 wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping;
 wallTex.repeat.set(4, 3);
 
-const roofTex = textureLoader.load('https://threejs.org/examples/textures/terrain/grasslight-big.jpg');
-roofTex.wrapS = roofTex.wrapT = THREE.RepeatWrapping;
-roofTex.repeat.set(3, 3);
-
-const houseWoodFallback = new THREE.MeshStandardMaterial({ color: 0x5a3a1a, roughness: 0.75, metalness: 0.1 });
-
 const wallMaterials: THREE.MeshStandardMaterial[] = [
   new THREE.MeshStandardMaterial({ map: wallTex, color: 0xffffff, roughness: 0.8, metalness: 0.1 }),
   new THREE.MeshStandardMaterial({ map: wallTex, color: 0xddccbb, roughness: 0.8, metalness: 0.1 }),
@@ -50,10 +50,33 @@ const wallMaterials: THREE.MeshStandardMaterial[] = [
   new THREE.MeshStandardMaterial({ map: wallTex, color: 0xcccccc, roughness: 0.8, metalness: 0.1 }),
 ];
 
+// Low-poly wall material for distant buildings (no map, simplified shader)
+const lowPolyWallMat = new THREE.MeshStandardMaterial({ color: 0x999999, roughness: 1.0, metalness: 0.0 });
+
+const exrLoader = new EXRLoader();
+
+const roofTex = textureLoader.load('assets/roof_3_1k.blend/textures/roof_3_diff_1k.jpg');
+roofTex.wrapS = roofTex.wrapT = THREE.RepeatWrapping;
+roofTex.repeat.set(2, 2);
+
 const roofMat = new THREE.MeshStandardMaterial({
   map: roofTex,
-  color: 0x444444, // Greyscale fallback to avoid "red" look
-  roughness: 0.9,
+  color: 0x3d2212, // Dark Brown
+  roughness: 1.0,
+});
+
+exrLoader.load('assets/roof_3_1k.blend/textures/roof_3_nor_gl_1k.exr', (texture) => {
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(2, 2);
+  roofMat.normalMap = texture;
+  roofMat.needsUpdate = true;
+});
+
+textureLoader.load('assets/roof_3_1k.blend/textures/roof_3_rough_1k.jpg', (texture) => {
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(2, 2);
+  roofMat.roughnessMap = texture;
+  roofMat.needsUpdate = true;
 });
 
 const doorMat = new THREE.MeshStandardMaterial({ color: 0x442211, roughness: 0.8, metalness: 0.1 });
@@ -73,21 +96,21 @@ const windowMat = new THREE.MeshStandardMaterial({
 const marketWallMat = new THREE.MeshStandardMaterial({ map: wallTex, color: 0xaa2211, roughness: 0.8, metalness: 0.1 });
 
 // ── Instanced Meshler ────────────────────────────────────────────────────
-let wallInstances: THREE.InstancedMesh[] = [];
-let roofInstance: THREE.InstancedMesh | null = null;
-let doorInstance: THREE.InstancedMesh | null = null;
-let windowInstance: THREE.InstancedMesh | null = null;
-let marketWallInstance: THREE.InstancedMesh | null = null;
+// Deprecated: Instanced meshes are now managed via PerformanceOptimizer LOD groups
 let boundaryInstance: THREE.InstancedMesh | null = null;
 
 // ── Anakara LOD: Tüm bina instanced mesh'lerini döndür ─────────────────────
 export function getBuildingMeshes(): THREE.Object3D[] {
+  if (!optimizer) return [];
   const meshes: THREE.Object3D[] = [];
-  wallInstances.forEach(inst => meshes.push(inst));
-  if (roofInstance) meshes.push(roofInstance);
-  if (doorInstance) meshes.push(doorInstance);
-  if (windowInstance) meshes.push(windowInstance);
-  if (marketWallInstance) meshes.push(marketWallInstance);
+  
+  // Extract all meshes from LOD groups for mainland hiding / shadows
+  // This is a bit of a hack but necessary for the existing group-based optimizer
+  // @ts-ignore
+  optimizer.lodInstancedGroups.forEach(group => {
+    group.meshes.forEach((m: any) => meshes.push(m));
+  });
+
   if (boundaryInstance) meshes.push(boundaryInstance);
   return meshes;
 }
@@ -119,34 +142,30 @@ function addColliderForHouse(
   x: number,
   h: number,
   z: number,
-  scale: number
+  scale: number,
+  heightScale: number
 ): void {
-  // Ev bloğu + biraz boşluk.
+  // Ev bloğu + biraz boşluk. Yükseklik scale'ine göre collider ayarı.
   physicsWorld.createCollider(
-    RAPIER.ColliderDesc.cuboid(12 * scale, 8 * scale, 12 * scale).setTranslation(x, h + 8 * scale, z)
+    RAPIER.ColliderDesc.cuboid(12 * scale, 8 * scale * heightScale, 12 * scale)
+      .setTranslation(x, h + 8 * scale * heightScale, z)
   );
 }
 
 function updateInstances(): void {
-  // [FIX-15]: Local dummy for instance updates
+  // Deprecated: LOD is now handled by updateBuildingLOD via PerformanceOptimizer
+}
+
+export function updateBuildingLOD(cameraPos: THREE.Vector3): void {
+  if (!optimizer || !sceneRef) return;
+  
+  const wallData: any[][] = wallMaterials.map(() => []);
+  const marketData: any[] = [];
+  const roofData: any[] = [];
+  const doorData: any[] = [];
+  const windowData: any[] = [];
+
   const dummy = new THREE.Object3D();
-
-  if (!roofInstance || !doorInstance || !windowInstance || !marketWallInstance) return;
-  if (wallInstances.length === 0) return;
-
-  // En fazla MAX_HOUSES kadar draw.
-  wallInstances.forEach(inst => (inst.count = 0));
-  roofInstance.count = 0;
-  doorInstance.count = 0;
-  windowInstance.count = 0;
-  marketWallInstance.count = 0;
-
-  const wallCounts = new Array(wallInstances.length).fill(0);
-  let roofIdx = 0;
-  let doorIdx = 0;
-  let windowIdx = 0;
-  let marketIdx = 0;
-
   const windowPositions = [
     { pos: new THREE.Vector3(-6, 6, 12.05), rot: 0 },
     { pos: new THREE.Vector3(6, 6, 12.05), rot: 0 },
@@ -159,75 +178,73 @@ function updateInstances(): void {
   ];
 
   for (const house of houses) {
-    if (!house.isSpawned) continue;
     const s = house.scale;
+    const hs = house.heightScale;
     const v = house.variant;
+    const distSq = cameraPos.distanceToSquared(house.position);
 
-    // Wall
+    // Wall Matrix
+    dummy.position.copy(house.position);
+    dummy.position.y = house.position.y + 8 * s * hs - 2;
+    dummy.rotation.set(0, house.rotationY, 0);
+    dummy.scale.set(s, s * hs, s);
+    dummy.updateMatrix();
+    const wallMatrix = dummy.matrix.clone();
+
     if (v === 99 || v === 77) {
-      dummy.position.copy(house.position);
-      dummy.position.y = house.position.y + 8 * s - 2;
-      dummy.rotation.set(0, house.rotationY, 0);
-      dummy.scale.set(s, s, s);
-      dummy.updateMatrix();
-      marketWallInstance.setMatrixAt(marketIdx++, dummy.matrix);
+      marketData.push({ matrix: wallMatrix, pos: house.position });
     } else {
-      const vi = ((v % wallInstances.length) + wallInstances.length) % wallInstances.length;
-      dummy.position.copy(house.position);
-      dummy.position.y = house.position.y + 8 * s - 2;
-      dummy.rotation.set(0, house.rotationY, 0);
-      dummy.scale.set(s, s, s);
-      dummy.updateMatrix();
-      wallInstances[vi].setMatrixAt(wallCounts[vi]++, dummy.matrix);
+      const vi = ((v % wallMaterials.length) + wallMaterials.length) % wallMaterials.length;
+      wallData[vi].push({ matrix: wallMatrix, pos: house.position });
     }
 
-    // Roof
-    dummy.position.copy(house.position);
-    dummy.position.y = house.position.y + 22 * s - 2;
-    dummy.rotation.set(0, house.rotationY + Math.PI / 4, 0);
-    dummy.scale.set(s, s, s);
-    dummy.updateMatrix();
-    roofInstance.setMatrixAt(roofIdx++, dummy.matrix);
-
-    // Door
-    const localDoorPos = new THREE.Vector3(0, 4 * s, 12 * s);
-    localDoorPos.applyAxisAngle(new THREE.Vector3(0, 1, 0), house.rotationY);
-    dummy.position.copy(house.position);
-    dummy.position.add(localDoorPos);
-    dummy.rotation.set(0, house.rotationY, 0);
-    dummy.scale.set(s, s, s);
-    dummy.updateMatrix();
-    doorInstance.setMatrixAt(doorIdx++, dummy.matrix);
-
-    // Windows
-    for (const wp of windowPositions) {
+    // Roof Matrix (Skip if too far or tall)
+    if (house.hasRoof && distSq < 1000 * 1000) {
       dummy.position.copy(house.position);
-      const lwp = wp.pos.clone().multiplyScalar(s);
-      lwp.applyAxisAngle(new THREE.Vector3(0, 1, 0), house.rotationY);
-      dummy.position.add(lwp);
-      dummy.rotation.set(0, house.rotationY + wp.rot, 0);
+      dummy.position.y = house.position.y - 2 + 16 * s * hs;
+      dummy.rotation.set(0, house.rotationY, 0);
       dummy.scale.set(s, s, s);
       dummy.updateMatrix();
-      windowInstance.setMatrixAt(windowIdx++, dummy.matrix);
+      roofData.push({ matrix: dummy.matrix.clone(), pos: house.position });
+    }
+
+    // Detail items: Doors and Windows (LOD Limit: 400m)
+    if (distSq < 400 * 400) {
+      // Door
+      const localDoorPos = new THREE.Vector3(0, 4 * s, 12 * s);
+      localDoorPos.applyAxisAngle(new THREE.Vector3(0, 1, 0), house.rotationY);
+      dummy.position.copy(house.position);
+      dummy.position.add(localDoorPos);
+      dummy.rotation.set(0, house.rotationY, 0);
+      dummy.scale.set(s, s, s);
+      dummy.updateMatrix();
+      doorData.push({ matrix: dummy.matrix.clone(), pos: house.position });
+
+      // Windows
+      const levels = Math.ceil(hs);
+      for (let l = 0; l < levels; l++) {
+        const hOffset = l * 12 * s;
+        for (const wp of windowPositions) {
+          dummy.position.copy(house.position);
+          const lwp = wp.pos.clone().multiplyScalar(s);
+          lwp.y += hOffset;
+          lwp.applyAxisAngle(new THREE.Vector3(0, 1, 0), house.rotationY);
+          dummy.position.add(lwp);
+          dummy.rotation.set(0, house.rotationY + wp.rot, 0);
+          dummy.scale.set(s, s, s);
+          dummy.updateMatrix();
+          windowData.push({ matrix: dummy.matrix.clone(), pos: house.position });
+        }
+      }
     }
   }
 
-  wallInstances.forEach((inst, i) => {
-    inst.count = wallCounts[i];
-    inst.instanceMatrix.needsUpdate = true;
-  });
-
-  roofInstance.count = roofIdx;
-  roofInstance.instanceMatrix.needsUpdate = true;
-
-  doorInstance.count = doorIdx;
-  doorInstance.instanceMatrix.needsUpdate = true;
-
-  windowInstance.count = windowIdx;
-  windowInstance.instanceMatrix.needsUpdate = true;
-
-  marketWallInstance.count = marketIdx;
-  marketWallInstance.instanceMatrix.needsUpdate = true;
+  // Update Optimizer Groups
+  wallData.forEach((data, i) => optimizer!.updateLODGroup(`wall_${i}`, cameraPos, data));
+  optimizer.updateLODGroup('market_wall', cameraPos, marketData);
+  optimizer.updateLODGroup('roof', cameraPos, roofData);
+  optimizer.updateLODGroup('door', cameraPos, doorData);
+  optimizer.updateLODGroup('window', cameraPos, windowData);
 }
 
 export function initBuildingSystem(
@@ -239,37 +256,37 @@ export function initBuildingSystem(
 
   const physicsWorld = getPhysicsWorld();
 
-  wallInstances = [];
+  if (!optimizer) return;
+
   for (let i = 0; i < wallMaterials.length; i++) {
-    const inst = new THREE.InstancedMesh(wallGeo, wallMaterials[i], MAX_HOUSES);
-    inst.castShadow = true;
-    inst.receiveShadow = true;
-    inst.frustumCulled = true;
-    scene.add(inst);
-    wallInstances.push(inst);
+    optimizer.registerLODInstancedType(`wall_${i}`, [
+      { geometry: wallGeo, distance: 600 },
+      { geometry: wallGeo, distance: 2000 }
+    ], wallMaterials[i], MAX_HOUSES);
+    
+    // Patch low poly material to the second level
+    // @ts-ignore
+    optimizer.lodInstancedGroups.get(`wall_${i}`).meshes[1].material = lowPolyWallMat;
   }
 
-  marketWallInstance = new THREE.InstancedMesh(wallGeo, marketWallMat, MAX_HOUSES);
-  marketWallInstance.castShadow = true;
-  marketWallInstance.receiveShadow = true;
-  marketWallInstance.frustumCulled = true;
-  scene.add(marketWallInstance);
+  optimizer.registerLODInstancedType('market_wall', [
+    { geometry: wallGeo, distance: 600 },
+    { geometry: wallGeo, distance: 1500 }
+  ], marketWallMat, 20);
 
-  roofInstance = new THREE.InstancedMesh(roofGeo, roofMat, MAX_HOUSES);
-  roofInstance.castShadow = true;
-  roofInstance.frustumCulled = true;
-  scene.add(roofInstance);
+  optimizer.registerLODInstancedType('roof', [
+    { geometry: roofGeo, distance: 1000 }
+  ], roofMat, MAX_HOUSES);
 
-  doorInstance = new THREE.InstancedMesh(doorGeo, doorMat, MAX_HOUSES);
-  doorInstance.castShadow = true;
-  doorInstance.frustumCulled = true;
-  scene.add(doorInstance);
+  optimizer.registerLODInstancedType('door', [
+    { geometry: doorGeo, distance: 400 }
+  ], doorMat, MAX_HOUSES);
 
-  windowInstance = new THREE.InstancedMesh(windowGeo, windowMat, MAX_HOUSES * 8);
-  windowInstance.frustumCulled = true;
-  scene.add(windowInstance);
+  optimizer.registerLODInstancedType('window', [
+    { geometry: windowGeo, distance: 400 }
+  ], windowMat, MAX_HOUSES * 24);
 
-  // Boundary Instance
+  // Boundary Instance (Kept global as it's few)
   boundaryInstance = new THREE.InstancedMesh(
     new THREE.BoxGeometry(60, 25, 8), 
     new THREE.MeshStandardMaterial({ map: boundaryTex, color: 0x888888, roughness: 0.9, metalness: 0.1 }),
@@ -293,16 +310,25 @@ export function initBuildingSystem(
     if (isSpaceOccupiedByHouses(x, z, 50 * scale)) return;
 
     const v = variant ?? Math.floor(Math.random() * wallMaterials.length);
+    
+    // Architectural Variety:
+    // 1. Random Height (some houses taller)
+    const heightScale = Math.random() < 0.2 ? 1.8 + Math.random() * 2.0 : 1.0;
+    // 2. Random Roof (Only for short buildings, tall ones are flat)
+    const hasRoof = heightScale < 1.5 && Math.random() < 0.95;
+
     houses.push({
       position: new THREE.Vector3(x, h, z),
       rotationY,
       scale,
-      isSpawned: true, // init anında hepsini çiziyoruz (risk azaltma)
+      isSpawned: true, 
       variant: v,
+      hasRoof,
+      heightScale
     });
 
     reserveOccupiedSpace(x, z, 15 * scale);
-    addColliderForHouse(physicsWorld, x, h, z, scale);
+    addColliderForHouse(physicsWorld, x, h, z, scale, heightScale);
   };
 
   // DISTRICT 1: Central City (grid)
@@ -330,40 +356,36 @@ export function initBuildingSystem(
     placeHouse(qx, qz, Math.PI / 4, 1.2, 77);
   }
 
-  // DISTRICT 2: Wild Zones
-  for (let i = 0; i < 80; i++) {
-    let x = 0;
-    let z = 0;
-    let h = 0;
-    let attempts = 0;
-    do {
-      const angle = Math.random() * Math.PI * 2;
-      const r = 500 + Math.random() * 850;
-      x = Math.cos(angle) * r;
-      z = Math.sin(angle) * r;
-      h = getHeight(x, z);
-      attempts++;
-      if (attempts > 30) break;
-    } while (h < 6);
-
-    if (h < 6) continue;
-    placeHouse(x, z, Math.random() * Math.PI * 2, 0.8 + Math.random() * 0.4, undefined);
-  }
-
-  // VILLAGE CLUSTERS
-  const spawnVillage = (cx: number, cz: number, count: number) => {
-    for (let i = 0; i < count; i++) {
-      const ox = (Math.random() - 0.5) * 120;
-      const oz = (Math.random() - 0.5) * 120;
-      placeHouse(cx + ox, cz + oz, Math.random() * Math.PI * 2, 0.9 + Math.random() * 0.3);
+  // DISTRICT 2: SMART HAMLETS (Villages)
+  const spawnHamlet = (cx: number, cz: number, size: number, radius: number = 80) => {
+    const hamletAngle = Math.random() * Math.PI * 2;
+    for (let i = 0; i < size; i++) {
+      const angle = (i / size) * Math.PI * 2 + (Math.random() - 0.5);
+      const dist = radius * 0.4 + Math.random() * radius * 0.6;
+      const x = cx + Math.cos(angle) * dist;
+      const z = cz + Math.sin(angle) * dist;
+      
+      // Face toward center of hamlet or lake
+      const rot = Math.atan2(cx - x, cz - z);
+      placeHouse(x, z, rot, 0.9 + Math.random() * 0.3);
     }
   };
 
-  spawnVillage(-850, -850, 12);
-  spawnVillage(950, -950, 10);
-  spawnVillage(-1100, 400, 15);
-  spawnVillage(600, 1100, 8);
-  spawnVillage(-400, 1200, 10);
+  // Coastal / Valley hamlets
+  spawnHamlet(-400, -200, 5);
+  spawnHamlet(800, 200, 6);
+  spawnHamlet(100, 900, 4);
+  spawnHamlet(-900, 100, 7);
+  spawnHamlet(1200, -400, 5);
+  spawnHamlet(-600, 1000, 6);
+  spawnHamlet(500, -1100, 4);
+  spawnHamlet(-1200, -500, 8);
+
+  // Existing big clusters
+  spawnHamlet(-850, -850, 10, 120);
+  spawnHamlet(950, -950, 10, 120);
+  spawnHamlet(-1100, 400, 12, 120);
+  spawnHamlet(600, 1100, 8, 120);
 
   // Cap all
   if (houses.length > MAX_HOUSES) {

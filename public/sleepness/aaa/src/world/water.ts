@@ -7,14 +7,13 @@ import {
   LAKE_RADIUS,
 } from './terrain.js';
 
+import { IS_MOBILE } from '../utils/device.js';
+
 export { WATER_LEVEL };
 export let water: Water;
 // [FIX-10]: Add getter for water
 export function getWater() { return water; }
 export let reflector: any = null; // Removed external reflector to restore stability
-
-// Mobil Cihaz Tespiti
-const IS_MOBILE = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 0);
 
 export function createWater(scene: THREE.Scene): Water {
   const geo = new THREE.CircleGeometry(LAKE_RADIUS * 0.88, 128);
@@ -140,22 +139,21 @@ export function createOcean(scene: THREE.Scene): Water {
   const OCEAN_SIZE = 20000;
   const geo = new THREE.PlaneGeometry(OCEAN_SIZE, OCEAN_SIZE, 1, 1);
 
+  // [AAA] Caustics texture for shore realism
+  const causticsTex = new THREE.TextureLoader().load(
+    'https://threejs.org/examples/textures/waternormals.jpg', // Using as placeholder/pattern
+    (tex) => {
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    }
+  );
+
   // Farklı normal map — okyanus için daha kaba dalga deseni
   const oceanNormalTex = new THREE.TextureLoader().load(
-    'https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/water_caustics/water_caustics_nor_gl_2k.jpg',
+    'https://threejs.org/examples/textures/waternormals.jpg',
     (tex) => {
       tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
       tex.minFilter = THREE.LinearMipmapLinearFilter;
       tex.magFilter = THREE.LinearFilter;
-    },
-    undefined,
-    // Fallback: eğer Polyhaven yüklenmezse standart texture'ı kullan
-    () => {
-      const fallback = new THREE.TextureLoader().load(
-        'https://threejs.org/examples/textures/waternormals.jpg',
-        (t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; }
-      );
-      if (ocean) ocean.material.uniforms['normalSampler'].value = fallback;
     }
   );
 
@@ -176,23 +174,50 @@ export function createOcean(scene: THREE.Scene): Water {
 
   // ── Custom shader enjeksiyonu — koyu derin okyanus rengi ─────────────────
   ocean.material.onBeforeCompile = (shader) => {
+    shader.uniforms.uCausticsTex = { value: causticsTex };
+    shader.uniforms.uCausticTime = { value: 0 };
+    
+    // Vertex shader'a vUv enjeksiyonu (bazı Water.js versiyonlarında eksik olabilir)
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <common>',
+      `#include <common>
+      varying vec2 vUv;`
+    );
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <begin_vertex>',
+      `#include <begin_vertex>
+      vUv = uv;`
+    );
+
     // Fragment shader'a koyu okyanus tonlaması ekle
     shader.fragmentShader = shader.fragmentShader.replace(
-      'gl_FragColor = vec4( outgoingLight, alpha );',
-      `
-      // ── OKYANUS KOYU TONLAMA ──────────────────────────────────────────
-      // Derin okyanus: su rengi çok daha koyu, yalnız güneş yansıması parlak
-      vec3 deepOcean = vec3(0.002, 0.012, 0.035); // Neredeyse siyah mavi
-      float luminance = dot(outgoingLight, vec3(0.299, 0.587, 0.114));
+      '#include <common>',
+      `#include <common>
+      varying vec2 vUv;
+      uniform sampler2D uCausticsTex;
+      uniform float uCausticTime;`
+    );
 
-      // Parlak yansıma noktalarını koru, geri kalanını karart
+    shader.fragmentShader = shader.fragmentShader.replace(
+      'gl_FragColor = vec4( color, 1.0 );',
+      `
+      // ── OKYANUS KOYU TONLAMA & CAUSTICS ────────────────────────────────
+      vec3 deepOcean = vec3(0.002, 0.012, 0.035); // Neredeyse siyah mavi
+      float luminance = dot(color, vec3(0.299, 0.587, 0.114));
       float specMask = smoothstep(0.15, 0.6, luminance);
-      outgoingLight = mix(deepOcean, outgoingLight * 0.7, specMask);
+      
+      // CAUSTICS (Parlak olmayan bölgelere ekle)
+      vec2 causticUV = vUv * 50.0 + vec2(sin(uCausticTime), cos(uCausticTime)) * 0.05;
+      float caustic = texture2D(uCausticsTex, causticUV).r;
+      color += caustic * 0.05 * (1.0 - specMask);
+
+      // Karartma uygula
+      color = mix(deepOcean, color * 0.7, specMask);
 
       // Hafif yeşilimsi mavi ton (derin su hissi)
-      outgoingLight += vec3(0.0, 0.008, 0.015);
+      color += vec3(0.0, 0.008, 0.015);
 
-      gl_FragColor = vec4( outgoingLight, alpha );
+      gl_FragColor = vec4( color, 1.0 );
       `
     );
   };
@@ -223,6 +248,9 @@ export function updateOcean(dt: number, sunDirection: THREE.Vector3, cameraPos?:
   if (!ocean) return;
   // Yavaş, ağır dalga hareketi — göl (0.8) vs okyanus (0.25)
   ocean.material.uniforms['time'].value += dt * 0.25;
+  if (ocean.material.uniforms['uCausticTime']) {
+    ocean.material.uniforms['uCausticTime'].value += dt * 0.5;
+  }
   ocean.material.uniforms['sunDirection'].value.copy(sunDirection).normalize();
 
   // ── GÜN/GECE UYUMU ──────────────────────────────────────────────────────
@@ -236,34 +264,37 @@ export function updateOcean(dt: number, sunDirection: THREE.Vector3, cameraPos?:
     const isDusk = t >= 0.70 && t <= 0.80;
     const isGolden = (t >= 0.26 && t <= 0.33) || (t >= 0.68 && t <= 0.76);
 
+    let targetDistortion = 3.7;
+
     if (isNight) {
-      // Gece: neredeyse siyah, sadece ay ışığı yansıması
       _oceanWaterColor.setRGB(0.002, 0.005, 0.012);
-      _oceanSunColor.setRGB(0.35, 0.42, 0.58); // soğuk gümüş-mavi ay
-      ocean.material.uniforms['distortionScale'].value = 3.0; // Sakin gece dalgaları
+      _oceanSunColor.setRGB(0.35, 0.42, 0.58);
+      targetDistortion = 3.0;
     } else if (isGolden) {
-      // Altın saat: sıcak amber yansımalı koyu su
       _oceanWaterColor.setRGB(0.008, 0.015, 0.028);
-      _oceanSunColor.setRGB(0.95, 0.72, 0.35); // altın yansıma
-      ocean.material.uniforms['distortionScale'].value = 6.0;
+      _oceanSunColor.setRGB(0.95, 0.72, 0.35);
+      targetDistortion = 6.0;
     } else if (isDawn) {
-      // Şafak: pembe-mor geçiş
       const p = (t - 0.22) / 0.11;
       _oceanWaterColor.setRGB(0.003 + p * 0.005, 0.008 + p * 0.008, 0.018 + p * 0.012);
       _oceanSunColor.setRGB(0.7 + p * 0.25, 0.4 + p * 0.3, 0.3 + p * 0.15);
-      ocean.material.uniforms['distortionScale'].value = 4.0 + p * 4.0;
+      targetDistortion = 4.0 + p * 4.0;
     } else if (isDusk) {
-      // Alacakaranlık: turuncu → koyu geçiş
       const p = (t - 0.70) / 0.10;
       _oceanWaterColor.setRGB(0.008 - p * 0.006, 0.015 - p * 0.010, 0.028 - p * 0.016);
       _oceanSunColor.setRGB(0.9 - p * 0.55, 0.6 - p * 0.18, 0.3 + p * 0.28);
-      ocean.material.uniforms['distortionScale'].value = 6.0 - p * 3.0;
+      targetDistortion = 6.0 - p * 3.0;
     } else {
-      // Gündüz: normal koyu okyanus
-      _oceanWaterColor.setRGB(0.004, 0.018, 0.04);
-      _oceanSunColor.setRGB(0.80, 0.69, 0.47);
-      ocean.material.uniforms['distortionScale'].value = 8.0;
+      _oceanWaterColor.setRGB(0.008, 0.015, 0.035);
+      _oceanSunColor.setRGB(1.0, 1.0, 1.0);
+      targetDistortion = 8.0;
     }
+
+    if (Math.abs(ocean.material.uniforms['distortionScale'].value - targetDistortion) > 0.01) {
+      ocean.material.uniforms['distortionScale'].value = targetDistortion;
+    }
+
+    // Yumuşak geçiş — ani renk atlaması olmasın
 
     // Yumuşak geçiş — ani renk atlaması olmasın
     const current = ocean.material.uniforms['waterColor'].value as THREE.Color;
@@ -279,7 +310,7 @@ export function updateOcean(dt: number, sunDirection: THREE.Vector3, cameraPos?:
   }
 }
 
-export { ocean };
+export { };
 
 // ── OYUNCU SU İÇİNDE Mİ? ────────────────────────────────────────────────────
 

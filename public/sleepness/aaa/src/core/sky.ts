@@ -14,12 +14,42 @@ export function initSky(scene: THREE.Scene): { sky: THREE.Mesh; sun: THREE.Vecto
   skyMaterial = new THREE.MeshBasicMaterial({
     map: texture,
     side: THREE.BackSide,
-    // color: beyaz = texture rengi bozulmadan gösterilir;
-    // color: beyaz = texture rengi bozulmadan gösterilir;
-    // DayNightCycle bu color'ı koyulaştırarak gece/şafak efekti yapar
     color: new THREE.Color(1, 1, 1),
-    fog: true, // Kullanıcı isteği üzerine atmosferik derinlik için sis gökyüzünü etkilemeye devam etmeli (ancak DayNightCycle'da yoğunluğu düşürüldü)
+    fog: false, 
   });
+
+  // ── [HORIZON BLEND] Shader Injection ─────────────────────────────────────
+  // Ufuk çizgisinde sis rengiyle kaynaşması için materyale yükseklik bazlı maske ekliyoruz
+  skyMaterial.onBeforeCompile = (shader) => {
+    shader.uniforms.uFogColor = { value: new THREE.Color(1, 1, 1) };
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <common>',
+      `#include <common>
+       varying vec3 vWorldPos;`
+    );
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <worldpos_vertex>',
+      `#include <worldpos_vertex>
+       vWorldPos = (modelMatrix * vec4(transformed, 1.0)).xyz;`
+    );
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <common>',
+      `#include <common>
+       uniform vec3 uFogColor;
+       varying vec3 vWorldPos;`
+    );
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <color_fragment>',
+      `#include <color_fragment>
+       // Yüksekliğe bağlı sis geçişi (0.0 - 1100.0 aralığına yayıldı)
+       // pow(x, 0.8) ile geçiş daha "atmosferik" bir eğriye sahip oldu.
+       // En tepede bile %12 sis rengi (haze) kalarak derinlik hissi korunur.
+       float hFactor = clamp(vWorldPos.y / 1100.0, 0.0, 1.0);
+       float horizonFactor = pow(hFactor, 0.8) * 0.88 + 0.12; 
+       diffuseColor.rgb = mix(uFogColor, diffuseColor.rgb, horizonFactor);`
+    );
+    (skyMaterial as any)._shader = shader;
+  };
 
   skyMesh = new THREE.Mesh(geometry, skyMaterial);
   skyMesh.name = 'SkyBox';

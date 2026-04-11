@@ -10,15 +10,16 @@
 
 import * as THREE from 'three';
 import { audioManager } from '../core/AudioManager.js';
+import { IS_MOBILE } from '../utils/device.js';
+import { setWetness } from './environment.js';
 
 // ── Sabitler ─────────────────────────────────────────────────────────────────
 
-const DROP_COUNT = 6000;
-const RAIN_AREA = 50;
-const RAIN_HEIGHT = 45;
+const DROP_COUNT = IS_MOBILE ? 2200 : 8000;
+const RAIN_AREA = IS_MOBILE ? 35 : 50;
+const RAIN_HEIGHT = IS_MOBILE ? 35 : 45;
 const DROP_SPEED = 32;
 const DROP_SPEED_V = 14;
-const WIND = new THREE.Vector3(3.5, -35.0, 1.2); // (X, Normal Düşüş, Z)
 
 // ── İç durum ─────────────────────────────────────────────────────────────────
 
@@ -28,7 +29,14 @@ let _target = 0;
 let _active = false;
 let rainSound: THREE.Audio | null = null;
 let _rainStartHour = 0.4;
+let _rainProfile = { duration: 0.04, intensity: 1.0 };
 let _lastDayT = 0;
+
+const RAIN_PROFILES = [
+  { duration: 0.10, intensity: 0.55 },
+  { duration: 0.07, intensity: 0.85 },
+  { duration: 0.04, intensity: 1.15 },
+];
 
 // ── Shader Kaynakları ───────────────────────────────────────────────────────
 
@@ -37,7 +45,6 @@ const vertexShader = `
   uniform float uIntensity;
   uniform float uHeight;
   uniform float uArea;
-  uniform vec3  uWind;
   attribute float aSpeed;
   attribute vec3 aOffset;
 
@@ -46,12 +53,7 @@ const vertexShader = `
   void main() {
     vec3 pos = position;
 
-    float fall = uTime * aSpeed;
-    pos.y = mod(pos.y - fall, uHeight);
-
-    // Rüzgar eğimi — yatay kayma
-    pos.x += (uTime * uWind.x * 0.04);
-    pos.z += (uTime * uWind.z * 0.04);
+    pos.y = mod(pos.y - (uTime * aSpeed * 0.5), uHeight);
 
     pos.x = mod(pos.x + aOffset.x, uArea) - (uArea * 0.5);
     pos.z = mod(pos.z + aOffset.z, uArea) - (uArea * 0.5);
@@ -93,8 +95,8 @@ function createRainTexture(): THREE.Texture {
 
   ctx.fillStyle = gradient;
   ctx.beginPath();
-  // Elips genişliği 4'ten 1.2'ye düşürüldü (Çok daha ince damlalar)
-  ctx.ellipse(16, 64, 1.2, 60, 0, 0, Math.PI * 2);
+  // Elips genişliği 1.2'den 0.8'e düşürüldü (Çok daha ince ve sinematik damlalar)
+  ctx.ellipse(16, 64, 0.8, 60, 0, 0, Math.PI * 2);
   ctx.fill();
 
   const tex = new THREE.CanvasTexture(canvas);
@@ -131,7 +133,6 @@ export function initWeather(scene: THREE.Scene): void {
       uIntensity: { value: 0 },
       uHeight: { value: RAIN_HEIGHT },
       uArea: { value: RAIN_AREA },
-      uWind: { value: WIND },
       uTexture: { value: createRainTexture() }
     },
     vertexShader,
@@ -164,17 +165,21 @@ export function updateWeather(dt: number, camPos: THREE.Vector3, dayT = 0.5): vo
   if (dayT < _lastDayT) {
     // New day cycle (approx. midnight)
     _rainStartHour = 0.1 + Math.random() * 0.7; // Random rain window between 0.1 and 0.8
+    _rainProfile = RAIN_PROFILES[Math.floor(Math.random() * RAIN_PROFILES.length)];
   }
   _lastDayT = dayT;
 
-  const RAIN_DURATION = 0.04; // 1 game hour
+  const RAIN_DURATION = _rainProfile.duration;
   const isRainTime = dayT >= _rainStartHour && dayT <= (_rainStartHour + RAIN_DURATION);
-  setRain(isRainTime, 1.0);
+  setRain(isRainTime, _rainProfile.intensity);
 
-  _intensity += (_target - _intensity) * Math.min(dt * 0.8, 1.0); // Slower fade for automation
+  setWetness(_intensity);
+
+  _intensity += (_target - _intensity) * Math.min(dt * 1.5, 1.0); // Faster fade for transitions
 
   const mat = rainPoints.material as THREE.ShaderMaterial;
-  mat.uniforms.uIntensity.value = 0.45 + _intensity * 0.4;
+  const finalIntensity = _intensity * 0.85;
+  mat.uniforms.uIntensity.value = finalIntensity;
   mat.uniforms.uTime.value += dt;
 
   // Kamera takibi (Işınlanma hissini yok eder)
@@ -191,8 +196,10 @@ export function updateWeather(dt: number, camPos: THREE.Vector3, dayT = 0.5): vo
     }
   }
 
-  if (_intensity < 0.01) {
+  // [FIX] Strict visibility threshold to eliminate "white line" ghost particles during zoom
+  if (_intensity < 0.08) {
     rainPoints.visible = false;
+    mat.uniforms.uIntensity.value = 0;
   } else {
     rainPoints.visible = true;
   }

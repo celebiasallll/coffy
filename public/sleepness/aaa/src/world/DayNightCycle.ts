@@ -14,8 +14,7 @@
  */
 
 import * as THREE from 'three';
-import { setSkyBrightness } from '../core/sky.js';
-import { showMessage } from '../systems/DialogueSystem.js';
+import { setSkyBrightness, skyMaterial } from '../core/sky.js';
 
 // ── Sabitler ─────────────────────────────────────────────────────────────────
 
@@ -56,8 +55,8 @@ const SUN_COLOR_KEYS: ColorKey[] = [
   { t: 0.60, hex: 0xfff6e0 }, // öğleden sonra — çok hafif warm
   { t: 0.68, hex: 0xffdfaa }, // altın saat — soft altın
   { t: 0.73, hex: 0xff9966 }, // alacakaranlık — soft turuncumsu pembe
-  { t: 0.77, hex: 0x000000 },
-  { t: 1.00, hex: 0x000000 },
+  { t: 0.77, hex: 0x0a0c1a },
+  { t: 1.00, hex: 0x0a0c1a },
 ];
 
 // ── HemisphereLight gökyüzü rengi ─────────────────────────────────────────────
@@ -100,6 +99,18 @@ const HEMI_INTENSITY_KEYS: ValueKey[] = [
   { t: 1.00, v: 0.14 },
 ];
 
+const FOG_COLOR_KEYS: ColorKey[] = [
+  { t: 0.00, hex: 0x010205 }, // Gece (zifiri derinlik)
+  { t: 0.22, hex: 0x06080c }, // Şafak öncesi
+  { t: 0.28, hex: 0x7c6b5d }, // Şafak (soğuk bej)
+  { t: 0.33, hex: 0x98a8b8 }, // Sabah (derin gök mavisi-gri)
+  { t: 0.50, hex: 0xa4b4c4 }, // Öğle (puslu atmosfer)
+  { t: 0.68, hex: 0x98a8b8 }, // İkindi
+  { t: 0.73, hex: 0x8c7a6b }, // Günbatımı (tozlu kahve)
+  { t: 0.78, hex: 0x05060a }, // Akşam
+  { t: 1.00, hex: 0x010205 },
+];
+
 const AMBIENT_INTENSITY_KEYS: ValueKey[] = [
   { t: 0.00, v: 0.04 }, // Gece çok az ambient → derin gölgeler
   { t: 0.22, v: 0.04 },
@@ -134,36 +145,31 @@ const _duskTint = new THREE.Color();
 
 function lerpColorKeys(keys: ColorKey[], t: number): THREE.Color {
   t = ((t % 1) + 1) % 1;
-  for (let i = 0; i < keys.length - 1; i++) {
-    if (t >= keys[i].t && t <= keys[i + 1].t) {
-      const f = (t - keys[i].t) / (keys[i + 1].t - keys[i].t);
-      return _ca.setHex(keys[i].hex).lerp(_cb.setHex(keys[i + 1].hex), f);
-    }
+  let lo = 0, hi = keys.length - 2;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (keys[mid + 1].t <= t) lo = mid + 1; else hi = mid;
   }
-  return _tmpColor.setHex(keys[0].hex);
+  const f = (t - keys[lo].t) / (keys[lo + 1].t - keys[lo].t);
+  return _ca.setHex(keys[lo].hex).lerp(_cb.setHex(keys[lo + 1].hex), f);
 }
 
 function lerpValueKeys(keys: ValueKey[], t: number): number {
   t = ((t % 1) + 1) % 1;
-  for (let i = 0; i < keys.length - 1; i++) {
-    if (t >= keys[i].t && t <= keys[i + 1].t) {
-      const f = (t - keys[i].t) / (keys[i + 1].t - keys[i].t);
-      return keys[i].v + (keys[i + 1].v - keys[i].v) * f;
-    }
+  let lo = 0, hi = keys.length - 2;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (keys[mid + 1].t <= t) lo = mid + 1; else hi = mid;
   }
-  return keys[0].v;
+  const f = (t - keys[lo].t) / (keys[lo + 1].t - keys[lo].t);
+  return keys[lo].v + (keys[lo + 1].v - keys[lo].v) * f;
 }
 
 // ── Durum ─────────────────────────────────────────────────────────────────────
 
 let _time = DEFAULT_START_TIME;
 let _elapsed = 0;
-let _fogActive = false;
-let _fogStartHour = 0.6;
-let _autoFogIntensity = 0;
-let _lastDayT = 0;
 let _initialized = false;
-let _fog: THREE.FogExp2 | null = null;
 
 export const sunDirection = new THREE.Vector3(1, 1, 0.5).normalize();
 
@@ -178,12 +184,6 @@ const TIME_HOTKEYS: Record<string, number> = {
 
 function onDayHotkey(e: KeyboardEvent): void {
   if (document.activeElement?.tagName === 'INPUT') return;
-
-  if (e.code === 'KeyU') {
-    _fogActive = !_fogActive;
-    if (import.meta.env.DEV) console.log(`🌫️ Fog: ${_fogActive ? 'ON' : 'OFF'}`);
-    return;
-  }
 
   const target = TIME_HOTKEYS[e.code];
   if (target === undefined) return;
@@ -203,12 +203,16 @@ export function jumpToTime(t: number): void {
   _elapsed = _time * DAY_CYCLE_SECONDS;
 }
 
-export function initDayNight(startTime = DEFAULT_START_TIME): void {
+export function initDayNight(scene: THREE.Scene, startTime = DEFAULT_START_TIME): void {
   if (_initialized) return;
   _initialized = true;
   _time = startTime;
   _elapsed = startTime * DAY_CYCLE_SECONDS;
   window.addEventListener('keydown', onDayHotkey);
+
+  // Initialize World Fog
+  const color = lerpColorKeys(FOG_COLOR_KEYS, startTime);
+  scene.fog = new THREE.Fog(color, 600, 2500);
 }
 
 /**
@@ -248,6 +252,26 @@ export function updateDayNight(
       Math.max(sunDirection.y, 0.05) * 300,
       camPos.z + sunDirection.z * 300,
     );
+  }
+
+  // ── SİS (FOG) GÜNCELLEME (LOD Maskeleme + Atmosfer) ──────────────────────
+  const currentFogColor = lerpColorKeys(FOG_COLOR_KEYS, t);
+  // DEFINITIVE MASKING: Density 0.0028 ensures strong masking at 400m+ LOD ranges.
+  // The sky shader handles vertical clarity so that look-up remains clear.
+  const fogDensity = 0.0028;
+
+  if (scene.fog && scene.fog instanceof THREE.FogExp2) {
+    scene.fog.color.copy(currentFogColor);
+    scene.fog.density = fogDensity;
+  } else if (!scene.fog || !(scene.fog as any)._isOceanFog) {
+    scene.fog = new THREE.FogExp2(currentFogColor, fogDensity);
+  }
+
+  // Update Sky Horizon Blending uniform
+  // @ts-ignore
+  if (skyMaterial && skyMaterial._shader) {
+      // @ts-ignore
+      skyMaterial._shader.uniforms.uFogColor.value.copy(currentFogColor);
   }
 
   // ── Ay ışığı (gece) ───────────────────────────────────────────────────────
@@ -308,48 +332,7 @@ export function updateDayNight(
     setSkyBrightness(1.0);
   }
 
-  // ── Otomatik Sis + Atmosferik Mesafe Sisi ───────────────────────────────
-  if (t < _lastDayT) {
-    _fogStartHour = 0.1 + Math.random() * 0.7;
-  }
-  _lastDayT = t;
-
-  const FOG_DURATION = 0.08;
-  const isFogTime = t >= _fogStartHour && t <= (_fogStartHour + FOG_DURATION);
-  const targetAutoIntensity = isFogTime ? 1.0 : 0.0;
-  _autoFogIntensity += (targetAutoIntensity - _autoFogIntensity) * Math.min(dt * 0.5, 1.0);
-
-  const eventIntensity = Math.max(_autoFogIntensity, _fogActive ? 1.0 : 0.0);
-
-  // ── [AAA] Atmosferik Mesafe Sisi — her zaman aktif ──────────────────────
-  // Uzak nesneleri yumuşatır, ufku eritir, derinlik algısı katar
-  let baseDensity: number;
-  let fogColor: number;
-
-  if (isNight) {
-    baseDensity = 0.00018;     // Gece: azaltıldı, sky.png görünebilir
-    fogColor = 0x04081a;
-  } else if (isGolden) {
-    baseDensity = 0.00015;     // Altın saat: soft bej-mavi
-    fogColor = 0xbdb5ab;
-  } else if (isDawn || isDusk) {
-    baseDensity = 0.00012;     // Şafak/alacakaranlık: hafif pudra-gri
-    fogColor = 0x94868a;
-  } else {
-    baseDensity = 0.00008;     // Gündüz: ufuk sisi (sky.png %90 net)
-    fogColor = 0x8aaec8;
-  }
-
-  // Hava olayı sisi taban sisin üzerine katmanlanır
-  const totalDensity = baseDensity + (eventIntensity * 0.0018);
-
-  if (!_fog) {
-    _fog = new THREE.FogExp2(fogColor, totalDensity);
-    scene.fog = _fog;
-  }
-  _fog.color.setHex(fogColor);
-  // Yumuşak geçiş — ani değişiklikleri önler
-  _fog.density += (totalDensity - _fog.density) * Math.min(dt * 1.5, 1.0);
+  return sunDirection;
 
   return sunDirection;
 }

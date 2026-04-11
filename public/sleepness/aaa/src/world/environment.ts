@@ -5,6 +5,10 @@ import { getHeight, getTerrainNormal, WATER_LEVEL, LAKE_CENTER_X, LAKE_CENTER_Z,
 import { getPhysicsWorld } from '../core/physics.js';
 import { PerformanceOptimizer } from '../core/PerformanceOptimizer.js';
 import { initBuildingSystem } from './BuildingSystem.js';
+import { IS_MOBILE } from '../utils/device.js';
+
+let uWetness = { value: 0.0 };
+export function setWetness(v: number) { uWetness.value = v; }
 
 // ── Yardımcılar ──────────────────────────────────────────────────────────────
 
@@ -12,18 +16,45 @@ function rnd(min: number, max: number): number {
   return min + Math.random() * (max - min);
 }
 
-const occupiedSpaces: { x: number; z: number; radius: number }[] = [];
+class SpatialHash {
+  private cells = new Map<string, { x: number; z: number; radius: number }[]>();
+  private readonly cellSize = 50;
+
+  private key(x: number, z: number): string {
+    return `${Math.floor(x / this.cellSize)},${Math.floor(z / this.cellSize)}`;
+  }
+
+  insert(x: number, z: number, radius: number): void {
+    const k = this.key(x, z);
+    if (!this.cells.has(k)) this.cells.set(k, []);
+    this.cells.get(k)!.push({ x, z, radius });
+  }
+
+  query(x: number, z: number, radius: number): boolean {
+    const cx = Math.floor(x / this.cellSize);
+    const cz = Math.floor(z / this.cellSize);
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dz = -1; dz <= 1; dz++) {
+        const k = `${cx + dx},${cz + dz}`;
+        for (const s of this.cells.get(k) ?? []) {
+          if ((x - s.x) ** 2 + (z - s.z) ** 2 < (radius + s.radius) ** 2) return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  clear(): void { this.cells.clear(); }
+}
+
+const spatialHash = new SpatialHash();
 
 export function isSpaceOccupied(x: number, z: number, radius: number): boolean {
-  for (const s of occupiedSpaces) {
-    const dx = x - s.x, dz = z - s.z;
-    if (dx * dx + dz * dz < (radius + s.radius) ** 2) return true;
-  }
-  return false;
+  return spatialHash.query(x, z, radius);
 }
 
 export function registerOccupiedSpace(x: number, z: number, radius: number): void {
-  occupiedSpaces.push({ x, z, radius });
+  spatialHash.insert(x, z, radius);
 }
 
 export function getSlopeAngle(x: number, z: number): number {
@@ -48,7 +79,7 @@ const trunkMat = new THREE.MeshStandardMaterial({
 });
 
 // [AAA] Yaprak: subsurface scattering taklidi (arka ışıkta yarı saydam görünüm)
-// + Rüzgar sallantısı shader enjeksiyonu
+// + Rüzgar sallantısı shader enjeksiyonu kaldırıldı (sadece ıslaklık efekti kaldı)
 function createLeafMaterial(color: number): THREE.MeshStandardMaterial {
   const mat = new THREE.MeshStandardMaterial({
     color,
@@ -61,27 +92,26 @@ function createLeafMaterial(color: number): THREE.MeshStandardMaterial {
     side: THREE.DoubleSide,
   });
 
-  // ── [RÜZGAR] Vertex shader enjeksiyonu — neredeyse sıfır GPU maliyeti ─────
   mat.onBeforeCompile = (shader) => {
-    shader.uniforms.uWindTime = { value: 0 };
-    // Vertex: rüzgar sallantısı (sin dalgası, Y yüksekliğine bağlı)
-    shader.vertexShader = shader.vertexShader.replace(
+    shader.uniforms.uWetness = uWetness;
+    // Fragment: Islaklık (Yansıma artışı ve kararma)
+    shader.fragmentShader = shader.fragmentShader.replace(
       '#include <common>',
       `#include <common>
-      uniform float uWindTime;`
+      uniform float uWetness;`
     );
-    shader.vertexShader = shader.vertexShader.replace(
-      '#include <begin_vertex>',
-      `#include <begin_vertex>
-      // Rüzgar: yükseldikçe daha fazla sallanır (ağaç tepesi çok, gövde az)
-      float windStrength = smoothstep(0.0, 3.0, position.y) * 0.35;
-      transformed.x += sin(uWindTime * 1.8 + position.x * 0.5 + position.z * 0.3) * windStrength;
-      transformed.z += cos(uWindTime * 1.3 + position.z * 0.4) * windStrength * 0.6;`
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <roughnessmap_fragment>',
+      `#include <roughnessmap_fragment>
+      roughnessFactor *= (1.0 - uWetness * 0.7);`
     );
-    // Shader referansını sakla — update'te kullanacağız
-    (mat as any)._windShader = shader;
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <color_fragment>',
+      `#include <color_fragment>
+      diffuseColor.rgb *= (1.0 - uWetness * 0.3);`
+    );
   };
-  mat.customProgramCacheKey = () => 'leaf-wind-v1';
+  mat.customProgramCacheKey = () => 'leaf-base-v2-nowind';
   return mat;
 }
 
@@ -91,12 +121,14 @@ const leafMats = [
   createLeafMaterial(0x358528),
 ];
 
+// Birch Tree Geometry (Optional variety)
+const birchTrunkGeo = new THREE.CylinderGeometry(0.12, 0.22, 4, 6);
+const birchLeafGeo = new THREE.DodecahedronGeometry(1.5, 0);
+
 // ── GLB Loader (ortak) ───────────────────────────────────────────────────────
 
 const gltfLoader = new GLTFLoader();
 const birdGltfLoader = new GLTFLoader(new THREE.LoadingManager());
-
-
 
 // ── Procedural ağaçlar (InstancedMesh — mevcut sistem korundu) ───────────────
 
@@ -106,6 +138,11 @@ function addTreesInstanced(scene: THREE.Scene): void {
   if (!optimizer) return;
   const physicsWorld = getPhysicsWorld();
 
+  const trunkGeo = new THREE.CylinderGeometry(0.18, 0.45, 3, 7);
+  const trunkLow = new THREE.CylinderGeometry(0.2, 0.5, 3, 3);
+  const leafLow  = new THREE.ConeGeometry(1.2, 4, 3);
+  const roundLow = new THREE.SphereGeometry(1.3, 3, 3);
+
   const leafGeometries = [
     new THREE.ConeGeometry(1.6, 2.8, 7),
     new THREE.ConeGeometry(1.2, 2.3, 7),
@@ -113,7 +150,7 @@ function addTreesInstanced(scene: THREE.Scene): void {
   ];
 
   const GRID = 8, SPREAD = 1500;
-  const treeData: { x: number; y: number; z: number; s: number; isRound: boolean }[] = [];
+  const treeData: { x: number; y: number; z: number; s: number; isRound: boolean; variant: number }[] = [];
 
   for (let gi = 0; gi < GRID; gi++) {
     for (let gj = 0; gj < GRID; gj++) {
@@ -131,8 +168,9 @@ function addTreesInstanced(scene: THREE.Scene): void {
         const sc = rnd(1.0, 2.0);
         if (isSpaceOccupied(x, z, sc * 4))      continue;
 
-        treeData.push({ x, y: h - 0.2, z, s: sc, isRound: Math.random() < 0.45 });
-        occupiedSpaces.push({ x, z, radius: sc * 4 });
+        const isBirch = Math.random() < 0.2;
+        treeData.push({ x, y: h - 0.2, z, s: sc, isRound: Math.random() < 0.45, variant: isBirch ? 3 : Math.floor(Math.random() * 3) });
+        spatialHash.insert(x, z, sc * 4);
         physicsWorld.createCollider(
           RAPIER.ColliderDesc.cylinder(1.0 * sc, 0.3 * sc).setTranslation(x, h + 1.0 * sc, z)
         );
@@ -140,41 +178,92 @@ function addTreesInstanced(scene: THREE.Scene): void {
     }
   }
 
-  const trunkMesh = optimizer.registerInstancedType('pine_trunk', trunkGeo, trunkMat, treeData.length);
-  const leafMeshes = leafGeometries.map((geo, i) =>
-    // Only the largest/base leaf (i=0) casts shadows to save 66% draw calls per tree
-    optimizer!.registerInstancedType(`pine_leaf_${i}`, geo, leafMats[i], treeData.filter(d => !d.isRound).length, i === 0, false)
-  );
-  const roundGeo  = new THREE.SphereGeometry(1.8, 8, 6);
-  roundGeo.scale(1.15, 1.3, 1.15);
-  const roundMesh = optimizer.registerInstancedType('round_leaf', roundGeo, leafMats[1], treeData.filter(d => d.isRound).length, true, false);
+  const treeCount = treeData.length;
 
-  let pineIdx = 0, roundIdx = 0;
-  const mat4 = new THREE.Matrix4(), quat = new THREE.Quaternion();
-  const scale = new THREE.Vector3(), pos = new THREE.Vector3();
+  // Trunk LOD
+  optimizer.registerLODInstancedType('pine_trunk', [
+    { geometry: trunkGeo, distance: 150 },
+    { geometry: trunkLow, distance: 1000 }
+  ], trunkMat, treeCount);
 
-  treeData.forEach((data, i) => {
-    pos.set(data.x, data.y + 1.25 * data.s, data.z);
-    scale.setScalar(data.s);
-    mat4.compose(pos, quat, scale);
-    trunkMesh.setMatrixAt(i, mat4);
-
-    if (data.isRound) {
-      pos.set(data.x, data.y + 5.0 * data.s, data.z);
-      mat4.compose(pos, quat, scale);
-      roundMesh.setMatrixAt(roundIdx++, mat4);
-    } else {
-      [2.5, 4.2, 5.5].forEach((oy, li) => {
-        pos.set(data.x, data.y + oy * data.s, data.z);
-        mat4.compose(pos, quat, scale);
-        leafMeshes[li].setMatrixAt(pineIdx, mat4);
-      });
-      pineIdx++;
-    }
+  // Leaf LODs (Pine)
+  leafGeometries.forEach((geo, i) => {
+    optimizer.registerLODInstancedType(`pine_leaf_${i}`, [
+      { geometry: geo, distance: 450 },
+      { geometry: leafLow, distance: 1200 }
+    ], leafMats[i], treeCount, i === 0);
   });
 
-  trunkMesh.instanceMatrix.needsUpdate = true;
-  roundMesh.instanceMatrix.needsUpdate = true;
+  // Round Tree LOD
+  const roundGeo  = new THREE.SphereGeometry(1.8, 8, 6);
+  roundGeo.scale(1.15, 1.3, 1.15);
+  optimizer.registerLODInstancedType('round_leaf', [
+    { geometry: roundGeo, distance: 450 },
+    { geometry: roundLow, distance: 1200 }
+  ], leafMats[1], treeCount, true);
+
+  // Birch LOD
+  optimizer.registerLODInstancedType('birch_trunk', [
+    { geometry: birchTrunkGeo, distance: 450 },
+    { geometry: trunkLow, distance: 1200 }
+  ], trunkMat, treeCount); 
+  optimizer.registerLODInstancedType('birch_leaf', [
+    { geometry: birchLeafGeo, distance: 450 },
+    { geometry: leafLow, distance: 1200 }
+  ], leafMats[0], treeCount);
+
+  // We'll store matrices for updateEnvironment
+  (window as any)._treeData = treeData.map(d => {
+    const matrix = new THREE.Matrix4().compose(
+      new THREE.Vector3(d.x, d.y + 1.25 * d.s, d.z), 
+      new THREE.Quaternion().setFromEuler(new THREE.Euler(0, rnd(0, Math.PI), 0)),
+      new THREE.Vector3(d.s, d.s, d.s)
+    );
+    const leafMatrix = new THREE.Matrix4().compose(
+      new THREE.Vector3(d.x, d.y + 3.5 * d.s, d.z),
+      new THREE.Quaternion(),
+      new THREE.Vector3(d.s, d.s, d.s)
+    );
+    // Pine leaf heights
+    const pMatrices = [2.5, 4.2, 5.5].map(oy => new THREE.Matrix4().compose(
+      new THREE.Vector3(d.x, d.y + oy * d.s, d.z),
+      new THREE.Quaternion(),
+      new THREE.Vector3(d.s, d.s, d.s)
+    ));
+
+    return { matrix, leafMatrix, pMatrices, pos: new THREE.Vector3(d.x, d.y, d.z), isRound: d.isRound, variant: d.variant, isBirch: d.variant === 3 };
+  });
+}
+
+function updateTreeLOD(cameraPos: THREE.Vector3) {
+  const data = (window as any)._treeData;
+  if (!data || !optimizer) return;
+
+  const trunks: any[] = [];
+  const leafGroups: any[][] = [[], [], []];
+  const roundLeaves: any[] = [];
+  const birches: any[] = [];
+  const birchLeaves: any[] = [];
+
+  for (const t of data) {
+    if (t.isBirch) {
+       birches.push({ matrix: t.matrix, pos: t.pos });
+       birchLeaves.push({ matrix: t.leafMatrix, pos: t.pos });
+       continue;
+    }
+    trunks.push({ matrix: t.matrix, pos: t.pos });
+    if (t.isRound) {
+       roundLeaves.push({ matrix: t.leafMatrix, pos: t.pos });
+    } else {
+       t.pMatrices.forEach((m: any, i: number) => leafGroups[i].push({ matrix: m, pos: t.pos }));
+    }
+  }
+
+  optimizer.updateLODGroup('pine_trunk', cameraPos, trunks);
+  leafGroups.forEach((group, i) => optimizer.updateLODGroup(`pine_leaf_${i}`, cameraPos, group));
+  optimizer.updateLODGroup('round_leaf', cameraPos, roundLeaves);
+  optimizer.updateLODGroup('birch_trunk', cameraPos, birches);
+  optimizer.updateLODGroup('birch_leaf', cameraPos, birchLeaves);
 }
 
 // ── Kayalar (Instanced) ──────────────────────────────────────────────────────
@@ -204,7 +293,7 @@ function addRocksInstanced(scene: THREE.Scene): void {
     if (isSpaceOccupied(x, z, s * 1.2)) continue;
     const sx = rnd(0.8, 1.8) * s, sy = rnd(0.4, 1.0) * s, sz = rnd(0.8, 1.8) * s;
     rockData.push({ x, y: h + sy * 0.5, z, sx, sy, sz, rot: new THREE.Euler(rnd(0, Math.PI), rnd(0, Math.PI), rnd(0, Math.PI)) });
-    occupiedSpaces.push({ x, z, radius: s * 1.2 });
+    spatialHash.insert(x, z, s * 1.2);
     physicsWorld.createCollider(
       RAPIER.ColliderDesc.cuboid(sx * 0.7, sy * 0.7, sz * 0.7).setTranslation(x, h + sy * 0.5, z)
     );
@@ -246,7 +335,7 @@ function addMushrooms(scene: THREE.Scene): void {
     if (isSpaceOccupied(x, z, 0.5)) continue;
 
     mushroomData.push({ x, y: h, z, s: rnd(0.7, 1.4), colorHue: rnd(0, 0.12) });
-    occupiedSpaces.push({ x, z, radius: 0.5 });
+    spatialHash.insert(x, z, 0.5);
   }
 
   const stemMesh = optimizer.registerInstancedType('mushroom_stem', stemGeo, stemMat, mushroomData.length, false, false);
@@ -289,10 +378,11 @@ const birdModelCache = new Map<string, { scene: THREE.Group; animations: THREE.A
 function addAnimals(scene: THREE.Scene): void {
   // Kuşlar
   const birdTypes = (['flamingo', 'stork', 'parrot'] as const);
-  for (let i = 0; i < 6; i++) {
+  const birdCount = IS_MOBILE ? 8 : 22;
+  
+  for (let i = 0; i < birdCount; i++) {
     const bType = birdTypes[i % 3];
-    const bAngle = (i / 6) * Math.PI * 2;
-    // Referans: göl çevresinde daha yüksekten ve daha hızlı uçuş
+    const bAngle = (i / birdCount) * Math.PI * 2;
     const bR = rnd(LAKE_RADIUS + 20, LAKE_RADIUS + 150);
     const bx = Math.cos(bAngle) * bR, bz = Math.sin(bAngle) * bR;
     const bWPs: THREE.Vector3[] = [];
@@ -341,36 +431,70 @@ function addAnimals(scene: THREE.Scene): void {
 
 // ── Update helpers ────────────────────────────────────────────────────────────
 
-function updateBirds(dt: number, time: number): void {
+function updateBirds(dt: number, time: number, cameraPos: THREE.Vector3): void {
+  const cohesionDist = 50;
+  const separationDist = 15;
+  const alignmentDist = 50;
+
   for (const bird of birdList) {
     bird.mixer.update(dt);
-    const target = bird.waypoints[bird.currentWP];
     const pos = bird.model.position;
-    const dx = target.x - pos.x, dz = target.z - pos.z;
-    const dist = Math.sqrt(dx * dx + dz * dz);
-    if (dist < 12.0) {
-      bird.currentWP = (bird.currentWP + 1) % bird.waypoints.length;
-    } else {
-      pos.x += (dx / dist) * bird.speed * dt;
-      pos.z += (dz / dist) * bird.speed * dt;
-      const wave = Math.sin(time * 2.0 + bird.currentWP * 1.3) * 3.0;
-      // Referans: Y dalgası yumuşak geçiş
-      pos.y = THREE.MathUtils.lerp(pos.y, target.y + wave, 0.05);
 
-      // Referans: yumuşak dönüş
-      const targetYaw = Math.atan2(dx, dz);
-      let diff = targetYaw - bird.model.rotation.y;
-      while (diff < -Math.PI) diff += Math.PI * 2;
-      while (diff > Math.PI) diff -= Math.PI * 2;
-      bird.model.rotation.y += diff * 0.035;
+    const cohesion = new THREE.Vector3();
+    const separation = new THREE.Vector3();
+    const alignment = new THREE.Vector3();
+    let count = 0;
+
+    for (const other of birdList) {
+      if (other === bird) continue;
+      const dist = pos.distanceTo(other.model.position);
+      if (dist < cohesionDist) {
+        cohesion.add(other.model.position);
+        alignment.add(new THREE.Vector3(0, 1, 0).applyQuaternion(other.model.quaternion));
+        count++;
+      }
+      if (dist < separationDist) {
+        const diff = new THREE.Vector3().subVectors(pos, other.model.position);
+        separation.add(diff.divideScalar(dist));
+      }
     }
+
+    const velocity = new THREE.Vector3(0, 0, 1).applyQuaternion(bird.model.quaternion).multiplyScalar(bird.speed);
+
+    if (count > 0) {
+      cohesion.divideScalar(count).sub(pos).multiplyScalar(0.02);
+      alignment.divideScalar(count).multiplyScalar(0.05);
+      velocity.add(cohesion).add(alignment);
+    }
+    velocity.add(separation.multiplyScalar(0.15));
+
+    // Keep near lake
+    const distToCenterSq = pos.x * pos.x + pos.z * pos.z;
+    if (distToCenterSq > (LAKE_RADIUS + 300) ** 2) {
+      velocity.add(new THREE.Vector3(-pos.x, 0, -pos.z).normalize().multiplyScalar(2.0));
+    }
+
+    // Height control
+    const targetH = getHeight(pos.x, pos.z) + 25;
+    velocity.y += (targetH - pos.y) * 0.1;
+
+    // Apply velocity
+    bird.model.position.add(velocity.multiplyScalar(dt));
+    
+    // Rotation (Look ahead)
+    const targetRot = Math.atan2(velocity.x, velocity.z);
+    bird.model.rotation.y = THREE.MathUtils.lerp(bird.model.rotation.y, targetRot, 0.05);
+    
+    // Banking
+    const bank = (targetRot - bird.model.rotation.y) * 1.5;
+    bird.model.rotation.z = THREE.MathUtils.lerp(bird.model.rotation.z, bank, 0.1);
   }
 }
 
 // ── Ana giriş noktaları ───────────────────────────────────────────────────────
 
 export function populateEnvironment(scene: THREE.Scene): void {
-  occupiedSpaces.length = 0;
+  spatialHash.clear();
   optimizer = new PerformanceOptimizer(scene);
   // @ts-ignore (Global erişim için)
   window.optimizer = optimizer;
@@ -386,12 +510,7 @@ export function populateEnvironment(scene: THREE.Scene): void {
   // addGrassInstanced removed as grass is now loaded via CDN as per user request
 }
 
-export function updateEnvironment(dt: number, time: number): void {
-  updateBirds(dt, time);
-
-  // ── [RÜZGAR] Yaprak shader'larının zamanını güncelle ─────────────────────
-  for (const mat of leafMats) {
-    const shader = (mat as any)._windShader;
-    if (shader) shader.uniforms.uWindTime.value = time;
-  }
+export function updateEnvironment(dt: number, time: number, cameraPos: THREE.Vector3): void {
+  updateBirds(dt, time, cameraPos);
+  updateTreeLOD(cameraPos);
 }

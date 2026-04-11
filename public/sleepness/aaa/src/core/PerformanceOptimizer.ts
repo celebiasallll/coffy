@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 export class PerformanceOptimizer {
     private instancedMeshes: Map<string, THREE.InstancedMesh> = new Map();
+    private lodInstancedGroups: Map<string, { meshes: THREE.InstancedMesh[], distances: number[], counts: number[] }> = new Map();
     private lodObjects: { mesh: THREE.Object3D; distance: number; visible: boolean }[] = [];
     private scene: THREE.Scene;
 
@@ -28,9 +29,29 @@ export class PerformanceOptimizer {
         const imesh = new THREE.InstancedMesh(geometry, material, count);
         imesh.castShadow = castShadow;
         imesh.receiveShadow = receiveShadow;
+        imesh.frustumCulled = false;
         this.scene.add(imesh);
         this.instancedMeshes.set(id, imesh);
         return imesh;
+    }
+
+    /**
+     * Registers a group of instanced meshes for LOD.
+     */
+    registerLODInstancedType(id: string, levels: { geometry: THREE.BufferGeometry, distance: number }[], material: THREE.Material, count: number, castShadow: boolean = true) {
+        const meshes: THREE.InstancedMesh[] = [];
+        const distances: number[] = [];
+        levels.forEach(lvl => {
+            const imesh = new THREE.InstancedMesh(lvl.geometry, material, count);
+            imesh.castShadow = castShadow;
+            imesh.visible = false;
+            imesh.frustumCulled = false;
+            this.scene.add(imesh);
+            meshes.push(imesh);
+            distances.push(lvl.distance);
+        });
+        this.lodInstancedGroups.set(id, { meshes, distances, counts: new Array(meshes.length).fill(0) });
+        return meshes;
     }
 
     setInstanceAt(id: string, index: number, matrix: THREE.Matrix4) {
@@ -98,7 +119,7 @@ export class PerformanceOptimizer {
                 (this.scene.fog as THREE.FogExp2).density = density;
             }
         } else if (this.scene.fog && (this.scene.fog as any)._isOceanFog) {
-            // Anakaraya döndük — okyanus fog'unu kaldır
+            // Anakaraya döndük — okyanus fog'unu kaldır (World Fog otomatik dönecek)
             this.scene.fog = null;
         }
 
@@ -153,6 +174,17 @@ export class PerformanceOptimizer {
             return;
         }
 
+        // LOD Instanced Groups
+        this.lodInstancedGroups.forEach((group, id) => {
+            if (isHighAlt) {
+                group.meshes.forEach(m => m.visible = false);
+                return;
+            }
+            // Logic for LOD group visibility
+            // Manual frustum culling on groups removed to prevent artifacts with globally spread instances
+            group.meshes.forEach(m => m.visible = true);
+        });
+
         this.instancedMeshes.forEach((imesh, id) => {
             if (isHighAlt) {
                 // "Paper Map" Mode: Hide all decorative instances at high altitude
@@ -168,8 +200,34 @@ export class PerformanceOptimizer {
                 }
             }
             
-            // Frustum culling (buffered)
-            imesh.visible = this.frustum.intersectsObject(imesh);
+            // Manual frustum culling removed for global instances
+            imesh.visible = true;
+        });
+    }
+
+    /**
+     * Updates LOD matrices for a group.
+     */
+    updateLODGroup(id: string, cameraPos: THREE.Vector3, data: { matrix: THREE.Matrix4, pos: THREE.Vector3 }[]) {
+        const group = this.lodInstancedGroups.get(id);
+        if (!group) return;
+
+        group.counts.fill(0);
+        for (const item of data) {
+            const distSq = cameraPos.distanceToSquared(item.pos);
+            let level = group.meshes.length - 1;
+            for (let i = 0; i < group.distances.length; i++) {
+                if (distSq < group.distances[i] * group.distances[i]) {
+                    level = i;
+                    break;
+                }
+            }
+            group.meshes[level].setMatrixAt(group.counts[level]++, item.matrix);
+        }
+
+        group.meshes.forEach((m, i) => {
+            m.count = group.counts[i];
+            m.instanceMatrix.needsUpdate = true;
         });
     }
 

@@ -452,7 +452,7 @@ export function getJetNearInfo(playerPos: THREE.Vector3): { dist: number } | nul
     if (!jet || jet.isOccupied) return null;
     const p = jet.rb.translation();
     const dist = Math.hypot(p.x - playerPos.x, p.z - playerPos.z);
-    return dist < 15 ? { dist } : null;
+    return dist < 8 ? { dist } : null;
 }
 
 export const getJetPosition = () => {

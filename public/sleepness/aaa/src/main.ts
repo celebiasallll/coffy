@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { IS_MOBILE, isMobileViewport } from './utils/device.js';
 
 // ─── PRODUCTION CONSOLE FILTER ──────────────────────────────────────────────
 (function () {
@@ -20,7 +21,7 @@ import * as THREE from 'three';
 // ─── MOBILE DETECTION & IMMERSIVE SETUP ──────────────────────────────────────
 
 // --- MOBILE DETECTION & IMMERSIVE SETUP ---
-const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 0);
+const isMobile = IS_MOBILE;
 if (isMobile) {
   document.body.classList.add('mobile-device');
   const triggerImmersive = () => {
@@ -28,7 +29,7 @@ if (isMobile) {
       const docEl = document.documentElement as any;
       const requestFS = docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.mozRequestFullScreen || docEl.msRequestFullscreen;
       
-      const isMobileDeviceNow = window.innerWidth <= 1024 || navigator.maxTouchPoints > 0;
+      const isMobileDeviceNow = isMobileViewport();
 
       // [FIX]: Android Chrome requestFullscreen adds forced black bars (letterboxing) on notched phones.
       // We skip Fullscreen API on mobile and rely on PWA/Address-Bar-Hiding.
@@ -55,7 +56,7 @@ if (isMobile) {
 import { createRenderer, createSceneAndCamera, setupResize, setupLights, initHDRI } from './core/renderer.js';
 import { createTerrain, getHeight } from './world/terrain.js';
 import { populateEnvironment, updateEnvironment, isSpaceOccupied, isNearLake, optimizer } from './world/environment.js';
-import { initBuildingSystem, getBuildingMeshes } from './world/BuildingSystem.js';
+import { initBuildingSystem, getBuildingMeshes, updateBuildingLOD } from './world/BuildingSystem.js';
 import { initPhysics, getPhysicsWorld } from './core/physics.js';
 import { createIsland } from './world/Island.js';
 import { world, initCharacterController } from './ecs/world.js';
@@ -81,7 +82,7 @@ import { getJetPosition, getJetAltitude, updateJet, spawnJet, tryEnterJet, exitJ
 import { jetCamera } from './systems/Jet/CameraFollow.js';
 import { vehicleCamera } from './systems/VehicleCamera.js';
 import { entityMeshes, entityPhysicsBodies, entityAnimationControllers } from './ecs/world.js';
-import { InputState, Health, InputIntents, Position, Rotation, WolfTag, ZombieTag, Weapon, WeaponState, NPCTag, CoffyCoinTag } from './ecs/components.js';
+import { InputState, Health, InputIntents, Position, Rotation, WolfTag, ZombieTag, Weapon, WeaponState, NPCTag, CoffyCoinTag, NPCInteraction } from './ecs/components.js';
 import { EntityId } from './ecs/types.js';
 import { initSky, updateClouds, skyMesh } from './core/sky.js';
 import { initBVH } from './core/bvh.js';
@@ -103,11 +104,7 @@ import {
   getTimeOfDay,
 } from './world/DayNightCycle.js';
 
-import {
-  initWeather,
-  updateWeather,
-  isRaining,
-} from './world/WeatherSystem.js';
+import { initWeather, updateWeather, isRaining } from './world/WeatherSystem.js';
 
 import { initSurvival, updateSurvival, canSprint, onDeath, isInputBlocked, fillSleep, takeDamage } from './systems/SurvivalSystem.js';
 import { initDebugControls } from './core/DebugControls.js';
@@ -135,18 +132,18 @@ let worldStreamer: WorldStreamer | null = null; // Defined here, init later
 
 // Robust mobile detection helper
 function isMobileDevice() {
-  return window.innerWidth <= 1024 ||
-    navigator.maxTouchPoints > 0 ||
-    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  return isMobileViewport();
 }
 
 // ── Kamera sabitleri ──────────────────────────────────────────────────────────
 
 const CAM_DIST_MIN = 5;
 const CAM_DIST_MAX = 60;
-let camDist = isMobileDevice() ? 5 : 9.5; // Starts at closest zoom on mobile per user request
+let camDist = isMobileDevice() ? 5 : 9.5; 
+let targetCamDist = camDist; // [NEW] For smoothing
 
-const CAM_LERP = 1.0;
+// [FIX-22]: CAM_LERP 0.85 (Sub-frame smoothing) helps eliminate micro-jitters
+const CAM_LERP = 0.85;
 
 const PITCH_MIN = -0.6;
 const PITCH_MAX = 0.85;
@@ -156,7 +153,7 @@ const CAM_GROUND_MARGIN = 0.6;
 const CAM_MIN_ABOVE_PLAYER = 1.6;
 
 window.addEventListener('wheel', (e) => {
-  camDist = Math.max(CAM_DIST_MIN, Math.min(CAM_DIST_MAX, camDist + e.deltaY * 0.02));
+  targetCamDist = Math.max(CAM_DIST_MIN, Math.min(CAM_DIST_MAX, targetCamDist + e.deltaY * 0.02));
 }, { passive: true });
 
 const vehicleKeys: Record<string, boolean> = {};
@@ -271,7 +268,6 @@ async function init(playerType: number) {
 
   // Gökyüzü (mevcut)
   const { sun: sunPos } = initSky(scene);
-  scene.fog = null;
 
   initScoreSystem();
   initSurvival();
@@ -282,8 +278,8 @@ async function init(playerType: number) {
   sun.position.copy(sunPos).multiplyScalar(100);
 
   // ── Yeni sistemleri başlat ────────────────────────────────────────────────
-  initDayNight(0.30);        // sabah 7:12 ile başla
-  initWeather(scene);        // yağmur sistemi (T tuşuyla toggle)
+  initDayNight(scene, 0.30);   // sabah 7:12 ile başla
+  initWeather(scene);        // yağmur sistemi (T tuyla toggle)
 
   // ── HDRI Ortam Haritası — PBR yansımalar için (sıfır runtime maliyeti) ────
   initHDRI(scene, renderer); // async, arka planda yüklenir
@@ -377,6 +373,7 @@ async function init(playerType: number) {
   for (let i = 0; i < 4; i++) {
     npcPromises.push(spawnRandomNPC(scene, px, pz, -1, i % 2 === 0 ? 1 : 0));
   }
+  await Promise.all(npcPromises); // [FIX] Await all NPCs
 
   onDeath((cause) => {
     if (isGameOver()) return;
@@ -486,6 +483,7 @@ async function init(playerType: number) {
   const camDir = new THREE.Vector3();
   const aimPoint = new THREE.Vector3();
   const fallbackCamPos = new THREE.Vector3();
+  const camFollowPos = new THREE.Vector3(); // [FIX] Pre-allocated to avoid frame GC
 
   // [FIX-22] Pre-allocated Ray for physics to avoid frame GC
   const camRay = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 1 });
@@ -563,112 +561,164 @@ async function init(playerType: number) {
   // weaponVisual initialized once before animate
   gameState.weaponVisual = weaponVisualSystem(camera, scene);
 
+  function updateInteractionHUD() {
+    if (isGameOver() || isDialogueOpen()) {
+        const el = document.getElementById('interact');
+        if (el) el.style.display = 'none';
+        return;
+    }
+
+    const playerMesh = entityMeshes.get(playerId);
+    if (!playerMesh || occupiedVehicle || inJet) {
+        const el = document.getElementById('interact');
+        if (el) el.style.display = 'none';
+        return;
+    }
+
+    const interactEl = document.getElementById('interact');
+    if (!interactEl) return;
+
+    const kbdPrefix = IS_MOBILE ? '<span class="kbd">PUSH 🔑 TO</span>' : '<span class="kbd">E</span>';
+    const jetPrefix = IS_MOBILE ? '<span class="kbd">PUSH 🔑 TO</span>' : '<span class="kbd">T</span>';
+
+    // Priority 1: Portal
+    const nearPortal = portalSystem ? portalSystem.checkProximity(playerMesh.position) : null;
+    if (nearPortal) {
+        interactEl.innerHTML = `${kbdPrefix} ENTER ENIGMA`;
+        interactEl.style.display = 'block';
+        return;
+    }
+
+    // Priority 2: NPC
+    const nearNPC = getNearestNPC();
+    if (nearNPC !== null) {
+        const isSat = NPCInteraction.isSatisfied[nearNPC] === 1;
+        const statusText = isSat ? "SAVED" : "TALK TO";
+        interactEl.innerHTML = `${kbdPrefix} ${statusText} VILLAGER`;
+        interactEl.style.display = 'block';
+        return;
+    }
+
+    // Priority 3: Vehicle
+    const vInfo = getNearestVehicleInfo(playerMesh.position);
+    if (vInfo && vInfo.dist < 8) {
+        interactEl.innerHTML = `${kbdPrefix} ENTER ${vInfo.type.toUpperCase()}`;
+        interactEl.style.display = 'block';
+        return;
+    }
+
+    // Priority 4: Jet
+    const jInfo = getJetNearInfo(playerMesh.position);
+    if (jInfo) {
+        interactEl.innerHTML = `${jetPrefix} ENTER JET`;
+        interactEl.style.display = 'block';
+        return;
+    }
+
+    interactEl.style.display = 'none';
+  }
+
   function handleJetAndVehicleInput(dt: number) {
-    const interactPressed = InputState.interact[playerId] === 1; // KeyE (Browser)
-    const jetPressed = InputIntents.jetRequest[playerId] === 1; // KeyT (Browser)
+    const interactPressed = InputState.interact[playerId] === 1;
+    const jetPressed = InputIntents.jetRequest[playerId] === 1;
 
-    const isMobile = isMobileDevice();
+    // EXIT LOGIC
+    if (inJet) {
+      if (jetPressed && exitVehicleTimer <= 0) {
+        const exitAlt = getJetAltitude();
+        const exitPos = exitJet();
+        const rb = entityPhysicsBodies.get(playerId);
+        if (rb) {
+          // @ts-ignore
+          if (rb.setEnabled) rb.setEnabled(true);
+          rb.setTranslation({ x: exitPos.x, y: exitPos.y, z: exitPos.z }, true);
+          rb.setLinvel({ x: 0, y: 0, z: 0 }, true);
+        }
+        InputState.isDriving[playerId] = 0;
+        const mesh = entityMeshes.get(playerId);
+        if (mesh) mesh.visible = true;
+        inJet = false;
+        useGameStore.getState().setInJet(false);
+        showJetHUD(false);
+        exitVehicleTimer = 0.5;
 
-    if (exitVehicleTimer <= 0 && getNearestNPC() === null) {
-      // 1. EXIT LOGIC
-      if (inJet) {
-        // [FIX] Only allow exit via Jet Key (T) to avoid KeyE/Yaw conflict in browser
+        if (exitAlt > 150) {
+          setTimeout(() => { if (!isGameOver()) takeDamage(1000); }, 1200);
+        }
+      }
+    } else if (occupiedVehicle) {
+      if (interactPressed && exitVehicleTimer <= 0) {
+        const exitPos = exitVehicle(occupiedVehicle);
+        const rb = entityPhysicsBodies.get(playerId);
+        if (rb) {
+          // @ts-ignore
+          if (rb.setEnabled) rb.setEnabled(true);
+          rb.setTranslation({ x: exitPos.x, y: exitPos.y, z: exitPos.z }, true);
+          rb.setLinvel({ x: 0, y: 0, z: 0 }, true);
+        }
+        InputState.isDriving[playerId] = 0;
+        const mesh = entityMeshes.get(playerId);
+        if (mesh) mesh.visible = true;
+        occupiedVehicle = null;
+        useGameStore.getState().setOccupiedVehicle(null);
+        exitVehicleTimer = 0.5;
+      }
+    }
+    // ENTER LOGIC
+    else if (exitVehicleTimer <= 0) {
+      const playerMesh = entityMeshes.get(playerId);
+      if (playerMesh) {
+        let enteredSomething = false;
+
+        // Try Jet (Key T / Mobile USE)
         if (jetPressed) {
-          const exitAlt = getJetAltitude();
-          const exitPos = exitJet();
-          const rb = entityPhysicsBodies.get(playerId);
-          if (rb) {
-            // @ts-ignore
-            if (rb.setEnabled) rb.setEnabled(true);
-            rb.setTranslation({ x: exitPos.x, y: exitPos.y, z: exitPos.z }, true);
-            rb.setLinvel({ x: 0, y: 0, z: 0 }, true);
+          if (tryEnterJet(playerMesh.position)) {
+            inJet = true;
+            useGameStore.getState().setInJet(true);
+            InputState.isDriving[playerId] = 1;
+            const rb = entityPhysicsBodies.get(playerId);
+            if (rb && (rb as any).setEnabled) (rb as any).setEnabled(false);
+            if (playerMesh) playerMesh.visible = false;
+            showJetHUD(true);
+            exitVehicleTimer = 0.5;
+            audioManager.playSFX('assets/sounds/freesound_community-f16-fighter-jet-start-upaif-14690.mp3', 0.06);
+            enteredSomething = true;
           }
-          InputState.isDriving[playerId] = 0;
-          const mesh = entityMeshes.get(playerId);
-          if (mesh) mesh.visible = true;
-          inJet = false;
-          useGameStore.getState().setInJet(false);
-          showJetHUD(false);
-          exitVehicleTimer = 0.5;
+        }
 
-          if (exitAlt > 150) {
-            // [FIXED] Synchronized with SurvivalSystem/main death logic
-            setTimeout(() => { 
-                if (!isGameOver()) {
-                    takeDamage(1000); // This will trigger onDeath correctly
-                }
-            }, 1200);
-          }
-        }
-      } else if (occupiedVehicle) {
-        // [FIX] Standard vehicles use KeyE
-        if (interactPressed) {
-          const exitPos = exitVehicle(occupiedVehicle);
-          const rb = entityPhysicsBodies.get(playerId);
-          if (rb) {
-            // @ts-ignore
-            if (rb.setEnabled) rb.setEnabled(true);
-            rb.setTranslation({ x: exitPos.x, y: exitPos.y, z: exitPos.z }, true);
-            rb.setLinvel({ x: 0, y: 0, z: 0 }, true);
-          }
-          InputState.isDriving[playerId] = 0;
-          const mesh = entityMeshes.get(playerId);
-          if (mesh) mesh.visible = true;
-          occupiedVehicle = null;
-          useGameStore.getState().setOccupiedVehicle(null);
-          exitVehicleTimer = 0.5;
-        }
-      }
-      // 2. ENTER LOGIC
-      else {
-        const playerMesh = entityMeshes.get(playerId);
-        if (playerMesh) {
-          let vehicleEnteredThisFrame = false;
-          // Try Jet Only if Jet Key (T) is pressed
-          if (jetPressed) {
-            if (tryEnterJet(playerMesh.position)) {
-              inJet = true;
-              useGameStore.getState().setInJet(true);
-              InputState.isDriving[playerId] = 1;
-              const rb = entityPhysicsBodies.get(playerId);
-              if (rb) {
-                // @ts-ignore
-                if (rb.setEnabled) rb.setEnabled(false);
-              }
-              if (playerMesh) playerMesh.visible = false;
-              showJetHUD(true);
-              exitVehicleTimer = 0.5;
-              audioManager.playSFX('assets/sounds/freesound_community-f16-fighter-jet-start-upaif-14690.mp3', 0.06);
-              vehicleEnteredThisFrame = true;
-            }
-          }
-          // Try Vehicle Only if Interact Key (E) is pressed
-          if (!vehicleEnteredThisFrame && interactPressed) {
-            const nearVehicle = tryEnterVehicle(playerMesh.position);
-            if (nearVehicle) {
-              occupiedVehicle = nearVehicle;
-              useGameStore.getState().setOccupiedVehicle(occupiedVehicle);
-              InputState.isDriving[playerId] = 1;
-              const rb = entityPhysicsBodies.get(playerId);
-              if (rb) {
-                // @ts-ignore
-                if (rb.setEnabled) rb.setEnabled(false);
-              }
-              const mesh = entityMeshes.get(playerId);
-              if (mesh) mesh.visible = false;
-              exitVehicleTimer = 0.5;
-            }
+        // Try Vehicle (Key E / Mobile USE) - Only if not already entered a jet
+        if (!enteredSomething && interactPressed && getNearestNPC() === null) {
+          const nearVehicle = tryEnterVehicle(playerMesh.position);
+          if (nearVehicle) {
+            occupiedVehicle = nearVehicle;
+            useGameStore.getState().setOccupiedVehicle(occupiedVehicle);
+            InputState.isDriving[playerId] = 1;
+            const rb = entityPhysicsBodies.get(playerId);
+            if (rb && (rb as any).setEnabled) (rb as any).setEnabled(false);
+            if (playerMesh) playerMesh.visible = false;
+            exitVehicleTimer = 0.5;
+            enteredSomething = true;
           }
         }
       }
+    }
 
-      // Cleanup intents
-      const _pMeshForClear = entityMeshes.get(playerId);
-      const _nearPortalNow = _pMeshForClear && portalSystem ? portalSystem.checkProximity(_pMeshForClear.position) : null;
-      if (!_nearPortalNow) {
-        InputState.interact[playerId] = 0;
-      }
-      InputIntents.jetRequest[playerId] = 0;
+    // Input Cleanup (Unify and ensure no "locking")
+    if (exitVehicleTimer <= 0) {
+        const pMesh = entityMeshes.get(playerId);
+        const nearPortal = pMesh && portalSystem ? portalSystem.checkProximity(pMesh.position) : null;
+        const nearNPC = getNearestNPC();
+        const nearVehicle = pMesh ? getNearestVehicleInfo(pMesh.position) : null;
+        const nearJet = pMesh ? getJetNearInfo(pMesh.position) : null;
+
+        // On mobile, the button is continuous. We clear the input intent only if NOT in range of ANYTHING interactable.
+        // This prevents the input state from sticking "ON" and interfering with character movement/AI once away.
+        const somethingNearby = nearPortal || nearNPC || (nearVehicle && nearVehicle.dist < 8) || nearJet;
+        
+        if (!somethingNearby) {
+            InputState.interact[playerId] = 0;
+            InputIntents.jetRequest[playerId] = 0;
+        }
     }
 
     const vInput = occupiedVehicle ? {
@@ -678,6 +728,21 @@ async function init(playerType: number) {
     } : { throttle: 0, steer: 0, brake: false };
 
     updateVehicles(dt, vInput);
+
+    // [FIX] Sync Player ECS Position with Vehicle for Animation Culling/AI Distance
+    if (occupiedVehicle) {
+        const vRb = occupiedVehicle.controller.rigidBody;
+        const vPos = vRb.translation();
+        const vRot = vRb.rotation();
+        Position.x[playerId] = vPos.x;
+        Position.y[playerId] = vPos.y;
+        Position.z[playerId] = vPos.z;
+        Rotation.x[playerId] = vRot.x;
+        Rotation.y[playerId] = vRot.y;
+        Rotation.z[playerId] = vRot.z;
+        Rotation.w[playerId] = vRot.w;
+    }
+
     updateJet(dt, scene, camera);
   }
 
@@ -686,25 +751,20 @@ async function init(playerType: number) {
       const pMesh = entityMeshes.get(playerId);
       if (pMesh) {
         const nearPortal = portalSystem.checkProximity(pMesh.position);
-        if (nearPortal) {
-          const mobile = isMobileDevice();
-          const interactEl = document.getElementById('interact');
-          if (interactEl) {
-            interactEl.innerHTML = mobile ? 'TOUCH 🔑' : `USE PORTAL <span class="kbd" style="font-size:0.7em; margin-left:6px; opacity:0.8;">PRESS E</span>`;
-            interactEl.style.display = 'block';
-          }
-          if (InputState.interact[playerId] === 1) {
+        if (nearPortal && InputState.interact[playerId] === 1) {
             InputState.interact[playerId] = 0;
             currentGameState = GameState.MINIGAME;
             launchPuzzleGame();
-          }
         }
       }
     }
   }
 
   function updateCamera(dt: number, camFollowPos: THREE.Vector3) {
-    touchControls.update();
+    // touchControls.update(); // [FIX] Removed duplicate call (handled at animate loop start)
+    
+    // Smooth camDist interpolation [NEW]
+    camDist = THREE.MathUtils.lerp(camDist, targetCamDist, dt * 10);
     const isAiming = (InputIntents.aimRequest[playerId] ?? 0) === 1;
     gameState.adsFactor = THREE.MathUtils.lerp(gameState.adsFactor, isAiming ? 1 : 0, dt * 8);
     const adsFactor = gameState.adsFactor;
@@ -768,33 +828,7 @@ async function init(playerType: number) {
 
     if (skyMesh) skyMesh.position.copy(camera.position);
 
-    const interactEl = document.getElementById('interact');
-    if (interactEl) {
-      const pMesh = entityMeshes.get(playerId);
-      const pPos = pMesh?.position || tempVec1.set(0, 0, 0);
-      const activePortal = portalSystem?.checkProximity(pPos);
-      const nearestNPC = getNearestNPC();
-
-      if (activePortal && !isDialogueOpen() && !inJet && !occupiedVehicle) {
-        // Handled in handlePortalInput
-      } else if (nearestNPC === null || isDialogueOpen()) {
-        const vNear = getNearestVehicleInfo(pPos);
-        const jNear = pMesh ? getJetNearInfo(pMesh.position) : null;
-        const mobile = isMobileDevice();
-
-        const eKeyDesktop = '<span class="kbd" style="font-size:0.7em; margin-left:6px; opacity:0.8;">PRESS E</span>';
-        const tKeyDesktop = '<span class="kbd" style="font-size:0.7em; margin-left:6px; opacity:0.8;">PRESS T</span>';
-
-        if (inJet || occupiedVehicle) interactEl.style.display = 'none';
-        else if (jNear && !isDialogueOpen()) {
-          interactEl.innerHTML = mobile ? `TOUCH 🔑` : `USE F-16 ${tKeyDesktop}`;
-          interactEl.style.display = 'block';
-        } else if (vNear && !isDialogueOpen()) {
-          interactEl.innerHTML = mobile ? `TOUCH 🔑` : `USE ${vNear.type.toUpperCase()} ${eKeyDesktop}`;
-          interactEl.style.display = 'block';
-        } else interactEl.style.display = 'none';
-      }
-    }
+    // [FIX] interactEl manipulation removed from here to prevent race with updateInteractionHUD()
   }
 
   function updateHUDAndAudio(dt: number, camFollowPos: THREE.Vector3) {
@@ -866,17 +900,12 @@ async function init(playerType: number) {
         renderedFrames++;
         checkLoading();
       }
-    }
 
-    // [FIX-22] Get camFollowPos at start of frame for all systems
-    fallbackCamPos.set(Position.x[playerId], Position.y[playerId], Position.z[playerId]);
-    const camFollowPos = inJet ? (getJetPosition() ?? fallbackCamPos) : occupiedVehicle ? occupiedVehicle.controller.mesh.position : fallbackCamPos;
+      // [FIX-22] Decr timers & update touch at START of loop to prevent sync issues
+      if (exitVehicleTimer > 0) exitVehicleTimer -= dt;
+      touchControls.update();
 
-    // [FIX-22] Decr timers & update touch at START of loop to prevent sync issues
-    if (exitVehicleTimer > 0) exitVehicleTimer -= dt;
-    touchControls.update();
-
-    inputSystem(world);
+      inputSystem(world);
 
     // if (portalSystem) portalSystem.update(dt, clock.getElapsedTime());
 
@@ -908,6 +937,12 @@ async function init(playerType: number) {
             }
 
             physicsSystem(world);
+            
+            // [FIX-22] CRITICAL: Refresh camFollowPos AFTER physics step to eliminate 1-frame follower lag
+            fallbackCamPos.set(Position.x[playerId], Position.y[playerId], Position.z[playerId]);
+            const currentPos = inJet ? (getJetPosition() ?? fallbackCamPos) : occupiedVehicle ? occupiedVehicle.controller.mesh.position : fallbackCamPos;
+            camFollowPos.copy(currentPos);
+
             animationSystem(world);
             renderSystem(world);
             weaponSystem(world);
@@ -927,13 +962,14 @@ async function init(playerType: number) {
             }
 
             const hpAfterWeapon = Health.current[playerId];
-            if (hpAfterWeapon < hpBeforeAI && !playerDead) {
+            if (hpAfterWeapon < hpBeforeAI && !playerDead && wolfDmgThisFrame === 0) { // [FIX] Deduplicate damage sounds
               audioManager.playSFX('assets/sounds/freesound_community-young-man-being-hurt-95628.mp3', 0.09, 0.1);
             }
 
             // [FIX-03]: Typed call
             if (gameState.weaponVisual) gameState.weaponVisual(world);
             handleJetAndVehicleInput(dt);
+            updateInteractionHUD(); // [NEW] Centralized prompt logic
             handlePortalInput();
 
             // [NEW] Mobile Camera Cycle Support (Rising-edge lock)
@@ -976,7 +1012,8 @@ async function init(playerType: number) {
 
             envAcc += dt;
             if (envAcc >= ENV_STEP) {
-              updateEnvironment(envAcc, clock.getElapsedTime());
+              updateEnvironment(envAcc, clock.getElapsedTime(), camera.position);
+              updateBuildingLOD(camera.position);
               updateWater(envAcc, newSunDir, camera.position);
               updateOcean(envAcc, newSunDir, camera.position, getTimeOfDay());
               updateClouds(envAcc);
@@ -1040,6 +1077,7 @@ async function init(playerType: number) {
               }
             }
         }
+      }
     }
     // [FIX]: Always use renderComposer to prevent engine-switch flicker
     renderComposer(dt);

@@ -122,38 +122,22 @@ export const npcSystem = defineSystem((world) => {
         }
     });
 
-    const interactEl = document.getElementById('interact');
     const interactPressed = InputState.interact[player] === 1;
     const now = Date.now();
 
     if (nearestNPC !== null) {
-        if (!isDialogueOpen()) {
-            // Show prompt
-            if (interactEl) {
-                const isSat = NPCInteraction.isSatisfied[nearestNPC] === 1;
-                const status = isSat ? "· Saved" : "· Talk";
-                interactEl.innerHTML = `<span class="kbd">E</span> VILLAGER ${status}`;
-                interactEl.style.display = 'block';
-            }
-
-            // Start dialogue
-            if (interactPressed && now - lastInteractTime > 500) {
-                lastInteractTime = now;
-                const isSat = NPCInteraction.isSatisfied[nearestNPC] === 1;
-                const dialogueId = isSat ? 100 : NPCInteraction.dialogueId[nearestNPC];
-                showDialogue(dialogueId);
-            }
-        } else {
-            // Dialogue is open, hide interact prompt (it's inside dialogue now)
-            if (interactEl) interactEl.style.display = 'none';
-
-            // Progress dialogue
-            if (interactPressed && now - lastInteractTime > 400) {
-                lastInteractTime = now;
-                const hasNext = nextDialogue();
-                if (!hasNext) {
-                    checkCompletion(nearestNPC, player);
-                }
+        // Start dialogue
+        if (!isDialogueOpen() && interactPressed && now - lastInteractTime > 500) {
+            lastInteractTime = now;
+            const isSat = NPCInteraction.isSatisfied[nearestNPC] === 1;
+            const dialogueId = isSat ? 100 : NPCInteraction.dialogueId[nearestNPC];
+            showDialogue(dialogueId);
+        } else if (isDialogueOpen() && interactPressed && now - lastInteractTime > 400) {
+            // Dialogue is open, progress it
+            lastInteractTime = now;
+            const hasNext = nextDialogue();
+            if (!hasNext) {
+                checkCompletion(nearestNPC, player);
             }
         }
     } else {

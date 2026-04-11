@@ -75,8 +75,9 @@ export const animationSystem = defineSystem((world: IWorld) => {
             const pid = players[0] as EntityId;
             const dx = Position.x[pid] - Position.x[id];
             const dz = Position.z[pid] - Position.z[id];
-            // Increased from 80m (6400) to 160m (25600) to avoid visible T-posing
-            if (dx*dx + dz*dz > 25600) { 
+            // Increased from 160m (25600) to 320m (102400) to match fog visibility
+            // This prevents visible T-posing at the horizon.
+            if (dx*dx + dz*dz > 102400) { 
                 continue; 
             }
         }

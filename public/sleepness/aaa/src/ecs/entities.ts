@@ -521,6 +521,7 @@ export const coinInstancedMesh = new THREE.InstancedMesh(
     1000 // Max 1000 coins on screen
 );
 coinInstancedMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+coinInstancedMesh.frustumCulled = false; // [FIX] Prevents whole pool from disappearing when center is off-camera
 coinInstancedMesh.castShadow = true;
 coinInstancedMesh.receiveShadow = true;
 

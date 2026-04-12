@@ -95,16 +95,17 @@ function applySMAAPreset(preset: SMAAPreset): void {
   // [A] Histerezis: geçiş zamanını kaydet
   state.lastSwitchTime = performance.now();
 
-  // ── DPR: kalite seviyesine göre ayarla ────────────────────────────────────
-  // Cinematic hedef: HIGH en iyi denge, ULTRA yalnızca yüksek GPU'da
+  // [DISABLED per user request]: DPR is now controlled exclusively in main.ts
+  /*
   let dprTarget = 1.1;
   if (preset === SMAAPreset.HIGH) dprTarget = 1.5;
   if (preset === SMAAPreset.ULTRA) dprTarget = 1.7;
 
   const finalDPR = Math.min(window.devicePixelRatio, dprTarget);
   state.renderer.setPixelRatio(finalDPR);
+  */
 
-  console.debug(`[Quality] → ${SMAAPreset[preset]} (DPR: ${finalDPR.toFixed(2)})`);
+  console.debug(`[Quality] → ${SMAAPreset[preset]}`);
 }
 
 function adaptQuality(now: number): void {

@@ -67,8 +67,8 @@
       --ui-blur: blur(16px);
       --ui-radius: 16px;
       --ui-shadow: 0 1px 3px rgba(0, 0, 0, 0.8), 0 0 10px rgba(0, 0, 0, 0.4);
-      --accent: #00e5ff;
-      --accent-glow: rgba(0, 229, 255, 0.4);
+      --accent: #a0aab2;
+      --accent-glow: rgba(160, 170, 178, 0.15);
       --gold: #ffd700;
       --gold-glow: rgba(255, 215, 0, 0.4);
       --danger: #ff4b2b;
@@ -364,7 +364,7 @@
       inset: 0;
       pointer-events: none;
       background: rgba(255, 0, 0, 0);
-      transition: background 0.08s ease-out;
+      /* transition removed to prevent flicker when updated every frame by JS */
       box-shadow: inset 0 0 120px rgba(200, 0, 0, 0);
     }
 
@@ -582,8 +582,8 @@
       position: absolute;
       inset: 0;
       background-image:
-        linear-gradient(rgba(0, 255, 170, .028) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0, 255, 170, .028) 1px, transparent 1px);
+        linear-gradient(rgba(160, 170, 178, .01) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(160, 170, 178, .01) 1px, transparent 1px);
       background-size: 72px 72px;
       animation: ld-grid 12s linear infinite;
       pointer-events: none;
@@ -595,7 +595,7 @@
       left: 0;
       right: 0;
       height: 2px;
-      background: linear-gradient(90deg, transparent 0%, rgba(0, 255, 170, .35) 40%, rgba(0, 220, 255, .35) 60%, transparent 100%);
+      background: linear-gradient(90deg, transparent 0%, rgba(160, 170, 178, .12) 40%, rgba(160, 170, 178, .12) 60%, transparent 100%);
       filter: blur(1px);
       animation: ld-scan 3.5s ease-in-out infinite;
       pointer-events: none;

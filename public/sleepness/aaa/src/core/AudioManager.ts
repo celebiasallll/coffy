@@ -36,8 +36,8 @@ class AudioManager {
               this.loadBuffer(url, false).then(resolve).catch(reject);
             }, 800);
           } else {
-            // Silencing the error to 'debug' level to avoid "Console Scare" for the user
-            console.debug(`[Audio] Persistent load error (skipping): ${url}`, err);
+            // [DIAGNOSTIC]: Restoring error visibility to track down why the success sound is missing
+            console.error(`[Audio] Failed to load sound: ${url}`, err);
             reject(err);
           }
         }
@@ -231,9 +231,9 @@ class AudioManager {
     this.listener.setMasterVolume(muted ? 0 : 1);
   }
 
-  public resume(): void {
+  public async resume(): Promise<void> {
     const ctx = this.listener.context;
-    if (ctx.state === 'suspended') ctx.resume();
+    if (ctx.state === 'suspended') await ctx.resume();
   }
 
   public stopAll(): void {

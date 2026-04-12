@@ -283,8 +283,9 @@ async function init(playerType: number) {
   initDayNight(scene, 0.30);   // sabah 7:12 ile başla
   initWeather(scene);        // yağmur sistemi (T tuyla toggle)
 
-  // ── HDRI Ortam Haritası — PBR yansımalar için (sıfır runtime maliyeti) ────
-  initHDRI(scene, renderer); // async, arka planda yüklenir
+  // ── HDRI Ortam Haritası — PBR yansımalar için (YÜKLENMEDEN LOADİNG BİTMEZ) ──
+  scene.environment = null; // Fallback env (clear) before HDRI loads
+  await initHDRI(scene, renderer); 
 
   initPostprocessing(scene, camera, renderer);
   const composerObject = getComposer();
@@ -449,7 +450,7 @@ async function init(playerType: number) {
   let assetsLoaded = false;
   let loadingHidden = false;
   let renderedFrames = 0;
-  const WARMUP_FRAMES = 60; // Render 60 frames behind curtain to compile shaders
+  const WARMUP_FRAMES = 90; // 60 → 90 (Shader derleme ve kararlılık için süre artırıldı)
 
   THREE.DefaultLoadingManager.onLoad = () => {
     // [FIX-01]: Reliable loading flag
@@ -1065,16 +1066,18 @@ async function init(playerType: number) {
             updateCamera(dt, camFollowPos);
             updateHUDAndAudio(dt, camFollowPos);
 
-            // [FIX-14]: Adaptive DPR (Dynamic Resolution Scaling)
-            if (gameState.frameCount % 120 === 0 && fpsWindow.length >= 30) {
+            // [RESTORED]: Adaptive DPR (Dynamic Resolution Scaling) - Controlled here per user request.
+            if (gameState.frameCount % 240 === 0 && fpsWindow.length >= 30) {
               const avgFps = fpsWindow.reduce((a, b) => a + b, 0) / fpsWindow.length;
               const currentDPR = renderer.getPixelRatio();
               const maxDPR = isMobileDevice() ? 1.2 : 1.6;
               
               if (avgFps < 45 && currentDPR > 0.75) {
                 renderer.setPixelRatio(Math.max(0.75, currentDPR - 0.1));
+                console.log(`[DPR Down] FPS: ${Math.round(avgFps)} -> DPR: ${renderer.getPixelRatio()}`);
               } else if (avgFps > 58 && currentDPR < maxDPR) {
                 renderer.setPixelRatio(Math.min(maxDPR, currentDPR + 0.05));
+                console.log(`[DPR Up] FPS: ${Math.round(avgFps)} -> DPR: ${renderer.getPixelRatio()}`);
               }
             }
         }
@@ -1100,7 +1103,21 @@ async function init(playerType: number) {
   const keyRight = document.getElementById('cs-key-right');
   const startBtn = document.getElementById('cs-start');
 
-  function select(n: number) {
+  // [v84.9]: Pre-load UI sounds to eliminate async lag during user interaction
+  const preloadUISounds = () => {
+    const sounds = [
+      'assets/sounds/samuelfjohanns-computer-processing-sound-effects-short-click-select-01-122134.mp3',
+      'assets/sounds/floraphonic-arcade-ui-16-229516.mp3'
+    ];
+    sounds.forEach(url => audioManager.playSFX(url, 0, 0, 1, 0, 'preload_' + url));
+  };
+  preloadUISounds();
+
+  async function select(n: number) {
+    await audioManager.resume(); // Ensure context is active
+    if (selectedChar !== n) {
+      audioManager.playSFX('assets/sounds/samuelfjohanns-computer-processing-sound-effects-short-click-select-01-122134.mp3', 0.6, 0.05);
+    }
     selectedChar = n;
     btns.forEach((btn, i) => {
       const active = i + 1 === n;
@@ -1116,7 +1133,13 @@ async function init(playerType: number) {
     setTimeout(() => el.classList.remove('active'), 180);
   }
 
-  function startGame() {
+  async function startGame() {
+    await audioManager.resume();
+    console.log('[Game] Triggering mission start sequence...');
+    audioManager.playSFX('assets/sounds/floraphonic-arcade-ui-16-229516.mp3', 1.0);
+    
+    // Give audio thread a 60ms head start before heavy world generation locks the CPU
+    await new Promise(r => setTimeout(r, 60));
     const cs = document.getElementById('char-select');
     if (!cs || cs.style.display === 'none') return;
 
@@ -1144,8 +1167,7 @@ async function init(playerType: number) {
       console.error('Fullscreen/Orientation failed:', e);
     }
 
-    // [FIX]: Resume audio context on user gesture (Character Selection click)
-    audioManager.resume();
+    // [FIX]: Moved to top of function with await to ensure SFX plays
     audioManager.playBGM();
 
     if (cs) cs.style.display = 'none';
@@ -1171,14 +1193,14 @@ async function init(playerType: number) {
     btn?.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       const n = i + 1;
-      if (selectedChar === n) startGame();
-      else select(n);
+      if (selectedChar === n) void startGame();
+      else void select(n);
     });
   });
 
-  startBtn?.addEventListener('click', (e) => {
+  startBtn?.addEventListener('pointerdown', (e) => {
     e.preventDefault();
-    startGame();
+    void startGame();
   });
 
   window.addEventListener('keydown', (e: KeyboardEvent) => {
@@ -1187,17 +1209,17 @@ async function init(playerType: number) {
 
     if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
       e.preventDefault(); flash('left');
-      if (selectedChar > 1) select(selectedChar - 1);
+      if (selectedChar > 1) void select(selectedChar - 1);
     } else if (e.code === 'ArrowRight' || e.code === 'KeyD') {
       e.preventDefault(); flash('right');
-      if (selectedChar < btns.length) select(selectedChar + 1);
+      if (selectedChar < btns.length) void select(selectedChar + 1);
     } else if (e.code === 'Space' || e.code === 'Enter') {
-      e.preventDefault(); startGame();
-    } else if (e.code === 'Digit1') { select(1); }
-    else if (e.code === 'Digit2') { select(2); }
+      e.preventDefault(); void startGame();
+    } else if (e.code === 'Digit1') { void select(1); }
+    else if (e.code === 'Digit2') { void select(2); }
   });
 
-  select(1); // Başlangıçta P1 seçili
+  void select(1); // Başlangıçta P1 seçili
 })();
 
 // ── Game Over — Space/Enter ile yeniden başlat ───────────────────────────────

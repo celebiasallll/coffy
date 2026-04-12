@@ -248,7 +248,9 @@ async function init(playerType: number) {
   // FIX: Ensure audio context resumes after user interaction (browser policy)
   const resumeAudio = () => {
     audioManager.resume();
-    audioManager.playBGM();
+    if (!audioManager.isBGMPlaying()) {
+      audioManager.playBGM();
+    }
     document.removeEventListener('pointerdown', resumeAudio);
     document.removeEventListener('keydown', resumeAudio);
   };
@@ -1141,6 +1143,10 @@ async function init(playerType: number) {
     } catch (e) {
       console.error('Fullscreen/Orientation failed:', e);
     }
+
+    // [FIX]: Resume audio context on user gesture (Character Selection click)
+    audioManager.resume();
+    audioManager.playBGM();
 
     if (cs) cs.style.display = 'none';
     const loading = document.getElementById('loading');

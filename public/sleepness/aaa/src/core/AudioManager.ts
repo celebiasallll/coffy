@@ -4,8 +4,8 @@ class AudioManager {
   private listener: THREE.AudioListener;
   private loader: THREE.AudioLoader;
   private bgm: THREE.Audio | null = null;
-  private bgmPool: string[] = ['assets/sounds/ambient.mp3', 'assets/sounds/ambient2.mp3', 'assets/sounds/ambien3.mp3'];
-  private currentBgmIndex: number = 1;
+   private bgmPool: string[] = ['assets/sounds/ambient2.mp3', 'assets/sounds/ambient.mp3', 'assets/sounds/ambient3.mp3'];
+   private currentBgmIndex: number = 0;
   private isInitialized: boolean = false;
   private bufferCache: Map<string, AudioBuffer> = new Map();
   private namedSounds: Map<string, THREE.Audio> = new Map();
@@ -55,7 +55,9 @@ class AudioManager {
 
     if (this.bgm) {
       if (this.bgm.isPlaying) return;
-      this.bgm.play();
+      if (this.bgm.buffer) {
+        this.bgm.play();
+      }
       return;
     }
 
@@ -258,6 +260,10 @@ class AudioManager {
     // Play next
     void this.loadNextBGM();
     console.log(`[Audio] Skipping to BGM: ${this.bgmPool[this.currentBgmIndex]}`);
+  }
+
+  public isBGMPlaying(): boolean {
+    return !!this.bgm?.isPlaying;
   }
 }
 

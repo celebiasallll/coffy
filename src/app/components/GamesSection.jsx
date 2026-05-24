@@ -206,12 +206,10 @@ const GamesSection = ({ id }) => {
     event.target.src = FALLBACK_IMAGE;
   }, []);
 
-  // Helper: Son satırdaki kart(lar)ı ortalamak için
+  // Helper: Son satırdaki kart(lar)ı ortalamak için (2'li grid yapısı)
   function getGridItemClass(idx, total) {
-    // 3'lü gridde, son satırda 1 veya 2 kart varsa ortala
-    if (total % 3 !== 0 && idx >= total - (total % 3)) {
-      if (total % 3 === 1) return 'col-span-1 sm:col-span-2 xl:col-span-1 xl:col-start-2';
-      if (total % 3 === 2) return idx === total - 2 ? 'col-span-1 xl:col-start-1 xl:translate-x-1/2' : 'col-span-1 xl:translate-x-1/2';
+    if (total % 2 !== 0 && idx === total - 1) {
+      return 'col-span-1 sm:col-span-2 sm:justify-self-center sm:max-w-[400px]';
     }
     return 'col-span-1';
   }
@@ -305,7 +303,7 @@ const GamesSection = ({ id }) => {
 
         {/* Game Cards Grid */}
         <motion.div
-          className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8 mb-16"
+          className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-16 max-w-5xl mx-auto"
           variants={containerVariants}
           initial="hidden"
           whileInView="visible"
@@ -316,7 +314,7 @@ const GamesSection = ({ id }) => {
               key={game.id}
               variants={cardVariants}
               whileHover="hover"
-              className={`group relative bg-gradient-to-br from-[#3A2A1E] to-[#2A1F15] border border-[#BFA181]/20 rounded-2xl overflow-hidden cursor-pointer shadow-xl backdrop-blur-sm min-h-[480px] flex flex-col justify-self-center w-full max-w-[400px] xl:max-w-none ${getGridItemClass(idx, filteredGames.length)}`}
+              className={`group relative bg-gradient-to-br from-[#3A2A1E] to-[#2A1F15] border border-[#BFA181]/20 rounded-2xl overflow-hidden cursor-pointer shadow-xl backdrop-blur-sm min-h-[480px] flex flex-col justify-self-center w-full max-w-[400px] sm:max-w-none ${getGridItemClass(idx, filteredGames.length)}`}
               onClick={() => handleGameClick(game.id, game.path)}
               role="button"
               tabIndex={0}

@@ -294,7 +294,7 @@ export default function Characters() {
     const currentTop = visibleDeck[0]; // the card being shown on top
 
     return (
-        <section id="characters" className="py-24 bg-gradient-to-b from-[#1A0F0A] via-[#2A1810] to-[#1A0F0A] overflow-hidden">
+        <section id="characters" className="py-12 bg-gradient-to-b from-[#1A0F0A] via-[#2A1810] to-[#1A0F0A] overflow-hidden">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
                 {/* Header */}
@@ -317,10 +317,10 @@ export default function Characters() {
                     )}
                 </motion.div>
 
-                <div className="flex flex-col items-center justify-center gap-6 mt-20 md:mt-28 pb-12">
+                <div className="flex flex-col items-center justify-center gap-4 mt-10 md:mt-12 pb-6">
 
                     {/* Swipe stack */}
-                    <div className="flex flex-col items-center gap-6 md:scale-110 lg:scale-125 transition-transform duration-300">
+                    <div className="flex flex-col items-center gap-4 md:scale-100 lg:scale-105 transition-transform duration-300">
                         {/* Card stack */}
                         <div className="relative" style={{ width: 340, height: 520, touchAction: 'pan-y' }}>
                             <AnimatePresence>

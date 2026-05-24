@@ -17,6 +17,8 @@ const Partners = dynamic(() => import('./components/Partners'));
 const About = dynamic(() => import('./components/About'));
 const Characters = dynamic(() => import('./components/Characters'), { ssr: false });
 const Team = dynamic(() => import('./components/Team'));
+const ReferralPanel = dynamic(() => import('./components/ReferralPanel'), { ssr: false });
+const BurnDashboard = dynamic(() => import('./components/BurnDashboard'), { ssr: false });
 
 export default function Home() {
   return (
@@ -58,6 +60,8 @@ export default function Home() {
           <Characters />
           <GamesSection id="games" />
           <Staking id="staking" />
+          <ReferralPanel />
+          <BurnDashboard />
           <Tokenomics />
           <ContractInfo />
           <Roadmap />

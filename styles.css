@@ -359,18 +359,18 @@ html, body {
   }
 }
 
-/* Base selection prevention */
-html, body, * {
-    -webkit-user-select: none !important;
-    -moz-user-select: none !important;
-    -ms-user-select: none !important;
-    user-select: none !important;
-    -webkit-touch-callout: none !important;
+/* Base selection prevention - optimized for standard web usage while preventing accidental selections in games */
+html, body {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
     -webkit-tap-highlight-color: transparent !important;
 }
 
-/* For inputs where selection is needed */
-input, textarea {
+/* Allow text selection where appropriate */
+input, textarea, code, pre, .selectable, [contenteditable="true"], .font-mono {
     -webkit-user-select: text !important;
     -moz-user-select: text !important;
     -ms-user-select: text !important;

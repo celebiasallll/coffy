@@ -8,7 +8,7 @@ export function initSky(scene: THREE.Scene): { sky: THREE.Mesh; sun: THREE.Vecto
   const geometry = new THREE.SphereGeometry(4000, 32, 32);
 
   const loader = new THREE.TextureLoader();
-  const texture = loader.load('/sky.png');
+  const texture = loader.load('/sky.webp');
   texture.colorSpace = THREE.SRGBColorSpace;
 
   skyMaterial = new THREE.MeshBasicMaterial({

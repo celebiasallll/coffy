@@ -287,7 +287,7 @@ export default function Hero() {
                 onHoverEnd={() => setIsHovered(false)}
               >
                 <Image
-                  src="/images/coffy-hero.png"
+                  src="/images/coffy-hero.webp"
                   alt="Coffy Mascot"
                   width={288}
                   height={288}

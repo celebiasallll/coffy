@@ -48,10 +48,19 @@ export default function Navbar() {
   const [isVerifyingHuman, setIsVerifyingHuman] = useState(false);
   const [showHumanTooltip, setShowHumanTooltip] = useState(false);
 
-  // Mount sırasında localStorage'dan durumu oku
+  // Mount sırasında localStorage'dan durumu oku ve referral parametresini yakala
   useEffect(() => {
     const verified = localStorage.getItem('coffy_human_verified') === 'true';
     if (verified) setIsVerified(true);
+
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const ref = urlParams.get('ref');
+      if (ref && /^0x[a-fA-F0-9]{40}$/.test(ref)) {
+        localStorage.setItem('coffy_referrer', ref);
+        console.log('Saved referrer address:', ref);
+      }
+    }
   }, []);
 
   // Scroll event listener — isScrolled ve scrollProgress güncelle
@@ -183,11 +192,12 @@ export default function Navbar() {
 
       // Generate random profileId
       const profileId = generateUUID();
-      const defaultReferrer = "0x0000000000000000000000000000000000000000"; // Default referrer (address(0))
+      // Read stored referrer from localStorage if it exists, otherwise use address(0)
+      const storedReferrer = localStorage.getItem('coffy_referrer') || "0x0000000000000000000000000000000000000000";
 
       try {
-        // On-chain transaction: linkUserProfile
-        const tx = await contract.linkUserProfile(profileId, defaultReferrer);
+        // On-chain transaction: linkUserProfile with referrer
+        const tx = await contract.linkUserProfile(profileId, storedReferrer);
         await tx.wait();
 
         // Success: set localStorage and timer (only new values)

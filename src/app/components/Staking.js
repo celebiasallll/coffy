@@ -6,8 +6,7 @@ import { ethers } from 'ethers';
 import { motion, AnimatePresence } from 'framer-motion';
 import useWeb3Wallet from './useWeb3Wallet';
 import { FaWallet, FaLock, FaGift, FaChartLine, FaClock, FaCoins, FaPlus, FaMinus, FaInfoCircle, FaExclamationTriangle, FaUsers } from 'react-icons/fa';
-import { toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import { toast } from 'react-hot-toast';
 import ConfirmModal from './ConfirmModal';
 import AlertModal from './AlertModal';
 
@@ -214,7 +213,7 @@ export default function Staking({ id }) {
   // ✅ Handle all transactions (stake, unstake, claim)
   const handleTransaction = async (action, amount = null) => {
     if (!tokenContract || !userAddress) {
-      toast.error('❌ Please connect your wallet first', { autoClose: 4000 });
+      toast.error('Please connect your wallet first');
       return false;
     }
 
@@ -293,7 +292,7 @@ export default function Staking({ id }) {
             ? (totalStaked * 95n) / 100n
             : Math.floor(Number(totalStaked) * 0.95);
           const netAmountFormatted = ethers.formatUnits(netAmount.toString(), 18);
-          toast.info(`Emergency Unstake: %${penaltyPercent} penalty uygulanacak.\nÇekilecek net miktar: ${netAmountFormatted} COFFY`, { autoClose: 6000 });
+          toast(`Emergency Unstake: %${penaltyPercent} penalty uygulanacak.\nÇekilecek net miktar: ${netAmountFormatted} COFFY`, { icon: 'ℹ️', duration: 6000 });
           // Kontrata raw BigNumber olarak gönder
           console.log('Unstaking amount (wei):', totalStaked.toString());
           tx = await contract.unstake(totalStaked);
@@ -356,7 +355,7 @@ export default function Staking({ id }) {
   // ✅ Unstake tokens
   const unstakeTokens = async () => {
     if (!tokenContract || !userAddress) {
-      toast.error('❌ Please connect your wallet first', { autoClose: 4000 });
+      toast.error('Please connect your wallet first');
       return false;
     }
     setIsLoading(true);
@@ -380,7 +379,7 @@ export default function Staking({ id }) {
           message: `⚠️ Early Unstake Warning\n\nYou are withdrawing before the 7-day lock period ends (${remainingDays} days remaining).\nEarly unstaking will result in a 5% penalty.\n\nStaked: ${inputAmount} COFFY\nNet Amount To Receive: ${netAmount.toFixed(6)} COFFY\n\nDo you want to continue?`,
           onConfirm: async () => {
             setConfirmModal({ open: false, message: '', onConfirm: null });
-            toast.info('You are withdrawing before the 7-day lock period. A 5% penalty will be applied (Emergency Unstake).', { autoClose: 6000 });
+            toast('You are withdrawing before the 7-day lock period. A 5% penalty will be applied (Emergency Unstake).', { icon: 'ℹ️', duration: 6000 });
             console.log('DEBUG: Calling contract.emergencyUnstake()');
             try {
               tx = await contract.emergencyUnstake();
@@ -426,7 +425,7 @@ export default function Staking({ id }) {
   // ✅ Claim rewards
   const claimRewards = async () => {
     if (!tokenContract || !userAddress) {
-      toast.error('❌ Please connect your wallet first', { autoClose: 4000 });
+      toast.error('Please connect your wallet first');
       return false;
     }
     setIsLoading(true);

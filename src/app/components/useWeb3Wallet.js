@@ -38,7 +38,7 @@ export default function useWeb3Wallet() {
     return num.toFixed(2);
   };
 
-  // Check connection on load
+  // Check connection on load and set up global listeners
   useEffect(() => {
     const checkConnection = async () => {
       if (typeof window !== 'undefined' && window.ethereum) {
@@ -54,6 +54,77 @@ export default function useWeb3Wallet() {
     };
 
     checkConnection();
+
+    if (typeof window !== 'undefined' && window.ethereum) {
+      const handleAccountsChanged = async (accounts) => {
+        console.log('Accounts changed:', accounts);
+        if (accounts.length > 0) {
+          const address = accounts[0];
+          setUserAddress(address);
+          setIsConnected(true);
+
+          try {
+            // Sync new network
+            const networkInfo = await getNetwork();
+            setNetwork(networkInfo);
+
+            // Sync new balance
+            const tokenBalance = await getTokenBalance(address);
+            setBalance(tokenBalance);
+
+            // Setup new contract instance with updated signer
+            const { ethers } = await import('ethers');
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const signer = await provider.getSigner();
+            const contract = new ethers.Contract(TOKEN_CONFIG.address, COFFY_TOKEN_ABI, signer);
+            setTokenContract(contract);
+
+            // Update Zustand store
+            updateWalletConnection({
+              address: address,
+              isConnected: true,
+              chainId: networkInfo?.chainId
+            });
+
+            updatePortfolio({
+              balance: parseFloat(tokenBalance)
+            });
+          } catch (err) {
+            console.error('Error syncing switched account:', err);
+          }
+        } else {
+          // Clean up state if disconnected
+          setUserAddress(null);
+          setIsConnected(false);
+          setTokenContract(null);
+          setBalance('0');
+          setNetwork(null);
+          updateWalletConnection({
+            address: null,
+            isConnected: false,
+            chainId: null
+          });
+          updatePortfolio({
+            balance: 0
+          });
+        }
+      };
+
+      const handleChainChanged = () => {
+        console.log('Chain changed, reloading...');
+        window.location.reload();
+      };
+
+      window.ethereum.on('accountsChanged', handleAccountsChanged);
+      window.ethereum.on('chainChanged', handleChainChanged);
+
+      return () => {
+        if (window.ethereum.removeListener) {
+          window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+          window.ethereum.removeListener('chainChanged', handleChainChanged);
+        }
+      };
+    }
   }, []);
 
   // Get network info - BASE MAINNET

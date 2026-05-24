@@ -55,6 +55,17 @@ const GamesSection = ({ id }) => {
   // Game data - could be moved to external config or API
   const games = useMemo(() => [
     {
+      id: 'gorev-2070',
+      title: 'GÖREV 2070: Siber Strateji',
+      image: '/images/game-previews/gorev2070-preview.png',
+      purpose: 'Our immersive cyberpunk text-strategy and card survival mobile game. Manage resources, control lead stress, expand territories, and lead your cyber empire to survival!',
+      path: 'https://play.google.com/store/apps/details?id=com.gorev2070.strategy',
+      gradient: 'from-[#1A0F0A] via-[#2A1810] to-[#D4A017]',
+      rewards: 'Play on Android',
+      category: 'Text-Strategy & Survival',
+      isNew: true
+    },
+    {
       id: 'sleepness',
       title: 'Sleepness (Open World AAA)',
       image: '/images/game-previews/sleepness-preview.png',

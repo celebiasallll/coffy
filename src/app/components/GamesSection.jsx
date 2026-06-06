@@ -55,6 +55,17 @@ const GamesSection = ({ id }) => {
   // Game data - could be moved to external config or API
   const games = useMemo(() => [
     {
+      id: 'futbol-simulator',
+      title: 'Futbol Menajerlik Simülatörü',
+      image: '/images/game-previews/futbol-preview.png',
+      purpose: 'Manage your own football club! Balance budget, supporters, board, and player chemistry. Make critical tactical choices and lead your team to victory in this immersive swipe simulator.',
+      path: 'https://play.google.com/store/apps/details?id=com.futbol.simulator',
+      gradient: 'from-[#0F291B] via-[#1B3B22] to-[#2E6F40]',
+      rewards: 'Play on Android',
+      category: 'Sports & Simulation',
+      isNew: true
+    },
+    {
       id: 'gorev-2070',
       title: 'GÖREV 2070: Siber Strateji',
       image: '/images/game-previews/gorev2070-preview.png',

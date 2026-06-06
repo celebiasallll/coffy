@@ -24,8 +24,8 @@ const containerVariants = {
 const cardVariants = {
   hidden: {
     opacity: 0,
-    y: 40,
-    scale: 0.95,
+    y: 30,
+    scale: 0.98,
   },
   visible: {
     opacity: 1,
@@ -33,17 +33,16 @@ const cardVariants = {
     scale: 1,
     transition: {
       type: "spring",
-      damping: 20,
-      stiffness: 300,
+      damping: 25,
+      stiffness: 350,
     },
   },
   hover: {
-    scale: 1.05,
-    y: -8,
-    boxShadow: '0 20px 40px rgba(212, 160, 23, 0.2)',
+    y: -6,
+    boxShadow: '0 12px 30px -8px rgba(212, 160, 23, 0.25)',
     transition: {
       type: "spring",
-      damping: 15,
+      damping: 18,
       stiffness: 300,
     },
   },
@@ -217,14 +216,6 @@ const GamesSection = ({ id }) => {
     event.target.src = FALLBACK_IMAGE;
   }, []);
 
-  // Helper: Son satırdaki kart(lar)ı ortalamak için (2'li grid yapısı)
-  function getGridItemClass(idx, total) {
-    if (total % 2 !== 0 && idx === total - 1) {
-      return 'col-span-1 sm:col-span-2 sm:justify-self-center sm:max-w-[400px]';
-    }
-    return 'col-span-1';
-  }
-
   return (
     <section id={id || "games"} className="py-10 md:py-20 bg-gradient-to-b from-[#1A0F0A] via-[#2A1810] to-[#1A0F0A] scroll-mt-24 overflow-hidden" aria-label="Play to Earn Games Section">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -314,7 +305,7 @@ const GamesSection = ({ id }) => {
 
         {/* Game Cards Grid */}
         <motion.div
-          className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-16 max-w-5xl mx-auto"
+          className="flex flex-wrap justify-center gap-6 md:gap-8 mb-16 max-w-6xl mx-auto"
           variants={containerVariants}
           initial="hidden"
           whileInView="visible"
@@ -325,7 +316,7 @@ const GamesSection = ({ id }) => {
               key={game.id}
               variants={cardVariants}
               whileHover="hover"
-              className={`group relative bg-gradient-to-br from-[#3A2A1E] to-[#2A1F15] border border-[#BFA181]/20 rounded-2xl overflow-hidden cursor-pointer shadow-xl backdrop-blur-sm min-h-[480px] flex flex-col justify-self-center w-full max-w-[400px] sm:max-w-none ${getGridItemClass(idx, filteredGames.length)}`}
+              className="group relative bg-gradient-to-b from-[#1F140D] to-[#140C08] border border-[#D4A017]/10 hover:border-[#D4A017]/35 rounded-xl overflow-hidden cursor-pointer shadow-lg backdrop-blur-md flex flex-col w-full sm:w-[calc(50%-12px)] lg:w-[calc(33.33%-22px)] max-w-[340px] transition-all duration-300"
               onClick={() => handleGameClick(game.id, game.path)}
               role="button"
               tabIndex={0}
@@ -338,104 +329,76 @@ const GamesSection = ({ id }) => {
               }}
             >
               {/* Game Image Container */}
-              <div className="relative" style={{ aspectRatio: '16/12' }}>
+              <div className="relative aspect-[16/10] w-full overflow-hidden bg-black/40">
                 <img
                   src={game.image}
                   alt={`${game.title} game preview`}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                   onError={handleImageError}
                   loading="lazy"
-                  width={400}
-                  height={300}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  width={340}
+                  height={212}
                 />
                 {/* Image Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                {/* Sadeleştirilmiş Partikül Efekti */}
-                <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <div className="w-8 h-8 relative overflow-hidden rounded-full">
-                    {[...Array(3)].map((_, i) => (
-                      <div
-                        key={i}
-                        className="absolute w-1 h-1 bg-gradient-to-br from-[#D4A017] to-[#A77B06] rounded-full animate-bounce"
-                        style={{
-                          left: `${30 + (i * 20)}%`,
-                          top: `${30 + (i * 15)}%`,
-                          animationDelay: `${i * 0.3}s`,
-                          animationDuration: `1.5s`,
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                
                 {/* Play Button */}
-                <div className="absolute top-4 left-4">
+                <div className="absolute top-3 left-3">
                   <motion.button
-                    className="flex items-center gap-2 bg-black/40 backdrop-blur-md rounded-full px-4 py-2 text-white font-bold text-sm hover:bg-black/60 transition-all duration-300"
+                    className="flex items-center gap-1.5 bg-black/60 backdrop-blur-md border border-white/10 text-white font-bold text-[11px] hover:bg-[#D4A017] hover:text-[#1A0F0A] hover:border-[#D4A017] rounded-full px-3 py-1.5 transition-all duration-300"
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     disabled={isLoading[game.id]}
                   >
                     {isLoading[game.id] ? (
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     ) : (
-                      <i className="fas fa-play" />
+                      <i className="fas fa-play text-[9px]" />
                     )}
                     {isLoading[game.id] ? 'Loading...' : 'Play Now'}
                   </motion.button>
                 </div>
+                
                 {/* NEW Badge for new games */}
                 {game.isNew && (
-                  <div className="absolute top-4 right-4">
-                    <motion.span
-                      className="bg-gradient-to-r from-[#FF6B6B] to-[#FF8E8E] text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg border-2 border-white/30"
-                      animate={{
-                        scale: [1, 1.1, 1],
-                        boxShadow: [
-                          '0 0 0 0 rgba(255, 107, 107, 0.7)',
-                          '0 0 0 10px rgba(255, 107, 107, 0)',
-                          '0 0 0 0 rgba(255, 107, 107, 0)'
-                        ]
-                      }}
-                      transition={{
-                        duration: 2,
-                        repeat: Infinity,
-                        ease: "easeInOut"
-                      }}
-                    >
+                  <div className="absolute top-3 right-3">
+                    <span className="bg-[#FF6B6B] text-white px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider shadow-sm border border-white/20">
                       NEW
-                    </motion.span>
+                    </span>
                   </div>
                 )}
               </div>
+              
               {/* Card Content */}
-              <div className="p-3 flex-1 flex flex-col min-h-[140px]">
+              <div className="p-4 flex-1 flex flex-col">
                 <div className="flex-1">
-                  <h3 className="text-base font-bold text-white mb-1 group-hover:text-[#F4C430] transition-colors line-clamp-1">
-                    {game.title}
-                  </h3>
+                  <div className="flex items-start justify-between gap-2 mb-1.5">
+                    <h3 className="text-sm md:text-base font-bold text-white group-hover:text-[#D4A017] transition-colors duration-300 line-clamp-1">
+                      {game.title}
+                    </h3>
+                  </div>
                   {game.category && (
-                    <span className="inline-block px-1.5 py-0.5 text-[10px] font-medium text-[#BFA181] bg-[#BFA181]/10 rounded mb-2">
+                    <span className="inline-block px-2 py-0.5 text-[9px] font-semibold text-[#D4A017] bg-[#D4A017]/10 rounded-full mb-3 uppercase tracking-wider">
                       {game.category}
                     </span>
                   )}
-                  <p className="text-xs text-[#E8D5B5]/90 leading-snug line-clamp-4 mb-1 min-h-[3.5em]">
+                  <p className="text-xs text-[#E8D5B5]/70 leading-relaxed line-clamp-3 mb-4 min-h-[3.75rem]">
                     {game.purpose}
                   </p>
                 </div>
+                
                 {/* Rewards Section */}
-                <div className="bg-gradient-to-r from-black/20 to-black/10 rounded-lg p-2 border border-[#A77B06]/20">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <i className="fas fa-coins text-[#A77B06]" />
-                      <span className="text-[10px] text-[#E8D5B5]/80 font-medium">Weekly Rewards</span>
-                    </div>
-                    <span className="text-xs font-bold text-[#F4C430]">{game.rewards}</span>
+                <div className="mt-auto pt-3 border-t border-[#D4A017]/10 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <i className="fas fa-coins text-[#D4A017] text-xs" />
+                    <span className="text-[10px] text-[#E8D5B5]/50 font-medium">Weekly Rewards</span>
                   </div>
+                  <span className="text-xs font-bold text-[#F4C430]">{game.rewards}</span>
                 </div>
               </div>
-              {/* Hover Glow Effect */}
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-[#D4A017]/5 to-[#A77B06]/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+
+              {/* Subtle Ambient Hover Glow */}
+              <div className={`absolute inset-0 rounded-xl bg-gradient-to-r ${game.id === 'futbol-simulator' ? 'from-green-500/5 to-emerald-500/5' : 'from-[#D4A017]/5 to-[#A77B06]/5'} opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none`} />
             </motion.article>
           ))}
         </motion.div>

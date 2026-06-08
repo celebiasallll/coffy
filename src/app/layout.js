@@ -21,7 +21,7 @@ export const metadata = {
   title: 'Coffy Coin - Play to Earn Gaming Platform',
   description: 'The first Drink-to-Earn, Play-to-Earn, and SocialFi platform on Base Mainnet. Earn COFFY tokens while gaming!',
   keywords: 'coffy coin, play to earn, blockchain gaming, Base, crypto gaming, coffee token',
-  metadataBase: new URL('https://coffycoin.io'),
+  metadataBase: new URL('https://coffycoin.xyz'),
   icons: {
     icon: [
       { url: '/images/coffy-logo.png', sizes: '32x32', type: 'image/png' },
@@ -35,7 +35,7 @@ export const metadata = {
     description: 'Earn COFFY tokens while gaming! The first coffee-themed blockchain gaming ecosystem.',
     images: ['/images/coffy-logo.png'],
     type: 'website',
-    url: 'https://coffycoin.io',
+    url: 'https://coffycoin.xyz',
   },
   twitter: {
     card: 'summary_large_image',

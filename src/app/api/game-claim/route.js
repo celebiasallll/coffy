@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { ethers } from 'ethers';
 
 const GAME_MODULE_ADDRESS = process.env.NEXT_PUBLIC_GAME_MODULE_ADDRESS || "0xEb00A304DD1aB9A5bC995d4eD9cAFc190bC593Ea";
-const SIGNER_PRIVATE_KEY = process.env.SIGNER_PRIVATE_KEY || process.env.VALIDATOR_PRIVATE_KEY || "0xe7691e544f0f0f35fa0cfa96ae31d62db291ab6b6c4f20a8229e38d8652ead16";
+const SIGNER_PRIVATE_KEY = process.env.ORACLE_PRIVATE_KEY || process.env.SIGNER_PRIVATE_KEY || process.env.VALIDATOR_PRIVATE_KEY;
 const CHAIN_ID = 8453; // Base Mainnet
 
 export async function POST(req) {

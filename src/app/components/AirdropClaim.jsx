@@ -24,49 +24,31 @@ export default function AirdropClaim() {
     const [errorMessage, setErrorMessage] = useState('');
     const [rewardFormatted, setRewardFormatted] = useState('10,000');
 
-    // Fetch dynamic airdrop parameters from backend configuration
+    // Fetch dynamic airdrop parameters and lifetime claim status from backend
     useEffect(() => {
-        const fetchConfig = async () => {
+        const fetchConfigAndStatus = async () => {
             try {
-                const res = await fetch('/api/airdrop-claim');
-                const json = await res.json();
-                if (json?.success && json?.data?.formattedAmount) {
-                    setRewardFormatted(json.data.formattedAmount);
-                }
-            } catch (err) {
-                console.warn('Could not fetch dynamic airdrop config, using fallback:', err);
-            }
-        };
-        fetchConfig();
-    }, []);
-
-    // Check if user already claimed on Base Mainnet
-    useEffect(() => {
-        const checkEligibility = async () => {
-            if (!isConnected || !userAddress) return;
-            try {
-                const { ethers } = await import('ethers');
-                const provider = new ethers.BrowserProvider(window.ethereum);
-                const contract = new ethers.Contract(
-                    BASE_CONFIG.CONTRACTS.ActivityModule,
-                    ACTIVITY_MODULE_ABI,
-                    provider
-                );
-                const currentDay = Math.floor(Date.now() / 1000 / 86400);
-                const claimedWei = await contract.dailyStepClaimed(userAddress, currentDay).catch(() => 0n);
+                const url = userAddress 
+                    ? `/api/airdrop-claim?address=${encodeURIComponent(userAddress)}`
+                    : '/api/airdrop-claim';
                 
-                if (claimedWei > 0n) {
-                    setHasClaimed(true);
-                } else {
-                    setHasClaimed(false);
+                const res = await fetch(url);
+                const json = await res.json();
+                if (json?.success && json?.data) {
+                    if (json.data.formattedAmount) {
+                        setRewardFormatted(json.data.formattedAmount);
+                    }
+                    if (userAddress && json.data.hasClaimed) {
+                        setHasClaimed(true);
+                    }
                 }
             } catch (err) {
-                console.warn('Check claim status error:', err);
+                console.warn('Could not fetch dynamic airdrop status:', err);
             }
         };
 
-        checkEligibility();
-    }, [isConnected, userAddress]);
+        fetchConfigAndStatus();
+    }, [userAddress]);
 
     const handleClaim = async () => {
         if (!isConnected) {
@@ -106,7 +88,7 @@ export default function AirdropClaim() {
                 toast.success('Pioneer Pass Activated! Claiming tokens...', { id: 'airdrop-toast' });
             }
 
-            // Step 2: Request EIP-712 cryptographic signature from /api/airdrop-claim
+            // Step 2: Request verified EIP-712 signature from backend Oracle
             setClaimStatusText('Verifying eligibility & generating signature...');
             const response = await fetch('/api/airdrop-claim', {
                 method: 'POST',
@@ -128,8 +110,8 @@ export default function AirdropClaim() {
             const { steps, payout, deadline, signature } = jsonResponse.data;
 
             // Step 3: Execute claimStepReward on-chain transaction
-            setClaimStatusText('Confirming 10,000 $COFFY transfer on Base...');
-            toast.loading('Claiming 10,000 $COFFY from Community Pool...', { id: 'airdrop-toast' });
+            setClaimStatusText(`Confirming ${rewardFormatted} $COFFY transfer on Base...`);
+            toast.loading(`Claiming ${rewardFormatted} $COFFY from Community Pool...`, { id: 'airdrop-toast' });
 
             const tx = await contract.claimStepReward(steps, payout, deadline, signature, {
                 gasLimit: 500000
@@ -137,8 +119,23 @@ export default function AirdropClaim() {
             setTxHash(tx.hash);
 
             await tx.wait();
-            toast.success('🎉 Success! 10,000 $COFFY deposited into your wallet!', { id: 'airdrop-toast', duration: 7000 });
 
+            // Step 4: Confirm transaction receipt to permanently record claim in DB
+            try {
+                await fetch('/api/airdrop-claim', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userAddress,
+                        txHash: tx.hash,
+                        action: 'confirm'
+                    })
+                });
+            } catch (confirmErr) {
+                console.warn('Backend confirmation sync notice:', confirmErr);
+            }
+
+            toast.success(`🎉 Success! ${rewardFormatted} $COFFY deposited into your wallet!`, { id: 'airdrop-toast', duration: 7000 });
             setHasClaimed(true);
         } catch (err) {
             console.error('Airdrop Claim Execution Error:', err);

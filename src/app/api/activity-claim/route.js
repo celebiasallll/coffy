@@ -7,8 +7,8 @@ export const runtime = 'nodejs';
 // Base Mainnet ActivityModule Contract Address
 const ACTIVITY_MODULE_ADDRESS = process.env.NEXT_PUBLIC_ACTIVITY_MODULE_ADDRESS || "0x1084Ba72eaF89E4Ed0c0320FDB4C6A51159c15eb";
 
-// Signer private key with environment fallbacks
-const SIGNER_PRIVATE_KEY = process.env.SIGNER_PRIVATE_KEY || process.env.VALIDATOR_PRIVATE_KEY || "0xe7691e544f0f0f35fa0cfa96ae31d62db291ab6b6c4f20a8229e38d8652ead16";
+// Signer private key strictly from environment variables
+const SIGNER_PRIVATE_KEY = process.env.ORACLE_PRIVATE_KEY || process.env.SIGNER_PRIVATE_KEY || process.env.VALIDATOR_PRIVATE_KEY;
 
 export async function POST(req) {
     try {

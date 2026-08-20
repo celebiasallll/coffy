@@ -19,6 +19,7 @@ const Characters = dynamic(() => import('./components/Characters'), { ssr: false
 const Team = dynamic(() => import('./components/Team'));
 const ReferralPanel = dynamic(() => import('./components/ReferralPanel'), { ssr: false });
 const BurnDashboard = dynamic(() => import('./components/BurnDashboard'), { ssr: false });
+const AirdropClaim = dynamic(() => import('./components/AirdropClaim'), { ssr: false });
 
 export default function Home() {
   return (
@@ -56,6 +57,7 @@ export default function Home() {
         <Navbar />
         <main>
           <Hero id="hero" />
+          <AirdropClaim />
           <About id="about" />
           <Characters />
           <GamesSection id="games" />

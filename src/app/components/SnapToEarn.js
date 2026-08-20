@@ -49,26 +49,31 @@ export default function SnapToEarn({ userAddress, isConnected }) {
 
     const fetchOnChainState = async () => {
         try {
+            const { ethers } = await import('ethers');
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const coreContract = new ethers.Contract(BASE_CONFIG.CONTRACTS.CoffyCore, BASE_CONFIG.ABI.CoffyCore, provider);
             const contract = await getContract(true);
             const currentDay = Math.floor(Date.now() / 1000 / 86400);
 
-            const [snapMult, stepMult, snapCount, lastSnap, stepsDone] = await Promise.all([
-                contract.getSnapMultiplier(userAddress),
-                contract.getStepMultiplier(userAddress),
-                contract.dailySnapCount(userAddress),
-                contract.lastSnapDay(userAddress),
-                contract.dailySteps ? contract.dailySteps(userAddress, currentDay).catch(() => 0n) : Promise.resolve(0n),
+            // Correct on-chain getters from V7 / V14
+            const [charMultiplier, snapClaimed, stepClaimed, lastSnapTs] = await Promise.all([
+                coreContract.getCharacterMultiplier(userAddress).catch(() => 100n),
+                contract.dailySnapClaimed(userAddress, currentDay).catch(() => 0n),
+                contract.dailyStepClaimed(userAddress, currentDay).catch(() => 0n),
+                contract.lastSnapTimestamp(userAddress).catch(() => 0n),
             ]);
 
-            setSnapMultiplier(Number(snapMult));
-            setStepMultiplier(Number(stepMult));
+            const multNum = Number(charMultiplier);
+            setSnapMultiplier(multNum);
+            setStepMultiplier(multNum);
 
-            // Snap: 1 per day
-            const snapDay = Number(lastSnap);
-            setDailySnapDone(snapDay >= currentDay && Number(snapCount) >= 1);
+            // Snap: check if claimed today or on cooldown (1800s)
+            const nowTs = Math.floor(Date.now() / 1000);
+            const isSnapCooldown = Number(lastSnapTs) > 0 && (nowTs < Number(lastSnapTs) + 1800);
+            setDailySnapDone(isSnapCooldown || snapClaimed > 0n);
 
-            // Steps: max 20000/day
-            setDailyStepsDone(Number(stepsDone));
+            // Steps done formatted
+            setDailyStepsDone(Number(stepClaimed / (10n ** 18n)));
         } catch (e) {
             console.warn('fetchOnChainState:', e);
         }
@@ -92,13 +97,10 @@ export default function SnapToEarn({ userAddress, isConnected }) {
         setSnapReward(null);
 
         try {
-            // 1. Upload image → backend for verification & signature
             setSnapStatus('uploading');
-            // Assuming image processing is done client-side or mocked for now
-            // Request signature directly from our new unified backend endpoint
 
-            // Calculate hypothetical reward amount for snap
-            const BASE_SNAP = 1000; // 1000 COFFY
+            // Calculate snap reward (Base: 1000 COFFY)
+            const BASE_SNAP = 1000;
             const rewardAmount = (BASE_SNAP * (snapMultiplier || 100)) / 100;
 
             const res = await fetch('/api/activity-claim', {
@@ -121,9 +123,8 @@ export default function SnapToEarn({ userAddress, isConnected }) {
             setSnapStatus('claiming');
             const contract = await getContract(false);
 
-            // new ABI: claimSnapReward(uint256 id, uint256 payout, uint256 deadline, bytes calldata sig)
-            const { id, payout, deadline, signature } = data.data;
-            const tx = await contract.claimSnapReward(id, payout, deadline, signature);
+            const { snapId, payout, deadline, signature } = data.data;
+            const tx = await contract.claimSnapReward(snapId, payout, deadline, signature);
             await tx.wait();
 
             // 3. Calculate reward display
@@ -134,11 +135,10 @@ export default function SnapToEarn({ userAddress, isConnected }) {
         } catch (err) {
             setSnapStatus('error');
             const msg = err?.reason || err?.message || 'İşlem başarısız';
-            setSnapError(msg.includes('Daily limit') ? 'Günlük snap limitine ulaştın!' :
-                msg.includes('No profile') ? 'Önce profil oluşturman gerekiyor.' :
-                    msg.includes('Wallet too new') ? 'Cüzdanın çok yeni (min 1 saat).' :
-                        msg.includes('Signature used') ? 'Bu imza zaten kullanıldı.' :
-                            msg);
+            setSnapError(msg.includes('CooldownActive') ? 'Bekleme süresi aktif (30 dakika).' :
+                msg.includes('DailyLimitReached') ? 'Günlük snap limitine ulaştın!' :
+                    msg.includes('SignatureUsed') ? 'Bu imza zaten kullanıldı.' :
+                        msg);
         }
     };
 
@@ -146,7 +146,10 @@ export default function SnapToEarn({ userAddress, isConnected }) {
 
     const handleStepClaim = async () => {
         const steps = parseInt(stepCount);
-        if (!steps || steps <= 0 || steps > 20000 || !isConnected) return;
+        if (!steps || steps < 1000 || steps > 20000 || !isConnected) {
+            setStepError('Adım sayısı en az 1.000 olmalıdır.');
+            return;
+        }
         setStepError('');
         setStepReward(null);
 
@@ -154,8 +157,8 @@ export default function SnapToEarn({ userAddress, isConnected }) {
             // 1. Request signature from backend
             setStepStatus('signing');
 
-            // Calculate step reward based on logic
-            const BASE_STEP = 0.3; // 0.3 COFFY per step
+            // Calculate step reward (0.3 COFFY per step)
+            const BASE_STEP = 0.3;
             const rewardAmount = (BASE_STEP * steps * (stepMultiplier || 100)) / 100;
 
             const res = await fetch('/api/activity-claim', {
@@ -164,7 +167,8 @@ export default function SnapToEarn({ userAddress, isConnected }) {
                 body: JSON.stringify({
                     userAddress: userAddress,
                     amount: rewardAmount,
-                    activityType: 'step'
+                    activityType: 'step',
+                    steps: steps
                 }),
             });
 
@@ -177,9 +181,8 @@ export default function SnapToEarn({ userAddress, isConnected }) {
             setStepStatus('claiming');
             const contract = await getContract(false);
 
-            // claimStepReward(uint256 id, uint256 payout, uint256 deadline, bytes calldata sig)
-            const { id, payout, deadline, signature } = data.data;
-            const tx = await contract.claimStepReward(id, payout, deadline, signature);
+            const { steps: verifiedSteps, payout, deadline, signature } = data.data;
+            const tx = await contract.claimStepReward(verifiedSteps, payout, deadline, signature);
             await tx.wait();
 
             // 3. Display reward
@@ -190,9 +193,9 @@ export default function SnapToEarn({ userAddress, isConnected }) {
         } catch (err) {
             setStepStatus('error');
             const msg = err?.reason || err?.message || 'İşlem başarısız';
-            setStepError(msg.includes('Daily step limit') ? `Günlük adım limitine ulaştın! (${dailyStepsDone}/20000)` :
-                msg.includes('No profile') ? 'Önce profil oluşturman gerekiyor.' :
-                    msg.includes('Wallet too new') ? 'Cüzdanın çok yeni (min 1 saat).' :
+            setStepError(msg.includes('DailyLimitReached') ? `Günlük limitine ulaştın!` :
+                msg.includes('SignatureUsed') ? 'Bu imza zaten kullanıldı.' :
+                    msg.includes('InvalidAmount') ? 'Adım sayısı min 1.000 olmalıdır.' :
                         msg);
         }
     };

@@ -235,37 +235,34 @@ export default function Staking({ id }) {
           tx = await contract.stake(ethers.parseUnits(amount, 18));
           break;
         case 'unstake':
-          // ✅ YENİ: Early unstake penalty kontrolü
-          const stakeInfo = await contract.getStakeInfo(userAddress);
-          const stakeStartTime = Number(stakeInfo.startTime || stakeInfo[1] || 0);
-          const currentTimeForUnstake = Math.floor(Date.now() / 1000);
-          const lockPeriod = 7 * 24 * 60 * 60; // 7 days
-          const isEarlyUnstake = currentTimeForUnstake < (stakeStartTime + lockPeriod);
+          const currentStakeInfo = await contract.getStakeInfo(userAddress);
+          const currentStaked = currentStakeInfo[0] || 0n;
+          const currentStartTime = Number(currentStakeInfo.startTime || currentStakeInfo[1] || 0);
+          const nowTs = Math.floor(Date.now() / 1000);
+          const lockDuration = 7 * 24 * 60 * 60; // 7 days
+          const isEarly = nowTs < (currentStartTime + lockDuration);
 
-          if (isEarlyUnstake) {
-            const remainingDays = Math.ceil((stakeStartTime + lockPeriod - currentTimeForUnstake) / (24 * 60 * 60));
-            const penaltyPercent = 5;
-            // Net miktarı hesapla
-            const inputAmount = parseFloat(amount);
-            const netAmount = inputAmount * 0.95;
-            // window.confirm yerine modal
+          const unstakeAmountWei = ethers.parseUnits(amount, 18);
+
+          if (isEarly) {
+            const daysLeft = Math.ceil((currentStartTime + lockDuration - nowTs) / (24 * 60 * 60));
             return new Promise((resolve) => {
               setConfirmModal({
                 open: true,
-                message: `⚠️ Early Unstake Warning\n\nYour tokens are locked for ${remainingDays} more days.\nEarly unstaking will result in a ${penaltyPercent}% penalty.\n\nInput: ${inputAmount} COFFY\nNet alacağınız miktar: ${netAmount.toFixed(6)} COFFY\n\nAre you sure you want to continue?`,
+                message: `⚠️ Early Unstake Warning\n\nYour tokens are locked for ${daysLeft} more days.\nEarly unstaking executes an emergency unstake on your entire balance with a 5% penalty.\n\nAre you sure you want to proceed?`,
                 onConfirm: async () => {
                   setConfirmModal({ open: false, message: '', onConfirm: null });
-                  console.log(`Early unstake with ${penaltyPercent}% penalty`);
                   try {
-                    // inputtaki miktar kadar unstake
-                    tx = await contract.unstake(ethers.parseUnits(amount, 18));
+                    tx = await contract.emergencyUnstake();
+                    await tx.wait();
                     await updateStakeInfo();
                     setStakeAmount('');
                     setIsLoading(false);
+                    toast.success('Emergency unstake completed successfully!');
                     resolve(true);
                   } catch (error) {
-                    console.error(`unstake error:`, error);
-                    setError(error.message || `unstake failed`);
+                    console.error(`emergencyUnstake error:`, error);
+                    setError(error.message || `emergency unstake failed`);
                     setIsLoading(false);
                     resolve(false);
                   }
@@ -273,55 +270,33 @@ export default function Staking({ id }) {
               });
             });
           }
-          // DEĞİŞTİ: inputtaki miktar kadar unstake
-          tx = await contract.unstake(ethers.parseUnits(amount, 18));
+
+          // If lock is passed:
+          if (unstakeAmountWei >= currentStaked) {
+            tx = await contract.unstake();
+          } else {
+            tx = await contract.partialUnstake(unstakeAmountWei);
+          }
           break;
+
         case 'emergency_unstake':
           console.log('Emergency unstaking all tokens...');
-          // Emergency unstake - tüm stake'i çek (penalty ile)
-          const allStakedAmount = await contract.stakes(userAddress);
-          const totalStaked = allStakedAmount[0] || 0;
+          const userStakeData = await contract.stakes(userAddress);
+          const totalUserStaked = userStakeData.amount || userStakeData[0] || 0n;
 
-          if (!totalStaked || totalStaked.toString() === '0') {
+          if (!totalUserStaked || totalUserStaked.toString() === '0') {
             setError('No tokens staked for emergency unstake');
             throw new Error('No tokens staked for emergency unstake');
           }
-          // Kullanıcıya net çekilecek miktarı göster
-          const penaltyPercent = 5;
-          const netAmount = typeof totalStaked === 'bigint'
-            ? (totalStaked * 95n) / 100n
-            : Math.floor(Number(totalStaked) * 0.95);
-          const netAmountFormatted = ethers.formatUnits(netAmount.toString(), 18);
-          toast(`Emergency Unstake: %${penaltyPercent} penalty uygulanacak.\nÇekilecek net miktar: ${netAmountFormatted} COFFY`, { icon: 'ℹ️', duration: 6000 });
-          // Kontrata raw BigNumber olarak gönder
-          console.log('Unstaking amount (wei):', totalStaked.toString());
-          tx = await contract.unstake(totalStaked);
+          toast('Emergency Unstake: %5 penalty will be burned, remaining sent to your wallet.', { icon: 'ℹ️', duration: 4000 });
+          tx = await contract.emergencyUnstake();
           break;
+
         case 'claim':
-          // window.confirm yerine modal
-          return new Promise((resolve) => {
-            setConfirmModal({
-              open: true,
-              message: `💡 Staking Rewards Information\n\nRewards are automatically paid when you unstake.\n\nOptions:\n• OK = Use Emergency Unstake (get all + rewards)\n• Cancel = Normal unstake with your chosen amount\n\nChoose OK for quick reward collection.`,
-              onConfirm: async () => {
-                setConfirmModal({ open: false, message: '', onConfirm: null });
-                try {
-                  // DEĞİŞTİ: inputtaki miktar kadar unstake
-                  tx = await contract.unstake(ethers.parseUnits(stakeAmount, 18));
-                  console.log('✅ Emergency unstake called - all stake + rewards claimed');
-                  await updateStakeInfo();
-                  setStakeAmount('');
-                  setIsLoading(false);
-                  resolve(true);
-                } catch (error) {
-                  console.error(`claim error:`, error);
-                  setError(error.message || `claim failed`);
-                  setIsLoading(false);
-                  resolve(false);
-                }
-              }
-            });
-          });
+          console.log('Claiming staking rewards...');
+          tx = await contract.claimStakingReward();
+          break;
+
         default:
           throw new Error('Invalid operation');
       }

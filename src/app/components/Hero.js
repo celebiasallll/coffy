@@ -183,20 +183,20 @@ export default function Hero() {
               variants={childVariants}
             >
               <motion.a
+                href="#airdrop"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-black font-black py-4 px-8 rounded-2xl text-lg shadow-xl shadow-amber-500/25 flex items-center gap-2 tracking-wide"
+              >
+                🎁 Claim 10,000 $COFFY
+              </motion.a>
+              <motion.a
                 href="#games"
                 whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.96 }}
-                className="bg-gradient-to-r from-[#D4A017] to-[#A77B06] text-white font-bold py-4 px-8 rounded-2xl text-lg shadow-lg shadow-[#D4A017]/30 flex items-center gap-2"
+                className="border-2 border-[#D4A017]/60 hover:border-[#D4A017] text-[#E8D5B5] font-bold py-4 px-8 rounded-2xl text-lg transition-all duration-300 flex items-center gap-2"
               >
-                🎮 Play &amp; Earn
-              </motion.a>
-              <motion.a
-                href="#tokenomics"
-                whileHover={{ scale: 1.04, backgroundColor: 'rgba(212,160,23,0.08)' }}
-                whileTap={{ scale: 0.96 }}
-                className="border-2 border-[#D4A017]/50 hover:border-[#D4A017] text-[#E8D5B5] font-bold py-4 px-8 rounded-2xl text-lg transition-all duration-300"
-              >
-                Learn More
+                🎮 Play Games
               </motion.a>
             </motion.div>
           </motion.div>

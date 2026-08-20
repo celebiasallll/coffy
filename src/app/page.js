@@ -19,6 +19,7 @@ const Characters = dynamic(() => import('./components/Characters'), { ssr: false
 const Team = dynamic(() => import('./components/Team'));
 const ReferralPanel = dynamic(() => import('./components/ReferralPanel'), { ssr: false });
 const BurnDashboard = dynamic(() => import('./components/BurnDashboard'), { ssr: false });
+const GenesisAirdrop = dynamic(() => import('./components/GenesisAirdrop'), { ssr: false });
 
 export default function Home() {
   return (
@@ -56,6 +57,7 @@ export default function Home() {
         <Navbar />
         <main>
           <Hero id="hero" />
+          <GenesisAirdrop />
           <About id="about" />
           <Characters />
           <GamesSection id="games" />

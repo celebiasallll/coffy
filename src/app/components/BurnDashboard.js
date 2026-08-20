@@ -167,7 +167,7 @@ export default function BurnDashboard() {
                 </div>
               </div>
               <div className="border-t border-orange-500/10 pt-4 mt-4 flex items-center justify-between text-xs text-[#E8D5B5]/60">
-                <span>Initial Supply: 1,000,000,000</span>
+                <span>Initial Supply: 15,000,000,000 COFFY</span>
                 <span className="text-orange-500 font-semibold">{percentageBurned}% Burned</span>
               </div>
             </div>

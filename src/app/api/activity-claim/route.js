@@ -41,11 +41,10 @@ export async function POST(req) {
         // Format payout amount to Wei (assuming 18 decimals)
         const payout = ethers.parseUnits(amount.toString(), 18);
 
-        // Generate a random ID (steps for step, snapId for snap)
-        const randomBytes = ethers.randomBytes(32);
+        // Generate parameters based on activityType
         const deadline = Math.floor(Date.now() / 1000) + (10 * 60);
 
-        // EIP-712 Data
+        // EIP-712 Domain matching ActivityModule V14
         const domain = {
             name: "Coffy",
             version: "1",
@@ -54,10 +53,10 @@ export async function POST(req) {
         };
 
         let signature;
-        let id;
+        let responseData = {};
 
         if (activityType === 'snap') {
-            id = ethers.hexlify(randomBytes); // bytes32
+            const snapId = ethers.hexlify(ethers.randomBytes(32)); // bytes32
             const types = {
                 SnapReward: [
                     { name: "snapId", type: "bytes32" },
@@ -67,15 +66,22 @@ export async function POST(req) {
                 ]
             };
             const value = {
-                snapId: id,
+                snapId: snapId,
                 user: userAddress,
-                payout: payout,
+                payout: payout.toString(),
                 deadline: deadline
             };
             signature = await wallet.signTypedData(domain, types, value);
+            responseData = {
+                snapId: snapId,
+                payout: payout.toString(),
+                deadline: deadline,
+                signature: signature
+            };
         } else {
-            // Step reward
-            id = ethers.toBigInt(randomBytes).toString(); // uint256
+            // Step reward: steps must be >= 1000 (minStepCount in contract)
+            const rawSteps = body.steps ? parseInt(body.steps) : 1000;
+            const steps = Math.max(1000, rawSteps);
             const types = {
                 StepReward: [
                     { name: "user", type: "address" },
@@ -86,27 +92,24 @@ export async function POST(req) {
             };
             const value = {
                 user: userAddress,
-                steps: id, // Mapping 'steps' to our generated ID for this claim
-                payout: payout,
+                steps: steps,
+                payout: payout.toString(),
                 deadline: deadline
             };
             signature = await wallet.signTypedData(domain, types, value);
-        }
-
-        console.log(`📝 Generated EIP-712 ${activityType.toUpperCase()} Signature:`);
-        console.log(`- ID: ${id}`);
-        console.log(`- Payout: ${payout.toString()} Wei`);
-        console.log(`- Deadline: ${deadline}`);
-        console.log(`- Signature: ${signature}`);
-
-        return NextResponse.json({
-            success: true,
-            data: {
-                id: id,
+            responseData = {
+                steps: steps,
                 payout: payout.toString(),
                 deadline: deadline,
                 signature: signature
-            }
+            };
+        }
+
+        console.log(`📝 Generated EIP-712 ${activityType.toUpperCase()} Signature:`, responseData);
+
+        return NextResponse.json({
+            success: true,
+            data: responseData
         });
 
     } catch (error) {

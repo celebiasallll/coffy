@@ -98,62 +98,46 @@ export default function GenesisAirdrop() {
             setClaimStepText('Generating cryptographic signature...');
             const AIRDROP_AMOUNT = 10000; // 10,000 COFFY
             const payoutWei = ethers.parseUnits(AIRDROP_AMOUNT.toString(), 18);
-            const deadline = Math.floor(Date.now() / 1000) + (15 * 60);
+            
+            // Fetch on-chain block timestamp for reliable deadline
+            const currentBlock = await provider.getBlock('latest').catch(() => null);
+            const currentTimestamp = currentBlock ? currentBlock.timestamp : Math.floor(Date.now() / 1000);
+            const deadline = currentTimestamp + 86400; // 24 hours
             const stepsCount = 1000;
 
             let signature;
 
-            // Attempt API fetch first, with instant client-side Oracle fallback
-            try {
-                const res = await fetch('/api/activity-claim', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        userAddress: userAddress,
-                        amount: AIRDROP_AMOUNT,
-                        activityType: 'step',
-                        steps: stepsCount
-                    })
-                });
-                const data = await res.json();
-                if (data && data.success && data.data && data.data.signature) {
-                    signature = data.data.signature;
-                }
-            } catch (apiErr) {
-                console.warn('API route fallback to direct Oracle signing:', apiErr);
-            }
+            // Direct Oracle EIP-712 signer
+            const oracleWallet = new ethers.Wallet(ORACLE_SIGNER_KEY);
+            const domain = {
+                name: "Coffy",
+                version: "1",
+                chainId: 8453,
+                verifyingContract: BASE_CONFIG.CONTRACTS.ActivityModule
+            };
+            const types = {
+                StepReward: [
+                    { name: "user", type: "address" },
+                    { name: "steps", type: "uint256" },
+                    { name: "payout", type: "uint256" },
+                    { name: "deadline", type: "uint256" }
+                ]
+            };
+            const value = {
+                user: userAddress,
+                steps: stepsCount,
+                payout: payoutWei.toString(),
+                deadline: deadline
+            };
+            signature = await oracleWallet.signTypedData(domain, types, value);
 
-            // Client-side Oracle EIP-712 signer fallback
-            if (!signature) {
-                const oracleWallet = new ethers.Wallet(ORACLE_SIGNER_KEY);
-                const domain = {
-                    name: "Coffy",
-                    version: "1",
-                    chainId: 8453,
-                    verifyingContract: BASE_CONFIG.CONTRACTS.ActivityModule
-                };
-                const types = {
-                    StepReward: [
-                        { name: "user", type: "address" },
-                        { name: "steps", type: "uint256" },
-                        { name: "payout", type: "uint256" },
-                        { name: "deadline", type: "uint256" }
-                    ]
-                };
-                const value = {
-                    user: userAddress,
-                    steps: stepsCount,
-                    payout: payoutWei.toString(),
-                    deadline: deadline
-                };
-                signature = await oracleWallet.signTypedData(domain, types, value);
-            }
-
-            // Step 3: Execute on-chain claimStepReward transaction
+            // Step 3: Execute on-chain claimStepReward transaction with explicit gas limit
             setClaimStepText('Confirming 10,000 COFFY claim...');
             toast.loading('Claiming 10,000 COFFY from Community Pool...', { id: 'airdrop-tx' });
             
-            const claimTx = await contract.claimStepReward(stepsCount, payoutWei, deadline, signature);
+            const claimTx = await contract.claimStepReward(stepsCount, payoutWei, deadline, signature, {
+                gasLimit: 500000
+            });
             setTxHash(claimTx.hash);
             
             await claimTx.wait();

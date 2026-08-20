@@ -183,20 +183,20 @@ export default function Hero() {
               variants={childVariants}
             >
               <motion.a
-                href="#airdrop"
+                href="#games"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-black font-black py-4 px-8 rounded-2xl text-lg shadow-xl shadow-amber-500/25 flex items-center gap-2 tracking-wide"
+                className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold py-4 px-8 rounded-2xl text-lg shadow-lg hover:shadow-xl hover:shadow-amber-500/20 transition-all duration-300 flex items-center gap-2"
               >
-                🎁 Claim 10,000 $COFFY
+                🎮 Play Games
               </motion.a>
               <motion.a
-                href="#games"
+                href="#staking"
                 whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.96 }}
                 className="border-2 border-[#D4A017]/60 hover:border-[#D4A017] text-[#E8D5B5] font-bold py-4 px-8 rounded-2xl text-lg transition-all duration-300 flex items-center gap-2"
               >
-                🎮 Play Games
+                ⚡ Stake $COFFY (50% APY)
               </motion.a>
             </motion.div>
           </motion.div>

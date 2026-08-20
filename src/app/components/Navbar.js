@@ -249,7 +249,6 @@ export default function Navbar() {
 
   // Navigation items
   const navItems = [
-    { id: 'airdrop', label: 'Airdrop 🎁', icon: Gift, subtitle: 'Free 10K' },
     { id: 'games', label: 'Games', icon: Gamepad2, subtitle: 'Earn COFFY' },
     { id: 'about', label: 'About Coffy', icon: Info, subtitle: 'Learn More' },
     { id: 'staking', label: 'Staking', icon: Coins, subtitle: 'Earn Rewards' },

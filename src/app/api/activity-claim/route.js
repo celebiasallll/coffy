@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { ethers } from 'ethers';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 // Base Mainnet ActivityModule Contract Address
 const ACTIVITY_MODULE_ADDRESS = process.env.NEXT_PUBLIC_ACTIVITY_MODULE_ADDRESS || "0x1084Ba72eaF89E4Ed0c0320FDB4C6A51159c15eb";
 

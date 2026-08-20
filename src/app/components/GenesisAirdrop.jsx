@@ -105,9 +105,15 @@ export default function GenesisAirdrop() {
                 })
             });
 
-            const data = await res.json();
-            if (!res.ok || !data.success) {
-                throw new Error(data.error || 'Failed to generate airdrop signature.');
+            let data;
+            try {
+                data = await res.json();
+            } catch (e) {
+                throw new Error('API server returned an invalid response. Please try again in a few moments.');
+            }
+
+            if (!res.ok || !data?.success) {
+                throw new Error(data?.error || 'Failed to generate airdrop signature.');
             }
 
             const { steps, payout, deadline, signature } = data.data;

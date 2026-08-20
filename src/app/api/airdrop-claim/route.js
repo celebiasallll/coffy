@@ -124,7 +124,8 @@ export async function POST(req) {
                 payout: payoutWei.toString(),
                 deadline: deadline,
                 signature: signature,
-                amount: AIRDROP_AMOUNT
+                amount: AIRDROP_AMOUNT,
+                formattedAmount: Number(AIRDROP_AMOUNT).toLocaleString('en-US')
             }
         }, { headers: corsHeaders() });
 
@@ -135,6 +136,19 @@ export async function POST(req) {
             { status: 500, headers: corsHeaders() }
         );
     }
+}
+
+// GET endpoint to return dynamic airdrop parameters to frontend
+export async function GET() {
+    return NextResponse.json({
+        success: true,
+        data: {
+            amount: AIRDROP_AMOUNT,
+            formattedAmount: Number(AIRDROP_AMOUNT).toLocaleString('en-US'),
+            steps: AIRDROP_STEPS,
+            isActive: true
+        }
+    }, { headers: corsHeaders() });
 }
 
 export async function OPTIONS() {

@@ -22,6 +22,23 @@ export default function AirdropClaim() {
     const [hasClaimed, setHasClaimed] = useState(false);
     const [txHash, setTxHash] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
+    const [rewardFormatted, setRewardFormatted] = useState('10,000');
+
+    // Fetch dynamic airdrop parameters from backend configuration
+    useEffect(() => {
+        const fetchConfig = async () => {
+            try {
+                const res = await fetch('/api/airdrop-claim');
+                const json = await res.json();
+                if (json?.success && json?.data?.formattedAmount) {
+                    setRewardFormatted(json.data.formattedAmount);
+                }
+            } catch (err) {
+                console.warn('Could not fetch dynamic airdrop config, using fallback:', err);
+            }
+        };
+        fetchConfig();
+    }, []);
 
     // Check if user already claimed on Base Mainnet
     useEffect(() => {
@@ -175,7 +192,7 @@ export default function AirdropClaim() {
                         </div>
 
                         <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-tight">
-                            Claim Free <span className="bg-gradient-to-r from-amber-400 via-orange-400 to-yellow-300 bg-clip-text text-transparent">10,000 $COFFY</span>
+                            Claim Free <span className="bg-gradient-to-r from-amber-400 via-orange-400 to-yellow-300 bg-clip-text text-transparent">{rewardFormatted} $COFFY</span>
                         </h2>
 
                         <p className="text-[#E8D5B5]/80 text-sm sm:text-base leading-relaxed">
@@ -207,7 +224,7 @@ export default function AirdropClaim() {
                             </div>
 
                             <span className="text-xs text-[#E8D5B5]/60 uppercase tracking-wider font-semibold">Reward Allocation</span>
-                            <span className="text-3xl font-black text-amber-400 font-mono my-1">10,000 COFFY</span>
+                            <span className="text-3xl font-black text-amber-400 font-mono my-1">{rewardFormatted} COFFY</span>
                             <span className="text-xs text-green-400 font-medium mb-5">Instant On-Chain Transfer</span>
 
                             {hasClaimed ? (
@@ -243,7 +260,7 @@ export default function AirdropClaim() {
                                     ) : (
                                         <>
                                             <Sparkles className="w-4 h-4" />
-                                            <span>Claim 10,000 $COFFY</span>
+                                            <span>Claim {rewardFormatted} $COFFY</span>
                                         </>
                                     )}
                                 </button>

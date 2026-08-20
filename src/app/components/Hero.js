@@ -179,24 +179,32 @@ export default function Hero() {
             </motion.p>
 
             <motion.div
-              className="flex flex-col sm:flex-row items-center lg:items-start gap-4 mb-8 sm:mb-12"
+              className="flex flex-wrap items-center lg:items-start gap-4 mb-8 sm:mb-12"
               variants={childVariants}
             >
               <motion.a
                 href="#airdrop"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-400 text-black font-extrabold py-4 px-8 rounded-2xl text-lg shadow-xl shadow-amber-500/25 transition-all duration-300 flex items-center gap-2"
+                className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-400 text-black font-extrabold py-3.5 px-7 rounded-2xl text-base sm:text-lg shadow-xl shadow-amber-500/25 transition-all duration-300 flex items-center gap-2"
               >
-                🎁 Claim 10,000 $COFFY
+                🎁 Claim Free $COFFY
               </motion.a>
               <motion.a
                 href="#games"
                 whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.96 }}
-                className="border-2 border-[#D4A017]/60 hover:border-[#D4A017] text-[#E8D5B5] font-bold py-4 px-8 rounded-2xl text-lg transition-all duration-300 flex items-center gap-2"
+                className="border-2 border-[#D4A017]/60 hover:border-[#D4A017] text-[#E8D5B5] font-bold py-3.5 px-6 rounded-2xl text-base sm:text-lg transition-all duration-300 flex items-center gap-2 bg-[#1A0F0A]/40"
               >
                 🎮 Play Games
+              </motion.a>
+              <motion.a
+                href="#staking"
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.96 }}
+                className="border border-amber-500/30 hover:border-amber-500/60 text-amber-300/90 hover:text-amber-200 font-bold py-3.5 px-6 rounded-2xl text-base sm:text-lg transition-all duration-300 flex items-center gap-2 bg-amber-950/30"
+              >
+                ⚡ 50% APY Staking
               </motion.a>
             </motion.div>
           </motion.div>

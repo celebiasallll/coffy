@@ -2,14 +2,23 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Gift, Sparkles, CheckCircle2, AlertCircle, ArrowRight, ShieldCheck, Flame, Zap } from 'lucide-react';
+import { Gift, Sparkles, CheckCircle2, AlertCircle, ArrowRight, ShieldCheck, Flame, Zap, Loader2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { BASE_CONFIG, ACTIVITY_MODULE_ABI } from '../config/baseConfig';
 import useWeb3Wallet from './useWeb3Wallet';
 
+// Helper: UUID generator for unique on-chain profile ID
+function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
+
 export default function GenesisAirdrop() {
     const { userAddress, isConnected, connectWallet } = useWeb3Wallet();
     const [isClaiming, setIsClaiming] = useState(false);
+    const [claimStepText, setClaimStepText] = useState('');
     const [hasClaimed, setHasClaimed] = useState(false);
     const [txHash, setTxHash] = useState('');
     const [errorMsg, setErrorMsg] = useState('');
@@ -55,7 +64,35 @@ export default function GenesisAirdrop() {
         setTxHash('');
 
         try {
-            // 1. Request signed payload from serverless API
+            const { ethers } = await import('ethers');
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const signer = await provider.getSigner();
+            const contract = new ethers.Contract(
+                BASE_CONFIG.CONTRACTS.ActivityModule,
+                ACTIVITY_MODULE_ABI,
+                signer
+            );
+
+            // Step 1: Check if wallet has initialized on-chain profile
+            setClaimStepText('Verifying wallet status...');
+            const existingProfile = await contract.userProfiles(userAddress).catch(() => '');
+
+            if (!existingProfile || existingProfile === '') {
+                setClaimStepText('Initializing Genesis Account (Step 1/2)...');
+                toast.loading('Initializing Genesis Account on Base...', { id: 'airdrop-tx' });
+
+                const profileId = generateUUID();
+                const storedReferrer = (typeof window !== 'undefined' && localStorage.getItem('coffy_referrer')) 
+                    ? localStorage.getItem('coffy_referrer') 
+                    : ethers.ZeroAddress;
+
+                const initTx = await contract.linkUserProfile(profileId, storedReferrer);
+                await initTx.wait();
+                toast.success('Genesis Account Initialized! Claiming reward...', { id: 'airdrop-tx' });
+            }
+
+            // Step 2: Request EIP-712 signed payload from backend
+            setClaimStepText('Generating cryptographic signature...');
             const AIRDROP_AMOUNT = 10000; // 10,000 COFFY
             const res = await fetch('/api/activity-claim', {
                 method: 'POST',
@@ -70,47 +107,43 @@ export default function GenesisAirdrop() {
 
             const data = await res.json();
             if (!res.ok || !data.success) {
-                throw new Error(data.error || 'Airdrop imzası üretilemedi.');
+                throw new Error(data.error || 'Failed to generate airdrop signature.');
             }
 
             const { steps, payout, deadline, signature } = data.data;
 
-            // 2. Submit on-chain transaction
-            const { ethers } = await import('ethers');
-            const provider = new ethers.BrowserProvider(window.ethereum);
-            const signer = await provider.getSigner();
-            const contract = new ethers.Contract(
-                BASE_CONFIG.CONTRACTS.ActivityModule,
-                ACTIVITY_MODULE_ABI,
-                signer
-            );
-
-            toast.loading('Base Mainnet üzerinde işlem onaylanıyor...', { id: 'airdrop-tx' });
-            const tx = await contract.claimStepReward(steps, payout, deadline, signature);
-            setTxHash(tx.hash);
+            // Step 3: Execute on-chain claimStepReward transaction
+            setClaimStepText('Confirming 10,000 COFFY claim...');
+            toast.loading('Claiming 10,000 COFFY from Community Pool...', { id: 'airdrop-tx' });
             
-            await tx.wait();
-            toast.success('🎉 Tebrikler! 10.000 COFFY cüzdanınıza aktarıldı!', { id: 'airdrop-tx' });
+            const claimTx = await contract.claimStepReward(steps, payout, deadline, signature);
+            setTxHash(claimTx.hash);
+            
+            await claimTx.wait();
+            toast.success('🎉 Success! 10,000 COFFY deposited directly to your wallet!', { id: 'airdrop-tx', duration: 6000 });
             
             setHasClaimed(true);
             setDailyClaimedAmount('10000');
         } catch (err) {
             console.error('Airdrop Claim Error:', err);
-            const rawMsg = err?.reason || err?.message || 'İşlem başarısız.';
-            let friendlyError = 'Airdrop talebi sırasında bir hata oluştu.';
+            const rawMsg = err?.reason || err?.message || 'Transaction failed.';
+            let friendlyError = 'An error occurred during airdrop claim.';
             
             if (rawMsg.includes('DailyLimitReached') || rawMsg.includes('WeeklyLimitReached')) {
-                friendlyError = 'Günlük veya haftalık ödül limitine ulaştınız. Yarın tekrar deneyin!';
+                friendlyError = 'Daily or weekly reward limit reached. Please check back tomorrow!';
             } else if (rawMsg.includes('SignatureUsed')) {
-                friendlyError = 'Bu airdrop imzası zaten kullanılmış.';
+                friendlyError = 'This airdrop signature has already been used.';
             } else if (rawMsg.includes('user rejected') || rawMsg.includes('ACTION_REJECTED')) {
-                friendlyError = 'İşlem kullanıcı tarafından cüzdanda iptal edildi.';
+                friendlyError = 'Transaction was rejected by user in wallet.';
+            } else if (rawMsg.includes('WalletTooNew')) {
+                friendlyError = 'Wallet initialized. Please click claim once more to receive tokens!';
             }
 
             setErrorMsg(friendlyError);
             toast.error(friendlyError, { id: 'airdrop-tx' });
         } finally {
             setIsClaiming(false);
+            setClaimStepText('');
         }
     };
 
@@ -137,14 +170,14 @@ export default function GenesisAirdrop() {
                         </h2>
 
                         <p className="text-[#E8D5B5]/80 text-sm sm:text-base leading-relaxed">
-                            Base Mainnet ekosistemimize hoş geldiniz! Cüzdanınızı bağlayarak 5.25 Milyar COFFY Topluluk Havuzundan anında ücretsiz başlangıç airdrop'unuzu talep edin. Şart yok, minimum bakiye engeli yok.
+                            Welcome to the Coffy ecosystem on Base Mainnet! Connect your wallet to instantly claim your free starter airdrop directly from the 5.25 Billion Community Pool. No minimum balance required, zero lockups.
                         </p>
 
                         {/* Feature Badges */}
                         <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4 pt-2 text-xs font-medium text-[#E8D5B5]/90">
                             <div className="flex items-center gap-1.5 bg-black/40 px-3 py-1.5 rounded-lg border border-amber-500/20">
                                 <ShieldCheck className="w-4 h-4 text-green-400" />
-                                <span>0 Bakiye Şartı (Free)</span>
+                                <span>0 Min Balance (Free)</span>
                             </div>
                             <div className="flex items-center gap-1.5 bg-black/40 px-3 py-1.5 rounded-lg border border-amber-500/20">
                                 <Flame className="w-4 h-4 text-orange-400" />
@@ -172,13 +205,13 @@ export default function GenesisAirdrop() {
                                 <div className="w-full space-y-3">
                                     <div className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-sm font-semibold">
                                         <CheckCircle2 className="w-5 h-5" />
-                                        <span>Bugünkü Airdrop Alındı!</span>
+                                        <span>Airdrop Claimed!</span>
                                     </div>
                                     <a
                                         href="#staking"
                                         className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white text-xs font-bold transition-all shadow-md"
                                     >
-                                        <span>%50 APY ile Stake Et</span>
+                                        <span>Stake with 50% APY</span>
                                         <ArrowRight className="w-3.5 h-3.5" />
                                     </a>
                                 </div>
@@ -190,18 +223,18 @@ export default function GenesisAirdrop() {
                                 >
                                     {isClaiming ? (
                                         <>
-                                            <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                                            <span>Onaylanıyor...</span>
+                                            <Loader2 className="w-4 h-4 animate-spin text-black" />
+                                            <span className="text-xs sm:text-sm font-bold">{claimStepText || 'Processing...'}</span>
                                         </>
                                     ) : !isConnected ? (
                                         <>
-                                            <span>Cüzdanı Bağla &amp; Al</span>
+                                            <span>Connect Wallet &amp; Claim</span>
                                             <ArrowRight className="w-4 h-4" />
                                         </>
                                     ) : (
                                         <>
                                             <Sparkles className="w-4 h-4" />
-                                            <span>10.000 COFFY'yi Al</span>
+                                            <span>Claim 10,000 COFFY</span>
                                         </>
                                     )}
                                 </button>
@@ -221,7 +254,7 @@ export default function GenesisAirdrop() {
                                     rel="noopener noreferrer"
                                     className="text-[11px] text-amber-400/80 hover:text-amber-300 underline mt-3 truncate max-w-full"
                                 >
-                                    BaseScan TX Görüntüle ↗
+                                    View on BaseScan ↗
                                 </a>
                             )}
                         </div>

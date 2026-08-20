@@ -1,0 +1,15 @@
+# Dependencies
+node_modules
+**/node_modules
+public/sleepness/aaa/node_modules
+
+# Git & Temp
+.git
+.github
+*.log
+
+# Local Env
+.env*.local
+
+# Build Caches
+.next

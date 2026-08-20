@@ -319,60 +319,6 @@ export default function Navbar() {
               ))}
             </div>
 
-            {/* Human Verification */}
-            <div className="relative">
-              <motion.button
-                onClick={isVerified || isVerifyingHuman ? undefined : handleHumanVerification}
-                onMouseEnter={() => setShowHumanTooltip(true)}
-                onMouseLeave={() => setShowHumanTooltip(false)}
-                disabled={isVerified || isVerifyingHuman}
-                className={`relative flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all duration-300
-                  ${isVerified
-                    ? 'bg-emerald-900/30 text-emerald-400 border border-emerald-500/30 cursor-default'
-                    : isVerifyingHuman
-                      ? 'bg-amber-900/50 text-amber-300 cursor-wait'
-                      : 'bg-amber-800/50 text-amber-200 hover:bg-amber-700/50 hover:text-amber-100 hover:scale-105'}
-                `}
-                whileHover={isVerified || isVerifyingHuman ? {} : { scale: 1.05 }}
-                whileTap={isVerified || isVerifyingHuman ? {} : { scale: 0.95 }}
-              >
-                {isVerified ? (
-                  <>
-                    <CheckCircle className="w-4 h-4" />
-                    <span className="text-sm">Verified Human</span>
-                  </>
-                ) : isVerifyingHuman ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span className="text-sm">Verifying...</span>
-                  </>
-                ) : (
-                  <>
-                    <Shield className="w-4 h-4" />
-                    <span className="text-sm">Verify Human</span>
-                  </>
-                )}
-              </motion.button>
-
-              {/* Tooltip */}
-              <AnimatePresence>
-                {showHumanTooltip && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10, scale: 0.9 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                    className="absolute left-1/2 top-full mt-2 -translate-x-1/2 px-4 py-2 rounded-lg bg-amber-950/95 text-amber-100 text-xs shadow-lg border border-amber-800/30 z-50"
-                  >
-                    {isVerified
-                      ? 'You are verified as a human on the Base network'
-                      : 'Verify to prevent bots and earn rewards'
-                    }
-                    <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-amber-950 border-l border-t border-amber-800/30 rotate-45" />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
             {/* Wallet Connection */}
             <motion.button
               onClick={connectWallet}
@@ -438,46 +384,6 @@ export default function Navbar() {
                 ))}
 
                 <div className="pt-4 border-t border-amber-800/30 space-y-3">
-                  <motion.button
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.4 }}
-                    onClick={isVerified || isVerifyingHuman ? undefined : handleHumanVerification}
-                    disabled={isVerified || isVerifyingHuman}
-                    className={`w-full flex items-center gap-4 px-6 py-4 rounded-xl transition-all duration-300 touch-manipulation ${isVerifyingHuman
-                      ? 'bg-amber-900/40 text-amber-300'
-                      : isVerified
-                        ? 'bg-emerald-900/20 text-emerald-400 border border-emerald-500/20'
-                        : 'bg-amber-800/40 text-amber-200 hover:bg-amber-700/40 active:scale-95'
-                      }`}
-                  >
-                    {isVerifyingHuman ? (
-                      <>
-                        <Loader2 className="w-6 h-6 animate-spin flex-shrink-0" />
-                        <div className="flex flex-col">
-                          <span className="font-medium text-base">Verifying...</span>
-                          <span className="text-sm text-amber-500">Anti-Bot Protection</span>
-                        </div>
-                      </>
-                    ) : isVerified ? (
-                      <>
-                        <CheckCircle className="w-6 h-6 flex-shrink-0" />
-                        <div className="flex flex-col">
-                          <span className="font-medium text-base">Verified Human</span>
-                          <span className="text-sm text-emerald-400">On-chain active</span>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <Shield className="w-6 h-6 flex-shrink-0" />
-                        <div className="flex flex-col">
-                          <span className="font-medium text-base">Verify Human</span>
-                          <span className="text-sm text-amber-500">Anti-Bot Protection</span>
-                        </div>
-                      </>
-                    )}
-                  </motion.button>
-
                   <motion.button
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}

@@ -32,8 +32,6 @@ const nextConfig = {
     return config;
   },
 
-  output: 'standalone',
-
   // Build and tracing optimizations
   experimental: {
     outputFileTracingExcludes: {

@@ -43,8 +43,7 @@ const nextConfig = {
         'public/chinesee/**/*',
         'public/beegame/**/*',
         'public/hungeriumgame/**/*',
-        'public/coffyinmaze/**/*',
-        '**/node_modules/**'
+        'public/coffyinmaze/**/*'
       ],
     },
   },

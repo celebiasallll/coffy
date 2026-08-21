@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { Camera, Footprints, ShieldCheck, Zap, Sparkles, CheckCircle2, AlertCircle, Coffee, Loader2 } from 'lucide-react';
 import { BASE_CONFIG, ACTIVITY_MODULE_ABI } from '../config/baseConfig';
 
 // ─────────────────────────────────────────────────────────────
@@ -209,12 +210,15 @@ export default function SnapToEarn({ userAddress, isConnected }) {
             <div className="snap-earn-container">
                 {/* Header */}
                 <div className="snap-earn-header">
-                    <div className="snap-earn-badge">🚀 EARN COFFY</div>
+                    <div className="snap-earn-badge">
+                        <Sparkles className="w-3.5 h-3.5 inline mr-1 text-amber-400" />
+                        ACTIVITY REWARDS
+                    </div>
                     <h2 className="snap-earn-title">
                         Step &amp; Snap to <span className="gradient-text">Earn</span>
                     </h2>
                     <p className="snap-earn-subtitle">
-                        Kahve molana değer kat — fotoğraf çek ya da adım say, COFFY kazan.
+                        Turn your real-world activities into on-chain $COFFY rewards with AI and step validation.
                     </p>
                 </div>
 
@@ -222,18 +226,18 @@ export default function SnapToEarn({ userAddress, isConnected }) {
                 {isConnected && (snapMultiplier !== null || stepMultiplier !== null) && (
                     <div className="multiplier-row">
                         <div className="multiplier-card">
-                            <span className="mult-icon">📸</span>
-                            <span className="mult-label">Snap Çarpanı</span>
+                            <span className="mult-icon"><Camera className="w-5 h-5 text-amber-400" /></span>
+                            <span className="mult-label">Snap Multiplier</span>
                             <span className="mult-value">{snapMultiplier || 100}x</span>
                         </div>
                         <div className="multiplier-card">
-                            <span className="mult-icon">👟</span>
-                            <span className="mult-label">Step Çarpanı</span>
+                            <span className="mult-icon"><Footprints className="w-5 h-5 text-amber-400" /></span>
+                            <span className="mult-label">Step Multiplier</span>
                             <span className="mult-value">{stepMultiplier || 100}x</span>
                         </div>
                         <div className="multiplier-card">
-                            <span className="mult-icon">👟</span>
-                            <span className="mult-label">Kalan Adım</span>
+                            <span className="mult-icon"><Footprints className="w-5 h-5 text-amber-400" /></span>
+                            <span className="mult-label">Steps Remaining</span>
                             <span className="mult-value">{stepsRemaining.toLocaleString()}</span>
                         </div>
                     </div>
@@ -245,13 +249,15 @@ export default function SnapToEarn({ userAddress, isConnected }) {
                         className={`snap-tab ${activeTab === 'snap' ? 'active' : ''}`}
                         onClick={() => setActiveTab('snap')}
                     >
-                        📸 Snap to Earn
+                        <Camera className="w-4 h-4 inline mr-1.5" />
+                        Snap to Earn
                     </button>
                     <button
                         className={`snap-tab ${activeTab === 'step' ? 'active' : ''}`}
                         onClick={() => setActiveTab('step')}
                     >
-                        👟 Step to Earn
+                        <Footprints className="w-4 h-4 inline mr-1.5" />
+                        Step to Earn
                     </button>
                 </div>
 
@@ -289,19 +295,19 @@ export default function SnapToEarn({ userAddress, isConnected }) {
                 {/* Info boxes */}
                 <div className="snap-info-grid">
                     <div className="snap-info-box">
-                        <div className="info-icon">🛡️</div>
-                        <h4>Güvenli Doğrulama</h4>
-                        <p>Her işlem Google Vision AI + blockchain imzası ile doğrulanır.</p>
+                        <div className="info-icon"><ShieldCheck className="w-5 h-5 text-green-400 mx-auto" /></div>
+                        <h4>Cryptographic Verification</h4>
+                        <p>Every activity is verified via Vision AI and EIP-712 cryptographic signatures.</p>
                     </div>
                     <div className="snap-info-box">
-                        <div className="info-icon">⚡</div>
-                        <h4>Anında Ödül</h4>
-                        <p>Başarılı doğrulama sonrası COFFY bakiyeni hemen güncellenir.</p>
+                        <div className="info-icon"><Zap className="w-5 h-5 text-yellow-400 mx-auto" /></div>
+                        <h4>Instant Settlement</h4>
+                        <p>Direct smart contract transfer to your connected Web3 wallet on Base.</p>
                     </div>
                     <div className="snap-info-box">
-                        <div className="info-icon">🎯</div>
-                        <h4>Karakter Bonusu</h4>
-                        <p>NFT karakterin ne kadar nadir olursa ödül çarpanın o kadar yüksek!</p>
+                        <div className="info-icon"><Sparkles className="w-5 h-5 text-amber-400 mx-auto" /></div>
+                        <h4>Character Multiplier</h4>
+                        <p>Upgrade and level up characters to significantly boost reward multipliers.</p>
                     </div>
                 </div>
             </div>
@@ -497,14 +503,14 @@ function SnapPanel({
                     />
 
                     {/* Status messages */}
-                    {snapStatus === 'uploading' && <div className="status-msg loading">🔍 Google Vision AI fotoğrafı analiz ediyor...</div>}
-                    {snapStatus === 'claiming' && <div className="status-msg loading">⛓️ Blockchain işlemi onaylanıyor...</div>}
+                    {snapStatus === 'uploading' && <div className="status-msg loading">Google Vision AI analyzing photo...</div>}
+                    {snapStatus === 'claiming' && <div className="status-msg loading">Blockchain transaction processing...</div>}
                     {snapStatus === 'success' && (
                         <div className="status-msg success">
-                            🎉 Tebrikler! <strong>{snapReward} COFFY</strong> kazandın!
+                            Success! <strong>{snapReward} COFFY</strong> deposited into your wallet.
                         </div>
                     )}
-                    {snapStatus === 'error' && <div className="status-msg error">❌ {snapError}</div>}
+                    {snapStatus === 'error' && <div className="status-msg error">{snapError}</div>}
 
                     <button
                         className="claim-btn"
@@ -512,8 +518,8 @@ function SnapPanel({
                         disabled={!imagePreview || isLoading || snapStatus === 'success'}
                     >
                         {isLoading ? (
-                            <span className="btn-spinner">⟳ {snapStatus === 'uploading' ? 'Analiz ediliyor...' : 'İşlem yapılıyor...'}</span>
-                        ) : snapStatus === 'success' ? '✅ Ödül Alındı' : '📸 Fotoğrafı Doğrula & Kazan'}
+                            <span className="btn-spinner">{snapStatus === 'uploading' ? 'Analyzing photo...' : 'Submitting on-chain...'}</span>
+                        ) : snapStatus === 'success' ? 'Reward Claimed' : 'Verify Photo & Claim'}
                     </button>
                 </>
             )}
@@ -582,7 +588,7 @@ function StepPanel({
     return (
         <div className="panel">
             <div className="panel-desc">
-                <h3>👟 Step to Earn</h3>
+                <h3>Step to Earn</h3>
                 <p>Günlük adımlarını gir ve <strong>0.3+ COFFY</strong> / adım kazan. Maks 20.000 adım/gün.</p>
             </div>
 
@@ -598,9 +604,9 @@ function StepPanel({
             </div>
 
             {!isConnected ? (
-                <div className="connect-prompt">👛 Cüzdanını bağla ve kazanmaya başla</div>
+                <div className="connect-prompt">Cüzdanını bağla ve kazanmaya başla</div>
             ) : stepsRemaining <= 0 ? (
-                <div className="done-box">✅ Bugünlük adım limitine ulaştın! Yarın tekrar gel.</div>
+                <div className="done-box">Bugünlük adım limitine ulaştın! Yarın tekrar gel.</div>
             ) : (
                 <>
                     <div className="step-input-wrap">
@@ -627,12 +633,12 @@ function StepPanel({
                         <span className="est-value">{estimatedReward} COFFY</span>
                     </div>
 
-                    {stepStatus === 'signing' && <div className="status-msg loading">🔐 Backend imzası alınıyor...</div>}
-                    {stepStatus === 'claiming' && <div className="status-msg loading">⛓️ Blockchain işlemi onaylanıyor...</div>}
+                    {stepStatus === 'signing' && <div className="status-msg loading">Requesting Oracle EIP-712 signature...</div>}
+                    {stepStatus === 'claiming' && <div className="status-msg loading">Submitting Base on-chain confirmation...</div>}
                     {stepStatus === 'success' && (
-                        <div className="status-msg success">🎉 Tebrikler! <strong>{stepReward} COFFY</strong> kazandın!</div>
+                        <div className="status-msg success">Success! <strong>{stepReward} COFFY</strong> deposited.</div>
                     )}
-                    {stepStatus === 'error' && <div className="status-msg error">❌ {stepError}</div>}
+                    {stepStatus === 'error' && <div className="status-msg error">{stepError}</div>}
 
                     <button
                         className="claim-btn"
@@ -640,8 +646,8 @@ function StepPanel({
                         disabled={!stepCount || parseInt(stepCount) <= 0 || parseInt(stepCount) > stepsRemaining || isLoading}
                     >
                         {isLoading
-                            ? `⟳ ${stepStatus === 'signing' ? 'İmza alınıyor...' : 'İşlem yapılıyor...'}`
-                            : '👟 Adımları Doğrula & Kazan'}
+                            ? 'Processing Transaction...'
+                            : 'Verify Steps & Claim'}
                     </button>
                 </>
             )}

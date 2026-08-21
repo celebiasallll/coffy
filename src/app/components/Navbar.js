@@ -10,50 +10,21 @@ import {
   Info,
   Menu,
   X,
-  Shield,
-  Loader2,
-  CheckCircle,
-  Gift
+  RotateCcw,
+  Sparkles
 } from 'lucide-react';
-import { BASE_CONFIG, ACTIVITY_MODULE_ABI } from '../config/baseConfig';
-
-// Helper: UUID generator for profileId
-function generateUUID() {
-  // RFC4122 version 4 compliant UUID
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-    const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-}
-
-// Helper: Kalıcı verified kontrolü
-function checkPermanentVerification() {
-  try {
-    return localStorage.getItem('coffy_human_verified') === 'true';
-  } catch (e) {
-    return false;
-  }
-}
+import useWeb3Wallet from './useWeb3Wallet';
 
 export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
 
-  // Wallet states
-  const [isConnected, setIsConnected] = useState(false);
-  const [userAddress, setUserAddress] = useState(null);
+  // Global Web3 Wallet hook (Real On-Chain Data)
+  const { isConnected, userAddress, balance, connectWallet, refreshBalance } = useWeb3Wallet();
 
-  // --- Human Verification State ---
-  const [isVerified, setIsVerified] = useState(false);
-  const [isVerifyingHuman, setIsVerifyingHuman] = useState(false);
-  const [showHumanTooltip, setShowHumanTooltip] = useState(false);
-
-  // Mount sırasında localStorage'dan durumu oku ve referral parametresini yakala
+  // Capture referral parameter from URL if present
   useEffect(() => {
-    const verified = localStorage.getItem('coffy_human_verified') === 'true';
-    if (verified) setIsVerified(true);
-
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       const ref = urlParams.get('ref');
@@ -64,10 +35,10 @@ export default function Navbar() {
     }
   }, []);
 
-  // Scroll event listener — isScrolled ve scrollProgress güncelle
+  // Scroll listener
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50);
+      setIsScrolled(window.scrollY > 40);
       const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
       if (totalHeight > 0) {
         setScrollProgress((window.scrollY / totalHeight) * 100);
@@ -77,151 +48,10 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-
-  // Function to check on-chain verification
-  const checkOnChainVerification = async (address) => {
-    try {
-      if (!address || typeof window === "undefined" || !window.ethereum) return;
-      const ethersModule = await import("ethers");
-      const { BrowserProvider, Contract } = ethersModule;
-      const provider = new BrowserProvider(window.ethereum);
-      const contract = new Contract(BASE_CONFIG.CONTRACTS.ActivityModule, ACTIVITY_MODULE_ABI, provider);
-      const existingProfile = await contract.userProfiles(address);
-      if (existingProfile && existingProfile !== "") {
-        console.log("Profile automatically verified from blockchain:", existingProfile);
-        setIsVerified(true);
-        localStorage.setItem('coffy_human_verified', 'true');
-      } else {
-        setIsVerified(false);
-        localStorage.setItem('coffy_human_verified', 'false');
-      }
-    } catch (e) {
-      console.warn("Could not check on-chain profile automatically", e);
-    }
-  };
-
-  // Wallet connection
-  const connectWallet = async () => {
-    if (typeof window.ethereum !== 'undefined') {
-      try {
-        const accounts = await window.ethereum.request({
-          method: 'eth_requestAccounts'
-        });
-        setIsConnected(true);
-        setUserAddress(accounts[0]);
-        await checkOnChainVerification(accounts[0]);
-      } catch (error) {
-        console.error('Wallet connection failed:', error);
-      }
-    }
-  };
-
-  // Human verification
-  const handleHumanVerification = async () => {
-    setShowHumanTooltip(true);
-    setIsVerifyingHuman(true);
-    try {
-      if (!isConnected) {
-        await connectWallet();
-      }
-      if (typeof window === "undefined" || !window.ethereum) {
-        setIsVerifyingHuman(false);
-        alert("No Ethereum provider found. Please install MetaMask or another wallet.");
-        return;
-      }
-      // --- Reset any old verification state before new verification ---
-      localStorage.removeItem('coffy_human_verification_ts');
-      localStorage.removeItem('coffy_human_verified');
-      // ---
-
-
-
-
-      const ethersModule = await import("ethers");
-      const { BrowserProvider, Contract } = ethersModule;
-
-      // Ensure network is Base Mainnet
-      const currentChainId = await window.ethereum.request({ method: 'eth_chainId' });
-      if (currentChainId !== BASE_CONFIG.CHAIN_ID_HEX) {
-        try {
-          await window.ethereum.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: BASE_CONFIG.CHAIN_ID_HEX }],
-          });
-        } catch (switchError) {
-          if (switchError.code === 4902) {
-            await window.ethereum.request({
-              method: 'wallet_addEthereumChain',
-              params: [
-                {
-                  chainId: BASE_CONFIG.CHAIN_ID_HEX,
-                  chainName: BASE_CONFIG.CHAIN_NAME,
-                  rpcUrls: [BASE_CONFIG.RPC_URL],
-                  nativeCurrency: BASE_CONFIG.NATIVE_CURRENCY,
-                  blockExplorerUrls: [BASE_CONFIG.EXPLORER_URL]
-                }
-              ],
-            });
-          } else {
-            throw switchError;
-          }
-        }
-      }
-
-      const provider = new BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-      const userAddress = await signer.getAddress();
-      const contract = new Contract(BASE_CONFIG.CONTRACTS.ActivityModule, ACTIVITY_MODULE_ABI, signer);
-
-      // Check if profile already exists
-      try {
-        const existingProfile = await contract.userProfiles(userAddress);
-        if (existingProfile && existingProfile !== "") {
-          console.log("Profile already exists:", existingProfile);
-          // Success automatically if already linked
-          const now = Date.now();
-          setVerificationTimestamp(now);
-          localStorage.setItem('coffy_human_verification_ts', now.toString());
-          localStorage.setItem('coffy_human_verified', 'true');
-          setIsVerifyingHuman(false);
-          alert('Verification successful (Already Linked)!');
-          return;
-        }
-      } catch (e) {
-        console.warn("Could not fetch existing profile", e);
-      }
-
-      // Generate random profileId
-      const profileId = generateUUID();
-      // Read stored referrer from localStorage if it exists, otherwise use address(0)
-      const storedReferrer = localStorage.getItem('coffy_referrer') || "0x0000000000000000000000000000000000000000";
-
-      try {
-        // On-chain transaction: linkUserProfile with referrer
-        const tx = await contract.linkUserProfile(profileId, storedReferrer);
-        await tx.wait();
-
-        // Success: set localStorage and timer (only new values)
-        const now = Date.now();
-        setVerificationTimestamp(now);
-        localStorage.setItem('coffy_human_verification_ts', now.toString());
-        localStorage.setItem('coffy_human_verified', 'true');
-        setIsVerifyingHuman(false);
-        alert('Verification successful!');
-      } catch (txError) {
-        throw txError;
-      }
-    } catch (error) {
-      setIsVerifyingHuman(false);
-      alert("Verification failed: " + (error?.message || error));
-    }
-  };
-
   const handleNavigation = (sectionId) => {
     setTimeout(() => {
       const element = document.getElementById(sectionId);
       if (element) {
-        // Get navbar height dynamically
         const navbar = document.querySelector('nav');
         const navbarHeight = navbar ? navbar.offsetHeight : 80;
         const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
@@ -233,17 +63,16 @@ export default function Navbar() {
         });
 
         if (isMobileMenuOpen) {
-          setTimeout(() => setIsMobileMenuOpen(false), 300);
+          setTimeout(() => setIsMobileMenuOpen(false), 250);
         }
       }
-    }, 50); // Wait for DOM to be ready
+    }, 50);
   };
 
-  // Add a separate handler for logo click
   const handleLogoClick = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     if (isMobileMenuOpen) {
-      setTimeout(() => setIsMobileMenuOpen(false), 300);
+      setTimeout(() => setIsMobileMenuOpen(false), 250);
     }
   };
 
@@ -251,7 +80,7 @@ export default function Navbar() {
   const navItems = [
     { id: 'games', label: 'Games', icon: Gamepad2, subtitle: 'Earn COFFY' },
     { id: 'about', label: 'About Coffy', icon: Info, subtitle: 'Learn More' },
-    { id: 'staking', label: 'Staking', icon: Coins, subtitle: 'Earn Rewards' },
+    { id: 'staking', label: 'Staking', icon: Coins, subtitle: '50% APY' },
   ];
 
   return (
@@ -259,143 +88,165 @@ export default function Navbar() {
       initial={{ y: -100, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className={`fixed w-full z-50 transition-all duration-500 ${isScrolled
-        ? 'glass-nav shadow-xl'
-        : 'bg-transparent'
-        }`}
+      className={`fixed w-full z-50 transition-all duration-300 ${
+        isScrolled
+          ? 'bg-[#120A06]/95 backdrop-blur-md border-b border-amber-500/20 shadow-2xl'
+          : 'bg-transparent'
+      }`}
     >
       {/* Scroll Progress Bar */}
       <motion.div
         className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-amber-400 via-orange-500 to-amber-600"
         style={{ width: `${scrollProgress}%` }}
-        initial={{ width: 0 }}
-        animate={{ width: `${scrollProgress}%` }}
-        transition={{ duration: 0.3, ease: "easeOut" }}
       />
 
-      <div className="container mx-auto px-6 max-w-7xl">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
         <div className="flex items-center justify-between h-16 md:h-20">
 
           {/* Logo */}
-          <div className="flex items-center cursor-pointer" onClick={handleLogoClick}>
-            <div className="rounded-full overflow-hidden border-2 border-[#D4A017] shadow-xl bg-amber-950 w-8 h-8 sm:w-10 sm:h-10 lg:w-11 lg:h-11 flex items-center justify-center animate-float">
+          <div className="flex items-center cursor-pointer gap-2.5" onClick={handleLogoClick}>
+            <div className="rounded-full overflow-hidden border-2 border-amber-400 shadow-lg bg-amber-950 w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center">
               <Image
                 src="/images/coffy-logo.png"
                 alt="Coffy Logo"
-                width={60}
-                height={60}
+                width={48}
+                height={48}
                 priority
-                className="w-full h-full object-cover scale-110 transform"
+                className="w-full h-full object-cover scale-110"
               />
             </div>
-            <span className="ml-2 text-xl sm:text-2xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-[#D4A017] to-[#A77B06] font-outfit tracking-tighter">
+            <span className="text-xl sm:text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-amber-300 via-amber-400 to-yellow-500 font-outfit tracking-tight">
               COFFY
             </span>
           </div>
 
-          {/* Desktop Navigation */}
-          <div className="hidden lg:flex items-center gap-8">
-
-            {/* Main Navigation */}
-            <div className="flex items-center gap-6">
+          {/* Desktop Navigation Links */}
+          <div className="hidden lg:flex items-center gap-6">
+            <div className="flex items-center gap-2">
               {navItems.map((item) => (
-                <motion.button
+                <button
                   key={item.id}
                   onClick={() => handleNavigation(item.id)}
-                  className="group relative flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all duration-300 hover:bg-amber-900/20 backdrop-blur-sm border border-transparent hover:border-amber-700/30"
-                  whileHover={{ y: -2, scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                  className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold text-[#E8D5B5]/80 hover:text-white hover:bg-amber-500/10 border border-transparent hover:border-amber-500/20 transition-all duration-200 cursor-pointer"
                 >
-                  <item.icon className="w-5 h-5 text-amber-300 group-hover:text-amber-200 transition-colors duration-300 drop-shadow-lg" />
-                  <span className="text-sm font-medium text-amber-100 group-hover:text-white transition-colors duration-300">
-                    {item.label}
-                  </span>
-                  <span className="text-xs text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    {item.subtitle}
-                  </span>
-                  <div className="absolute inset-0 bg-gradient-to-r from-amber-400/0 via-amber-400/5 to-amber-400/0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                </motion.button>
+                  <item.icon className="w-4 h-4 text-amber-400" />
+                  <span>{item.label}</span>
+                </button>
               ))}
             </div>
-
-            {/* Wallet Connection */}
-            <motion.button
-              onClick={connectWallet}
-              className="relative flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-semibold rounded-xl shadow-lg hover:shadow-2xl hover:shadow-amber-500/50 transition-all duration-300 overflow-hidden group"
-              whileHover={{ scale: 1.05, y: -2 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <Wallet className="w-5 h-5 group-hover:rotate-12 transition-transform duration-300" />
-              <div className="flex flex-col items-start">
-                <span className="text-sm leading-none font-bold">
-                  {isConnected ? `${userAddress?.slice(0, 6)}...` : 'Connect'}
-                </span>
-                <span className="text-xs opacity-90 leading-none">
-                  {isConnected ? 'Wallet' : 'Get Started'}
-                </span>
-              </div>
-              <div className="absolute inset-0 bg-gradient-to-r from-amber-400/0 via-white/20 to-amber-400/0 -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
-            </motion.button>
           </div>
 
-          {/* Mobile Menu Button */}
-          <motion.button
+          {/* Desktop Right: Real-time Balance & Wallet */}
+          <div className="hidden lg:flex items-center gap-3">
+            {isConnected ? (
+              <div className="flex items-center gap-2.5">
+                {/* On-Chain $COFFY Live Balance Badge */}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  onClick={refreshBalance}
+                  title="Click to refresh on-chain balance"
+                  className="cursor-pointer group flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-[#180E09]/90 border border-amber-500/30 hover:border-amber-400/60 shadow-lg backdrop-blur-md transition-all duration-200"
+                >
+                  <div className="w-5 h-5 rounded-full overflow-hidden bg-amber-950 border border-amber-400/60 flex items-center justify-center group-hover:rotate-12 transition-transform">
+                    <Image src="/images/coffy-logo.png" alt="COFFY" width={20} height={20} className="w-full h-full object-cover" />
+                  </div>
+                  <div className="flex flex-col text-left">
+                    <span className="text-[9px] uppercase tracking-wider text-[#E8D5B5]/50 font-bold leading-none mb-0.5">COFFY Balance</span>
+                    <div className="flex items-center gap-1 leading-none">
+                      <span className="text-sm font-black text-amber-400 font-mono">{balance}</span>
+                      <span className="text-[10px] text-amber-300/80 font-bold">$COFFY</span>
+                    </div>
+                  </div>
+                  <RotateCcw className="w-3 h-3 text-amber-500/40 group-hover:text-amber-400 transition-colors ml-1" />
+                </motion.div>
+
+                {/* Connected Wallet Address Pill */}
+                <div
+                  className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-black/40 border border-amber-500/20 text-[#E8D5B5] shadow-md"
+                >
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-xs font-mono font-bold">{userAddress?.slice(0, 6)}...{userAddress?.slice(-4)}</span>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={connectWallet}
+                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-400 text-black font-bold rounded-xl text-sm shadow-lg shadow-amber-500/20 transition-all duration-200 cursor-pointer transform hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <Wallet className="w-4 h-4 text-black" />
+                <span>Connect Wallet</span>
+              </button>
+            )}
+          </div>
+
+          {/* Mobile Menu Toggle Button */}
+          <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="lg:hidden p-3 text-amber-300 hover:text-amber-200 transition-colors duration-300 rounded-xl hover:bg-amber-900/30 active:scale-95 touch-manipulation"
-            whileTap={{ scale: 0.9 }}
+            className="lg:hidden p-2.5 text-amber-300 hover:text-white rounded-xl bg-amber-500/10 border border-amber-500/20 transition-colors cursor-pointer"
             aria-label="Toggle mobile menu"
           >
-            <motion.div
-              animate={{ rotate: isMobileMenuOpen ? 180 : 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              {isMobileMenuOpen ? <X className="w-7 h-7" /> : <Menu className="w-7 h-7" />}
-            </motion.div>
-          </motion.button>
+            {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
         </div>
 
-        {/* Mobile Menu */}
+        {/* Mobile Menu Drawer */}
         <AnimatePresence>
           {isMobileMenuOpen && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
-              className="lg:hidden absolute left-0 right-0 top-full bg-amber-950/98 backdrop-blur-xl border-t border-amber-800/30 shadow-2xl z-40"
+              transition={{ duration: 0.25, ease: "easeInOut" }}
+              className="lg:hidden bg-[#180E09]/98 backdrop-blur-2xl border-t border-amber-500/20 shadow-2xl overflow-hidden"
             >
-              <div className="py-6 px-4 space-y-2 max-h-[calc(100vh-5rem)] overflow-y-auto">
-                {navItems.map((item, index) => (
-                  <motion.button
-                    key={item.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    onClick={() => handleNavigation(item.id)}
-                    className="w-full flex items-center gap-4 px-6 py-4 text-left text-amber-200 hover:text-white hover:bg-amber-900/40 rounded-xl transition-all duration-300 active:scale-95 touch-manipulation"
-                  >
-                    <item.icon className="w-6 h-6 flex-shrink-0" />
-                    <div className="flex flex-col">
-                      <span className="font-medium text-base">{item.label}</span>
-                      <span className="text-sm text-amber-500">{item.subtitle}</span>
+              <div className="py-5 px-4 space-y-3">
+                {/* Mobile Live Balance Card if connected */}
+                {isConnected && (
+                  <div className="p-4 rounded-2xl bg-black/40 border border-amber-500/30 flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full overflow-hidden bg-amber-950 border border-amber-400 flex items-center justify-center">
+                        <Image src="/images/coffy-logo.png" alt="COFFY" width={36} height={36} className="w-full h-full object-cover" />
+                      </div>
+                      <div>
+                        <span className="text-[10px] uppercase tracking-wider text-[#E8D5B5]/60 font-bold block">Your Balance</span>
+                        <span className="text-lg font-black text-amber-400 font-mono">{balance} <span className="text-xs text-amber-300 font-sans">$COFFY</span></span>
+                      </div>
                     </div>
-                  </motion.button>
+                    <button
+                      onClick={refreshBalance}
+                      className="p-2 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors"
+                      title="Refresh"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+
+                {/* Nav Links */}
+                {navItems.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => handleNavigation(item.id)}
+                    className="w-full flex items-center gap-3.5 px-4 py-3 text-left text-[#E8D5B5] hover:text-white hover:bg-amber-500/10 rounded-xl transition-colors font-medium text-sm"
+                  >
+                    <item.icon className="w-5 h-5 text-amber-400 flex-shrink-0" />
+                    <div className="flex flex-col">
+                      <span>{item.label}</span>
+                      <span className="text-[11px] text-amber-500/70">{item.subtitle}</span>
+                    </div>
+                  </button>
                 ))}
 
-                <div className="pt-4 border-t border-amber-800/30 space-y-3">
-                  <motion.button
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.5 }}
+                {/* Mobile Wallet Button */}
+                <div className="pt-2 border-t border-amber-500/15">
+                  <button
                     onClick={connectWallet}
-                    className="w-full flex items-center gap-4 px-6 py-4 bg-gradient-to-r from-amber-600 to-orange-600 text-white font-semibold rounded-xl hover:from-amber-500 hover:to-orange-500 transition-all duration-300 active:scale-95 touch-manipulation shadow-lg"
+                    className="w-full flex items-center justify-center gap-2.5 py-3.5 px-4 bg-gradient-to-r from-amber-500 to-orange-500 text-black font-bold rounded-xl text-sm shadow-md cursor-pointer"
                   >
-                    <Wallet className="w-6 h-6 flex-shrink-0" />
-                    <div className="flex flex-col items-start">
-                      <span className="text-base">{isConnected ? `${userAddress?.slice(0, 6)}...${userAddress?.slice(-4)}` : 'Connect Wallet'}</span>
-                      <span className="text-sm opacity-90">{isConnected ? 'Connected' : 'Get Started'}</span>
-                    </div>
-                  </motion.button>
+                    <Wallet className="w-4 h-4 text-black" />
+                    <span>{isConnected ? `${userAddress?.slice(0, 6)}...${userAddress?.slice(-4)} (Connected)` : 'Connect Wallet'}</span>
+                  </button>
                 </div>
               </div>
             </motion.div>

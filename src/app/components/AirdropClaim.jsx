@@ -173,7 +173,7 @@ export default function AirdropClaim() {
                 console.warn('Backend confirmation sync notice:', confirmErr);
             }
 
-            toast.success(`🎉 Success! ${rewardFormatted} $COFFY deposited into your wallet!`, { id: 'airdrop-toast', duration: 7000 });
+            toast.success(`Success! ${rewardFormatted} $COFFY deposited into your wallet!`, { id: 'airdrop-toast', duration: 7000 });
             setHasClaimed(true);
         } catch (err) {
             console.error('Airdrop Claim Execution Error:', err);

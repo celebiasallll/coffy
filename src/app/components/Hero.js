@@ -8,26 +8,15 @@ import useAppStore from '../stores/useAppStore';
 import Particles from "react-tsparticles";
 import { loadSlim } from "tsparticles-slim";
 
-const IDLE_MESSAGES = [
-  "Hey there! Ready to earn with your coffee? ☕",
-  "I missed you... come stake with me 🥺",
-  "Every sip brings you closer to rewards ✨",
-  "You belong in the Coffy family 💛",
-  "Your next win is just one game away 🎮",
-  "10,000+ warriors can\'t be wrong. Join us! ⚔️",
-  "I\'m rooting for you every step of the way 👟",
-  "Your rewards are patiently waiting... 💎",
-  "Together we brew something extraordinary 🌟",
-  "Don\'t let your COFFY get cold! 🔥",
-];
+import { Gift, Gamepad2, Zap, ShieldCheck, Sparkles, TrendingUp } from 'lucide-react';
 
-const HOVER_MESSAGES = [
-  "Hi! I\'m Coffy ☕ Nice to meet you!",
-  "Stake & earn up to 50% APY! 💰",
-  "Play games, win real tokens! 🎮",
-  "Walk more, earn more with Step Rewards 👟",
-  "Legend holders shape the DAO 👑",
-  "Real coffee chain partners coming soon! 🤝",
+const HIGHLIGHT_BADGES = [
+  "Base Mainnet L2 Live",
+  "Up to 50% APY Staking",
+  "Real-Time PvP On-Chain",
+  "5.25B Community Pool",
+  "Zero Sybil Architecture",
+  "Drink-to-Earn Ecosystem",
 ];
 
 export default function Hero() {
@@ -35,35 +24,21 @@ export default function Hero() {
   const opacity = useTransform(scrollY, [0, 300], [1, 0]);
 
   const { ref, inView } = useInView({ threshold: 0.1, triggerOnce: true });
-  const { updatePortfolio, addNotification } = useAppStore();
   const [isLoaded, setIsLoaded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-  const [msgIdx, setMsgIdx] = useState(0);
-  const [idleMsg, setIdleMsg] = useState(null);
+  const [badgeIdx, setBadgeIdx] = useState(0);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const mascotRef = useRef(null);
 
   useEffect(() => { setIsLoaded(true); }, []);
 
-  // Auto idle messages — show every 4s even without hover
+  // Cycle feature badges smoothly
   useEffect(() => {
-    const show = () => {
-      const idx = Math.floor(Math.random() * IDLE_MESSAGES.length);
-      setIdleMsg(idx);
-      setTimeout(() => setIdleMsg(null), 3000); // hide after 3s
-    };
-    const t = setInterval(show, 5000);
-    setTimeout(show, 1500); // first message shortly after load
+    const t = setInterval(() => {
+      setBadgeIdx(prev => (prev + 1) % HIGHLIGHT_BADGES.length);
+    }, 3500);
     return () => clearInterval(t);
   }, []);
-
-  // Hover messages cycle
-  useEffect(() => {
-    if (!isHovered) return;
-    setMsgIdx(0); // reset to first hover msg
-    const t = setInterval(() => setMsgIdx(i => (i + 1) % HOVER_MESSAGES.length), 2200);
-    return () => clearInterval(t);
-  }, [isHovered]);
 
   // Mouse tracking for 3D tilt
   useEffect(() => {
@@ -92,29 +67,29 @@ export default function Hero() {
     background: { color: { value: "transparent" } },
     fpsLimit: 60,
     particles: {
-      number: { value: 18, density: { enable: true, area: 1000 } },
+      number: { value: 16, density: { enable: true, area: 1000 } },
       color: { value: ["#D4A017", "#F4C430", "#A77B06", "#6F4E37"] },
       shape: { type: "circle" },
-      opacity: { value: { min: 0.3, max: 0.8 }, animation: { enable: true, speed: 1, sync: false } },
-      size: { value: { min: 2, max: 5 }, animation: { enable: true, speed: 2, sync: false } },
-      move: { enable: true, speed: { min: 0.5, max: 1.5 }, direction: "top", random: true, straight: false, outModes: { default: "out" } }
+      opacity: { value: { min: 0.2, max: 0.6 }, animation: { enable: true, speed: 1, sync: false } },
+      size: { value: { min: 2, max: 4 }, animation: { enable: true, speed: 1.5, sync: false } },
+      move: { enable: true, speed: { min: 0.4, max: 1.2 }, direction: "top", random: true, straight: false, outModes: { default: "out" } }
     },
     interactivity: {
       detectsOn: "canvas",
       events: { onHover: { enable: true, mode: "repulse" }, resize: true },
-      modes: { repulse: { distance: 100, duration: 0.4 } }
+      modes: { repulse: { distance: 80, duration: 0.4 } }
     },
     detectRetina: true
   };
 
   const heroVariants = {
-    hidden: { opacity: 0, y: 50 },
-    visible: { opacity: 1, y: 0, transition: { duration: 1, ease: [0.25, 0.1, 0.25, 1], staggerChildren: 0.2 } }
+    hidden: { opacity: 0, y: 40 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: [0.25, 0.1, 0.25, 1], staggerChildren: 0.15 } }
   };
 
   const childVariants = {
-    hidden: { opacity: 0, y: 30 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: [0.25, 0.1, 0.25, 1] } }
+    hidden: { opacity: 0, y: 25 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.25, 0.1, 0.25, 1] } }
   };
 
   const shouldAnimate = inView;
@@ -122,7 +97,7 @@ export default function Hero() {
   return (
     <section
       ref={ref}
-      className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-[#1A0F0A] via-[#2A1810] to-[#1A0F0A]"
+      className="relative min-h-[90vh] flex items-center justify-center overflow-hidden bg-gradient-to-br from-[#120A06] via-[#1E110A] to-[#120A06] py-16 md:py-24"
       id="hero"
     >
       {/* Background animated glow */}
@@ -131,12 +106,12 @@ export default function Hero() {
           className="absolute inset-0 z-0 pointer-events-none"
           animate={{
             background: [
-              'radial-gradient(circle at 20% 30%, #D4A01733 0%, transparent 70%)',
-              'radial-gradient(circle at 80% 70%, #F4C43033 0%, transparent 70%)',
-              'radial-gradient(circle at 20% 30%, #D4A01733 0%, transparent 70%)'
+              'radial-gradient(circle at 20% 30%, rgba(212,160,23,0.12) 0%, transparent 65%)',
+              'radial-gradient(circle at 80% 70%, rgba(244,196,48,0.12) 0%, transparent 65%)',
+              'radial-gradient(circle at 20% 30%, rgba(212,160,23,0.12) 0%, transparent 65%)'
             ]
           }}
-          transition={{ duration: 36, repeat: Infinity, ease: "linear" }}
+          transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
         />
       )}
 
@@ -148,128 +123,145 @@ export default function Hero() {
       </div>
 
       {/* Main content */}
-      <div className="relative z-20 w-full max-w-7xl mx-auto px-4">
+      <div className="relative z-20 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div
-          className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-center"
+          className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center"
           variants={heroVariants}
           initial="hidden"
           animate={inView ? "visible" : "hidden"}
         >
-          {/* Left — text */}
+          {/* Left — Text (7 cols) */}
           <motion.div
             variants={childVariants}
             style={{ y }}
-            className="flex flex-col items-center lg:items-start text-center lg:text-left order-2 lg:order-1"
+            className="flex flex-col items-center lg:items-start text-center lg:text-left order-2 lg:order-1 lg:col-span-7"
           >
-            <motion.h1
-              className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold mb-4 sm:mb-6 bg-clip-text text-transparent bg-gradient-to-r from-[#D4A017] via-[#F4C430] to-[#A77B06] leading-tight font-outfit tracking-tighter"
+            {/* Top Micro-Badge */}
+            <motion.div
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold tracking-wide mb-6 backdrop-blur-md"
               variants={childVariants}
             >
-              COFFY COIN
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <span>Base Mainnet L2 Ecosystem</span>
+              <span className="w-1 h-1 rounded-full bg-amber-400" />
+              <span className="text-amber-400/80 font-normal">Next-Gen Web3 Gaming</span>
+            </motion.div>
+
+            <motion.h1
+              className="text-4xl sm:text-5xl md:text-6xl font-extrabold mb-5 bg-clip-text text-transparent bg-gradient-to-r from-amber-200 via-amber-400 to-yellow-500 leading-[1.1] font-outfit tracking-tight"
+              variants={childVariants}
+            >
+              The Next Evolution of Decentralized Gaming
             </motion.h1>
 
             <motion.p
-              className="text-lg sm:text-xl text-[#E8D5B5] mb-6 sm:mb-8 max-w-xl leading-relaxed"
+              className="text-base sm:text-lg text-[#E8D5B5]/85 mb-8 max-w-2xl leading-relaxed"
               variants={childVariants}
             >
-              Brewing the Future of Coffee with Blockchain! The First{' '}
-              <span className="bg-gradient-to-r from-[#D4A017] to-[#A77B06] bg-clip-text text-transparent font-semibold">Drink-to-Earn</span>,{' '}
-              <span className="bg-gradient-to-r from-[#A77B06] to-[#8B6914] bg-clip-text text-transparent font-semibold">Play-to-Earn</span>, and{' '}
-              <span className="bg-gradient-to-r from-[#8B6914] to-[#D4A017] bg-clip-text text-transparent font-semibold">SocialFi</span> Coin on Base Mainnet.
+              Powering a seamless Web3 ecosystem on Base Mainnet. Experience high-yield{' '}
+              <span className="text-amber-300 font-semibold">50% APY Staking</span>, on-chain{' '}
+              <span className="text-amber-300 font-semibold">Play-to-Earn PvP</span>, and verified{' '}
+              <span className="text-amber-300 font-semibold">Community Rewards</span> with institutional security.
             </motion.p>
 
             <motion.div
-              className="flex flex-wrap items-center lg:items-start gap-4 mb-8 sm:mb-12"
+              className="flex flex-wrap items-center justify-center lg:justify-start gap-4 mb-8"
               variants={childVariants}
             >
               <motion.a
                 href="#airdrop"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-400 text-black font-extrabold py-3.5 px-7 rounded-2xl text-base sm:text-lg shadow-xl shadow-amber-500/25 transition-all duration-300 flex items-center gap-2"
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-400 text-black font-bold py-3.5 px-6 rounded-xl text-sm sm:text-base shadow-lg shadow-amber-500/20 transition-all duration-200 flex items-center gap-2.5"
               >
-                🎁 Claim Free $COFFY
+                <Gift className="w-4 h-4 text-black" />
+                <span>Claim Free $COFFY</span>
               </motion.a>
               <motion.a
                 href="#games"
-                whileHover={{ scale: 1.04 }}
-                whileTap={{ scale: 0.96 }}
-                className="border-2 border-[#D4A017]/60 hover:border-[#D4A017] text-[#E8D5B5] font-bold py-3.5 px-6 rounded-2xl text-base sm:text-lg transition-all duration-300 flex items-center gap-2 bg-[#1A0F0A]/40"
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                className="border border-amber-500/40 hover:border-amber-400 text-[#E8D5B5] hover:text-white font-semibold py-3.5 px-6 rounded-xl text-sm sm:text-base transition-all duration-200 flex items-center gap-2.5 bg-black/30 backdrop-blur-sm"
               >
-                🎮 Play Games
+                <Gamepad2 className="w-4 h-4 text-amber-400" />
+                <span>Play Games</span>
               </motion.a>
               <motion.a
                 href="#staking"
-                whileHover={{ scale: 1.04 }}
-                whileTap={{ scale: 0.96 }}
-                className="border border-amber-500/30 hover:border-amber-500/60 text-amber-300/90 hover:text-amber-200 font-bold py-3.5 px-6 rounded-2xl text-base sm:text-lg transition-all duration-300 flex items-center gap-2 bg-amber-950/30"
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                className="border border-amber-500/20 hover:border-amber-500/50 text-amber-300/90 hover:text-amber-200 font-semibold py-3.5 px-6 rounded-xl text-sm sm:text-base transition-all duration-200 flex items-center gap-2.5 bg-amber-950/20"
               >
-                ⚡ 50% APY Staking
+                <Zap className="w-4 h-4 text-amber-400" />
+                <span>50% APY Staking</span>
               </motion.a>
+            </motion.div>
+
+            {/* Micro Feature Row */}
+            <motion.div
+              className="flex flex-wrap items-center justify-center lg:justify-start gap-5 pt-2 text-xs text-[#E8D5B5]/60 font-medium"
+              variants={childVariants}
+            >
+              <div className="flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-green-400" />
+                <span>EIP-712 Signed</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <TrendingUp className="w-4 h-4 text-amber-400" />
+                <span>Dynamic APY</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-yellow-400" />
+                <span>Zero Gas Overhead</span>
+              </div>
             </motion.div>
           </motion.div>
 
-          {/* Right — circular interactive avatar mascot */}
+          {/* Right — Avatar (5 cols) */}
           <motion.div
             variants={childVariants}
             style={{ y: logoY }}
-            className="flex justify-center lg:justify-end order-1 lg:order-2 pt-6 md:pt-0"
+            className="flex flex-col items-center justify-center lg:col-span-5 order-1 lg:order-2"
           >
-            <div ref={mascotRef} className="relative w-44 h-44 sm:w-48 sm:h-48 md:w-56 md:h-56">
-
-
+            <div ref={mascotRef} className="relative w-52 h-52 sm:w-60 sm:h-60 md:w-72 md:h-72">
               {/* Pulsing glow aura */}
               <motion.div
                 className="absolute rounded-full z-[2] pointer-events-none"
                 style={{
-                  inset: '-12px',
-                  background: 'radial-gradient(circle, rgba(212,160,23,0.3) 0%, transparent 68%)',
+                  inset: '-16px',
+                  background: 'radial-gradient(circle, rgba(212,160,23,0.25) 0%, transparent 70%)',
                 }}
-                animate={{ scale: [1, 1.18, 1], opacity: [0.5, 1, 0.5] }}
-                transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
+                animate={{ scale: [1, 1.15, 1], opacity: [0.4, 0.8, 0.4] }}
+                transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
               />
 
-              {/* Speech bubble — idle OR hover, idle takes priority when not hovered */}
-              <AnimatePresence mode="wait">
-                {(isHovered || idleMsg !== null) && (
-                  <motion.div
-                    key={isHovered ? `hover-${msgIdx}` : `idle-${idleMsg}`}
-                    initial={{ opacity: 0, y: 10, scale: 0.88 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -8, scale: 0.92 }}
-                    transition={{ duration: 0.28 }}
-                    className="absolute z-30 whitespace-nowrap pointer-events-none"
-                    style={{ bottom: 'calc(100% + 12px)', left: '50%', transform: 'translateX(-50%)' }}
-                  >
-                    <div className="bg-[#1A0F0A]/95 border border-[#D4A017]/70 text-[#F4C430] text-sm font-bold font-outfit px-4 py-2 rounded-2xl shadow-xl shadow-[#D4A017]/20 relative">
-                      {isHovered ? HOVER_MESSAGES[msgIdx] : IDLE_MESSAGES[idleMsg ?? 0]}
-                      <div
-                        className="absolute left-1/2 -translate-x-1/2 -bottom-[7px]"
-                        style={{
-                          width: 0, height: 0,
-                          borderLeft: '7px solid transparent',
-                          borderRight: '7px solid transparent',
-                          borderTop: '7px solid rgba(212,160,23,0.7)',
-                        }}
-                      />
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* LIVE badge */}
-              <motion.div
-                className="absolute bottom-1 right-1 z-30 flex items-center gap-1 bg-[#1A0F0A]/90 border border-[#D4A017]/40 rounded-full px-2 py-0.5 shadow-lg"
-                initial={{ opacity: 0, scale: 0 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 1, type: 'spring', stiffness: 200 }}
+              {/* Dynamic Institutional Badge */}
+              <div
+                className="absolute z-30 whitespace-nowrap"
+                style={{ bottom: 'calc(100% + 12px)', left: '50%', transform: 'translateX(-50%)' }}
               >
                 <motion.div
-                  className="w-1.5 h-1.5 rounded-full bg-emerald-400"
-                  animate={{ opacity: [1, 0.25, 1] }}
-                  transition={{ duration: 1.4, repeat: Infinity }}
-                />
-                <span className="text-[9px] text-emerald-400 font-bold font-outfit tracking-widest">LIVE</span>
+                  key={badgeIdx}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.3 }}
+                  className="bg-[#180E09]/95 border border-amber-500/40 text-amber-300 text-xs font-semibold px-3.5 py-1.5 rounded-full shadow-xl shadow-black/60 flex items-center gap-2 backdrop-blur-md"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>{HIGHLIGHT_BADGES[badgeIdx]}</span>
+                </motion.div>
+              </div>
+
+              {/* LIVE indicator */}
+              <motion.div
+                className="absolute bottom-2 right-2 z-30 flex items-center gap-1.5 bg-black/85 border border-amber-500/30 rounded-full px-2.5 py-1 shadow-lg backdrop-blur-md"
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.5, type: 'spring', stiffness: 200 }}
+              >
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-[10px] text-emerald-400 font-bold tracking-wider">BASE LIVE</span>
               </motion.div>
 
               {/* Avatar image — circular, soft edge blend, mouse-tracked tilt */}

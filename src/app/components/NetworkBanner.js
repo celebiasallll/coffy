@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { AlertTriangle, ArrowRight } from 'lucide-react';
 
 export default function NetworkBanner() {
   const [wrongNetwork, setWrongNetwork] = useState(false);
@@ -9,8 +10,12 @@ export default function NetworkBanner() {
   useEffect(() => {
     const checkNetwork = async () => {
       if (window.ethereum) {
-        const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-        setWrongNetwork(chainId !== '0x2105'); // Base Mainnet chainId
+        try {
+          const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+          setWrongNetwork(chainId !== '0x2105' && chainId !== '0x2105n');
+        } catch {
+          // ignore
+        }
       }
     };
 
@@ -26,10 +31,9 @@ export default function NetworkBanner() {
     try {
       await window.ethereum.request({
         method: 'wallet_switchEthereumChain',
-        params: [{ chainId: '0x2105' }], // Base Mainnet
+        params: [{ chainId: '0x2105' }],
       });
     } catch (switchError) {
-      // Chain not added, try adding it
       if (switchError.code === 4902) {
         try {
           await window.ethereum.request({
@@ -62,14 +66,18 @@ export default function NetworkBanner() {
           initial={{ y: -100 }}
           animate={{ y: 0 }}
           exit={{ y: -100 }}
-          className="fixed top-0 left-0 right-0 bg-[#0052FF] text-white py-2 px-4 text-center z-50 shadow-lg"
+          className="fixed top-0 left-0 right-0 bg-[#0052FF] text-white py-2.5 px-4 text-center z-[100] shadow-xl flex items-center justify-center gap-3 text-xs sm:text-sm font-medium"
         >
-          <p className="inline-block mr-4 font-semibold">⚠️ Please switch to Base Mainnet</p>
+          <div className="flex items-center gap-1.5">
+            <AlertTriangle className="w-4 h-4 text-amber-300" />
+            <span>Please switch your wallet network to Base Mainnet</span>
+          </div>
           <button
             onClick={switchToBase}
-            className="bg-white text-[#0052FF] px-4 py-1 rounded-full text-sm font-bold hover:bg-opacity-90 transition"
+            className="inline-flex items-center gap-1 bg-white text-[#0052FF] px-3.5 py-1 rounded-full text-xs font-bold hover:bg-white/90 transition shadow-sm"
           >
-            Switch to Base
+            <span>Switch Network</span>
+            <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </motion.div>
       )}

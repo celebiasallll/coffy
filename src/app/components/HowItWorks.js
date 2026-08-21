@@ -1,27 +1,28 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { Wallet, Gamepad2, Coins, Sparkles, ArrowRight } from 'lucide-react';
 
 const steps = [
     {
         number: '01',
-        icon: '🔗',
+        icon: Wallet,
         title: 'Connect Your Wallet',
-        description: 'Connect MetaMask or any Web3 wallet on Base Mainnet. No minimum balance required — everyone can participate.',
+        description: 'Connect MetaMask, Coinbase Wallet, or Rabby on Base Mainnet. No minimum balance required.',
         color: '#D4A017',
     },
     {
         number: '02',
-        icon: '🎮',
-        title: 'Play or Drink',
-        description: 'Jump into any of our 7 games and compete in real-time matches, or visit a partner coffee shop and scan to earn.',
+        icon: Gamepad2,
+        title: 'Play or Verify Activity',
+        description: 'Compete in browser games, challenge players in on-chain PvP matches, or verify daily drink & steps.',
         color: '#F4C430',
     },
     {
         number: '03',
-        icon: '💰',
-        title: 'Earn COFFY Tokens',
-        description: 'Win games, climb leaderboards, and claim your COFFY rewards on-chain. Stake them for 5% APY or use them in-game.',
+        icon: Coins,
+        title: 'Earn & Stake $COFFY',
+        description: 'Claim your on-chain token rewards directly. Stake in our vault for 50% APY or level up characters.',
         color: '#A77B06',
     },
 ];
@@ -30,12 +31,12 @@ const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
         opacity: 1,
-        transition: { staggerChildren: 0.2, delayChildren: 0.1 },
+        transition: { staggerChildren: 0.15, delayChildren: 0.1 },
     },
 };
 
 const cardVariants = {
-    hidden: { opacity: 0, y: 30 },
+    hidden: { opacity: 0, y: 25 },
     visible: {
         opacity: 1,
         y: 0,
@@ -47,7 +48,7 @@ export default function HowItWorks() {
     return (
         <section
             id="how-it-works"
-            className="py-20 bg-gradient-to-b from-[#1A0F0A] via-[#2A1810] to-[#1A0F0A] overflow-hidden"
+            className="py-20 md:py-28 bg-gradient-to-b from-[#120A06] via-[#1A0E08] to-[#120A06] overflow-hidden"
         >
             <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                 {/* Header */}
@@ -56,16 +57,17 @@ export default function HowItWorks() {
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ duration: 0.6 }}
-                    className="text-center mb-14"
+                    className="text-center mb-16"
                 >
-                    <span className="inline-block px-4 py-1.5 rounded-full bg-[#D4A017]/10 border border-[#D4A017]/30 text-[#D4A017] text-xs font-bold tracking-widest uppercase mb-4">
-                        ☕ How It Works
-                    </span>
-                    <h2 className="text-4xl md:text-5xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-[#D4A017] via-[#F4C430] to-[#D4A017] tracking-tight mb-3">
-                        Start Earning in 3 Simple Steps
+                    <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold tracking-wide mb-4">
+                        <Sparkles className="w-4 h-4 text-amber-400" />
+                        <span>QUICK ONBOARDING</span>
+                    </div>
+                    <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight mb-3 font-outfit">
+                        Start Earning in <span className="bg-gradient-to-r from-amber-400 via-orange-400 to-yellow-300 bg-clip-text text-transparent">3 Simple Steps</span>
                     </h2>
-                    <p className="text-[#E8D5B5]/80 text-lg max-w-2xl mx-auto">
-                        No complicated setup. No minimum balance. Just connect, play, and earn.
+                    <p className="text-[#E8D5B5]/75 text-base sm:text-lg max-w-2xl mx-auto leading-relaxed">
+                        Zero gas overhead, instant on-chain settlement, and non-custodial Web3 architecture.
                     </p>
                 </motion.div>
 
@@ -78,36 +80,34 @@ export default function HowItWorks() {
                     viewport={{ once: true }}
                 >
                     {/* Connecting dashed line (desktop only) */}
-                    <div className="hidden md:block absolute top-16 left-1/4 right-1/4 h-0.5 border-t-2 border-dashed border-[#D4A017]/20 z-0" />
+                    <div className="hidden md:block absolute top-16 left-1/4 right-1/4 h-0.5 border-t-2 border-dashed border-amber-500/20 z-0" />
 
-                    {steps.map((step) => (
-                        <motion.div
-                            key={step.number}
-                            variants={cardVariants}
-                            whileHover={{ y: -6 }}
-                            className="relative group bg-gradient-to-br from-[#3A2A1E]/80 to-[#2A1810]/80 border border-[#BFA181]/20 rounded-2xl p-7 text-center backdrop-blur-sm shadow-xl hover:border-[#D4A017]/40 transition-colors duration-300 z-10"
-                        >
-                            {/* Number badge */}
-                            <div
-                                className="absolute -top-4 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full flex items-center justify-center text-xs font-black text-white shadow-lg"
-                                style={{ background: `linear-gradient(135deg, ${step.color}, #3A2A1E)` }}
+                    {steps.map((step) => {
+                        const Icon = step.icon;
+                        return (
+                            <motion.div
+                                key={step.number}
+                                variants={cardVariants}
+                                whileHover={{ y: -6 }}
+                                className="relative group bg-[#180E09]/90 border border-amber-500/20 rounded-2xl p-7 text-center backdrop-blur-md shadow-xl hover:border-amber-500/40 transition-colors duration-300 z-10"
                             >
-                                {step.number}
-                            </div>
+                                {/* Number badge */}
+                                <div
+                                    className="absolute -top-4 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full flex items-center justify-center text-xs font-black text-black shadow-lg bg-gradient-to-br from-amber-400 to-orange-400"
+                                >
+                                    {step.number}
+                                </div>
 
-                            {/* Hover glow */}
-                            <div
-                                className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
-                                style={{ background: `radial-gradient(circle at 50% 0%, ${step.color}15 0%, transparent 70%)` }}
-                            />
-
-                            <div className="text-5xl mb-4 mt-2">{step.icon}</div>
-                            <h3 className="text-xl font-bold text-white mb-2" style={{ color: step.color }}>
-                                {step.title}
-                            </h3>
-                            <p className="text-[#E8D5B5]/80 text-sm leading-relaxed">{step.description}</p>
-                        </motion.div>
-                    ))}
+                                <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center mb-5 mt-2 text-amber-400 group-hover:scale-105 transition-transform">
+                                    <Icon className="w-7 h-7" />
+                                </div>
+                                <h3 className="text-lg font-bold text-white mb-2 font-outfit">
+                                    {step.title}
+                                </h3>
+                                <p className="text-[#E8D5B5]/70 text-sm leading-relaxed">{step.description}</p>
+                            </motion.div>
+                        );
+                    })}
                 </motion.div>
 
                 {/* Bottom CTA */}
@@ -115,14 +115,15 @@ export default function HowItWorks() {
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
-                    transition={{ duration: 0.6, delay: 0.4 }}
+                    transition={{ duration: 0.6, delay: 0.3 }}
                     className="text-center mt-12"
                 >
                     <a
                         href="#games"
-                        className="inline-flex items-center gap-2 bg-gradient-to-r from-[#D4A017] to-[#A77B06] text-white font-bold py-3 px-8 rounded-xl shadow-lg shadow-[#D4A017]/30 hover:shadow-[#D4A017]/50 transition-shadow duration-300"
+                        className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-black font-bold py-3 px-7 rounded-xl shadow-lg shadow-amber-500/20 transition-all duration-200"
                     >
-                        🎮 Start Playing Now
+                        <span>Explore Web3 Games</span>
+                        <ArrowRight className="w-4 h-4" />
                     </a>
                 </motion.div>
             </div>

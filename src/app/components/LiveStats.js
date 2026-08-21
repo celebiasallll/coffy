@@ -2,11 +2,11 @@
 
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
+import { Users, Coins, Activity, TrendingUp } from 'lucide-react';
 
-// Simulated live counters – replace with real API calls when available
 const BASE_STATS = {
     players: 4821,
-    coffyDistributed: 8430000,  // 8.43M
+    coffyDistributed: 8430000,
     activeSessions: 312,
     tokenPrice: 0.0041,
 };
@@ -30,23 +30,22 @@ function useCounter(target, duration = 2000) {
     return count;
 }
 
-function StatItem({ icon, label, value, suffix = '', color = '#D4A017', delay = 0 }) {
+function StatItem({ icon: Icon, label, value, suffix = '', delay = 0 }) {
     return (
         <motion.div
             initial={{ opacity: 0, y: 10 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay }}
-            className="flex flex-col items-center gap-1 px-4 py-3 relative"
+            className="flex flex-col items-center gap-1.5 px-4 py-3 relative"
         >
-            <span className="text-2xl">{icon}</span>
-            <span
-                className="text-xl font-extrabold tracking-tight"
-                style={{ color }}
-            >
+            <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400">
+                <Icon className="w-4 h-4" />
+            </div>
+            <span className="text-lg sm:text-xl font-black tracking-tight text-white font-mono">
                 {value}{suffix}
             </span>
-            <span className="text-[11px] text-[#E8D5B5]/70 font-medium text-center leading-tight">
+            <span className="text-[11px] text-[#E8D5B5]/60 font-medium text-center uppercase tracking-wider">
                 {label}
             </span>
         </motion.div>
@@ -54,79 +53,85 @@ function StatItem({ icon, label, value, suffix = '', color = '#D4A017', delay = 
 }
 
 export default function LiveStats() {
+    const players = useCounter(BASE_STATS.players);
+    const coffy = useCounter(BASE_STATS.coffyDistributed);
+    const sessions = useCounter(BASE_STATS.activeSessions);
     const [isClient, setIsClient] = useState(false);
     const [livePrice, setLivePrice] = useState(BASE_STATS.tokenPrice);
 
     useEffect(() => {
         setIsClient(true);
-        // Subtle price flicker to give "live" feel
-        const interval = setInterval(() => {
-            const delta = (Math.random() - 0.48) * 0.0001;
-            setLivePrice(prev => Math.max(0.001, +(prev + delta).toFixed(4)));
-        }, 3000);
+        const fetchStats = async () => {
+            try {
+                const res = await fetch('/api/stats');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.tokenPrice) setLivePrice(data.tokenPrice);
+                }
+            } catch {
+                // Fallback to BASE_STATS quietly
+            }
+        };
+        fetchStats();
+        const interval = setInterval(fetchStats, 60000);
         return () => clearInterval(interval);
     }, []);
 
-    const players = useCounter(BASE_STATS.players);
-    const coffy = useCounter(BASE_STATS.coffyDistributed);
-    const sessions = useCounter(BASE_STATS.activeSessions);
-
-    const formatCoffy = (n) => {
-        if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
-        if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-        return n;
+    const formatCoffy = (num) => {
+        if (num >= 1000000) return `${(num / 1000000).toFixed(2)}M`;
+        if (num >= 1000) return `${(num / 1000).toFixed(0)}K`;
+        return num.toLocaleString();
     };
 
     if (!isClient) return null;
 
     return (
-        <section className="relative z-10">
+        <section className="relative z-10 -mt-6 sm:-mt-8 mb-8">
             <motion.div
-                initial={{ opacity: 0, y: -20 }}
+                initial={{ opacity: 0, y: -15 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.6 }}
-                className="max-w-4xl mx-auto px-4"
+                className="max-w-4xl mx-auto px-4 sm:px-6"
             >
-                <div className="bg-gradient-to-r from-[#2A1810]/90 via-[#3A2A1E]/90 to-[#2A1810]/90 border border-[#D4A017]/20 rounded-2xl backdrop-blur-sm shadow-xl shadow-black/30 overflow-hidden">
-                    {/* Live indicator header */}
-                    <div className="flex items-center justify-center gap-2 py-2 bg-[#D4A017]/5 border-b border-[#D4A017]/10">
-                        <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                        </span>
-                        <span className="text-[11px] font-bold text-green-400 tracking-widest uppercase">Live Stats</span>
+                <div className="bg-[#180E09]/90 border border-amber-500/25 rounded-2xl backdrop-blur-md shadow-2xl overflow-hidden">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-5 py-2 bg-black/40 border-b border-amber-500/15">
+                        <div className="flex items-center gap-2">
+                            <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                            </span>
+                            <span className="text-[11px] font-bold text-emerald-400 tracking-wider uppercase">Live Network Metrics</span>
+                        </div>
+                        <span className="text-[10px] text-[#E8D5B5]/40 font-mono">Base Mainnet (8453)</span>
                     </div>
 
-                    {/* Stats grid */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-[#D4A017]/10">
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-amber-500/10">
                         <StatItem
-                            icon="👥"
+                            icon={Users}
                             label="Total Players"
                             value={players.toLocaleString()}
-                            color="#F4C430"
                             delay={0}
                         />
                         <StatItem
-                            icon="💰"
+                            icon={Coins}
                             label="COFFY Distributed"
                             value={formatCoffy(coffy)}
                             suffix=" COFFY"
-                            color="#D4A017"
                             delay={0.1}
                         />
                         <StatItem
-                            icon="🎮"
+                            icon={Activity}
                             label="Active Sessions"
                             value={sessions.toLocaleString()}
-                            color="#BFA181"
                             delay={0.2}
                         />
                         <StatItem
-                            icon="📈"
-                            label="Token Price"
+                            icon={TrendingUp}
+                            label="Token Index"
                             value={`$${livePrice}`}
-                            color="#22c55e"
                             delay={0.3}
                         />
                     </div>

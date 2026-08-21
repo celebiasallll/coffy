@@ -30,13 +30,23 @@ export default function useWeb3Wallet() {
   // Format balance
   const formatBalance = (value) => {
     const num = parseFloat(value);
+    if (isNaN(num) || num <= 0) return '0';
     if (num >= 1000000) {
-      return (num / 1000000).toFixed(2) + 'M';
+      return (num / 1000000).toLocaleString('en-US', { maximumFractionDigits: 2 }) + 'M';
     } else if (num >= 1000) {
-      return (num / 1000).toFixed(2) + 'K';
+      return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
     }
-    return num.toFixed(2);
+    return num.toLocaleString('en-US', { maximumFractionDigits: 2 });
   };
+
+  // Auto-sync balance periodically
+  useEffect(() => {
+    if (!isConnected || !userAddress) return;
+    const interval = setInterval(() => {
+      refreshBalance();
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [isConnected, userAddress]);
 
   // Check connection on load and set up global listeners
   useEffect(() => {

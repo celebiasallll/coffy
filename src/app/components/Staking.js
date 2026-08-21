@@ -201,7 +201,7 @@ export default function Staking({ id }) {
     const unlockTime = stakeStartTime + lockPeriod;
     const timeRemaining = unlockTime - currentTimeForDisplay;
 
-    if (timeRemaining <= 0) return 'Unlocked ✅';
+    if (timeRemaining <= 0) return 'Unlocked';
 
     const days = Math.floor(timeRemaining / (24 * 60 * 60));
     const hours = Math.floor((timeRemaining % (24 * 60 * 60)) / (60 * 60));
@@ -249,7 +249,7 @@ export default function Staking({ id }) {
             return new Promise((resolve) => {
               setConfirmModal({
                 open: true,
-                message: `⚠️ Early Unstake Warning\n\nYour tokens are locked for ${daysLeft} more days.\nEarly unstaking executes an emergency unstake on your entire balance with a 5% penalty.\n\nAre you sure you want to proceed?`,
+                message: `Early Unstake Notice\n\nYour tokens are locked for ${daysLeft} more days.\nEarly unstaking executes an emergency unstake on your entire balance with a 5% penalty.\n\nAre you sure you want to proceed?`,
                 onConfirm: async () => {
                   setConfirmModal({ open: false, message: '', onConfirm: null });
                   try {
@@ -288,7 +288,7 @@ export default function Staking({ id }) {
             setError('No tokens staked for emergency unstake');
             throw new Error('No tokens staked for emergency unstake');
           }
-          toast('Emergency Unstake: %5 penalty will be burned, remaining sent to your wallet.', { icon: 'ℹ️', duration: 4000 });
+          toast('Emergency Unstake: %5 penalty will be burned, remaining sent to your wallet.', { duration: 4000 });
           tx = await contract.emergencyUnstake();
           break;
 
@@ -351,10 +351,10 @@ export default function Staking({ id }) {
 
         setConfirmModal({
           open: true,
-          message: `⚠️ Early Unstake Warning\n\nYou are withdrawing before the 7-day lock period ends (${remainingDays} days remaining).\nEarly unstaking will result in a 5% penalty.\n\nStaked: ${inputAmount} COFFY\nNet Amount To Receive: ${netAmount.toFixed(6)} COFFY\n\nDo you want to continue?`,
+          message: `Early Unstake Notice\n\nYou are withdrawing before the 7-day lock period ends (${remainingDays} days remaining).\nEarly unstaking will result in a 5% penalty.\n\nStaked: ${inputAmount} COFFY\nNet Amount To Receive: ${netAmount.toFixed(6)} COFFY\n\nDo you want to continue?`,
           onConfirm: async () => {
             setConfirmModal({ open: false, message: '', onConfirm: null });
-            toast('You are withdrawing before the 7-day lock period. A 5% penalty will be applied (Emergency Unstake).', { icon: 'ℹ️', duration: 6000 });
+            toast('You are withdrawing before the 7-day lock period. A 5% penalty will be applied (Emergency Unstake).', { duration: 6000 });
             console.log('DEBUG: Calling contract.emergencyUnstake()');
             try {
               tx = await contract.emergencyUnstake();

@@ -214,8 +214,8 @@ export default function BurnDashboard() {
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-xs text-[#E8D5B5]/50 font-mono">{burn.timestamp}</span>
-                      <span className="text-xs md:text-sm font-bold text-orange-500 font-mono">
-                        +{burn.amount} COFFY 🔥
+                      <span className="text-xs md:text-sm font-bold text-orange-400 font-mono">
+                        +{burn.amount} COFFY
                       </span>
                     </div>
                   </motion.div>

@@ -1,61 +1,70 @@
 'use client';
 
-import Image from 'next/image';
 import { motion, useScroll, useTransform } from 'framer-motion';
+import { Handshake, Send, Twitter, Building2 } from 'lucide-react';
 
 export default function Partners() {
   const { scrollY } = useScroll();
   const opacity = useTransform(scrollY, [0, 300], [1, 0.8]);
 
   return (
-    <section className="py-24 bg-gradient-to-b from-[#3A2A1E] to-[#1A0F0A] relative overflow-hidden" id="partners">
-      <motion.div style={{ opacity }} className="container mx-auto px-6 relative z-10">
+    <section className="py-24 bg-gradient-to-b from-[#180E08] to-[#120A06] relative overflow-hidden" id="partners">
+      <motion.div style={{ opacity }} className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10 max-w-5xl">
         <motion.div
-          initial={{ opacity: 0, y: 50 }}
+          initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
+          transition={{ duration: 0.7 }}
           viewport={{ once: true }}
           className="text-center mb-12"
         >
-          <h2 className="text-5xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-[#D4A017] to-[#A77B06]">
-            Ecosystem &amp; Partners
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold tracking-wide mb-4">
+            <Building2 className="w-4 h-4 text-amber-400" />
+            <span>INSTITUTIONAL &amp; ECOSYSTEM</span>
+          </div>
+
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight leading-tight mb-3 font-outfit">
+            Ecosystem &amp; <span className="bg-gradient-to-r from-amber-400 via-orange-400 to-yellow-300 bg-clip-text text-transparent">Partnerships</span>
           </h2>
-          <div className="w-24 h-1 bg-[#D4A017] mx-auto rounded-full"></div>
-          <p className="text-xl text-[#E8D5B5] mt-4">Built on leading Web3 infrastructure</p>
+          <p className="text-base sm:text-lg text-[#E8D5B5]/75 max-w-xl mx-auto leading-relaxed">
+            Collaborating with premier Web3 protocols, gaming guilds, and coffee retailers on Base Mainnet.
+          </p>
         </motion.div>
 
-        {/* Become a Partner CTA — prominent */}
+        {/* Become a Partner CTA */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
+          transition={{ duration: 0.6, delay: 0.15 }}
           viewport={{ once: true }}
-          className="mb-14 flex flex-col items-center"
+          className="flex flex-col items-center"
         >
-          <div className="bg-gradient-to-br from-[#3A2A1E]/80 to-[#2A1810]/80 border border-[#D4A017]/30 rounded-2xl px-8 py-6 max-w-xl w-full text-center backdrop-blur-sm shadow-xl">
-            <div className="text-3xl mb-2">🤝</div>
-            <h3 className="text-xl font-bold text-white mb-1">Become a Strategic Partner</h3>
-            <p className="text-[#E8D5B5]/80 text-sm mb-5">
-              Coffee brands, gaming studios &amp; Web3 projects — reach out to us directly
+          <div className="bg-[#1A0E08]/90 border border-amber-500/25 rounded-2xl px-8 py-8 max-w-xl w-full text-center backdrop-blur-md shadow-xl">
+            <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto mb-4 text-amber-400">
+              <Handshake className="w-6 h-6" />
+            </div>
+
+            <h3 className="text-xl font-bold text-white mb-2 font-outfit">Join the Coffy Ecosystem</h3>
+            <p className="text-[#E8D5B5]/70 text-sm mb-6 leading-relaxed">
+              Coffee brands, gaming studios, and liquidity providers — explore strategic syndication and cross-promotions.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <a
                 href="https://t.me/+DVdNX9nar99hN2Rk"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 bg-[#0088CC] hover:bg-[#0099DD] text-white font-bold py-2.5 px-6 rounded-xl transition-all duration-300"
+                className="inline-flex items-center justify-center gap-2 bg-[#0088CC]/90 hover:bg-[#0088CC] text-white font-semibold py-2.5 px-5 rounded-xl text-xs sm:text-sm transition-all duration-200 shadow-md"
               >
-                <i className="fab fa-telegram-plane"></i>
-                Telegram
+                <Send className="w-4 h-4" />
+                <span>Telegram Direct</span>
               </a>
               <a
                 href="https://x.com/coffycoinxyz"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 bg-[#1DA1F2] hover:bg-[#1A91DA] text-white font-bold py-2.5 px-6 rounded-xl transition-all duration-300"
+                className="inline-flex items-center justify-center gap-2 bg-black/50 hover:bg-black/80 border border-white/20 text-white font-semibold py-2.5 px-5 rounded-xl text-xs sm:text-sm transition-all duration-200"
               >
-                <i className="fab fa-twitter"></i>
-                Twitter / X
+                <Twitter className="w-4 h-4 text-sky-400" />
+                <span>Official X / Twitter</span>
               </a>
             </div>
           </div>

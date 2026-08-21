@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, useAnimation } from 'framer-motion';
 import { ethers } from 'ethers';
 import Image from 'next/image';
+import { CheckCircle2, AlertCircle, Crown, RotateCcw, Sparkles } from 'lucide-react';
 
 const GAME_MODULE_ADDRESS = '0xEb00A304DD1aB9A5bC995d4eD9cAFc190bC593Ea';
 const COFFY_CORE_ADDRESS = '0x29248bA2420757bF50595Af6d8903E5d8Dcb9b41';
@@ -173,8 +174,8 @@ function SwipeCard({ char, index, total, onSwipe, onBuy, isOwned, affordable, ac
                     </div>
 
                     {char.isDAO && (
-                        <div className="flex items-center gap-1 mb-3 bg-[#FFD700]/10 border border-[#FFD700]/20 rounded-xl px-3 py-1.5">
-                            <span>👑</span>
+                        <div className="flex items-center gap-1.5 mb-3 bg-[#FFD700]/10 border border-[#FFD700]/20 rounded-xl px-3 py-1.5">
+                            <Crown className="w-3.5 h-3.5 text-[#FFD700]" />
                             <span className="text-[#FFD700] text-xs font-bold font-outfit">Unlocks DAO Membership</span>
                         </div>
                     )}
@@ -192,7 +193,7 @@ function SwipeCard({ char, index, total, onSwipe, onBuy, isOwned, affordable, ac
                                     className="flex-[2] py-2.5 rounded-xl font-extrabold text-sm font-outfit transition-all text-[#1A0F0A] shadow-md"
                                     style={{ background: isOwned ? `${char.accentColor}40` : `linear-gradient(135deg, ${char.accentColor}, #A77B06)` }}
                                 >
-                                    {isOwned ? '✓ Owned' : !account ? '🔗 Connect' : affordable ? `Buy ${char.name}` : 'Insufficient COFFY'}
+                                    {isOwned ? 'Owned' : !account ? 'Connect Wallet' : affordable ? `Buy ${char.name}` : 'Insufficient COFFY'}
                                 </button>
                             </>
                         )}
@@ -299,7 +300,10 @@ export default function Characters() {
 
                 {/* Header */}
                 <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-6">
-                    <span className="inline-block px-4 py-1.5 rounded-full bg-[#D4A017]/10 border border-[#D4A017]/30 text-[#D4A017] text-xs font-bold tracking-widest uppercase mb-4 font-outfit">🎭 Characters</span>
+                    <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#D4A017]/10 border border-[#D4A017]/30 text-[#D4A017] text-xs font-bold tracking-widest uppercase mb-4 font-outfit">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                        Characters &amp; Multipliers
+                    </span>
                     <h2 className="text-4xl md:text-5xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-[#D4A017] via-[#F4C430] to-[#D4A017] mb-3 font-outfit tracking-tight">Choose Your Character</h2>
 
                     {/* Wallet stats - Compact & Clean */}
@@ -344,12 +348,15 @@ export default function Characters() {
                                         className="absolute inset-0 flex flex-col items-center justify-center gap-5 rounded-3xl border border-[#D4A017]/20"
                                         style={{ background: 'linear-gradient(160deg, #3A2A1E, #1A0F0A)' }}
                                     >
-                                        <div className="text-5xl">☕</div>
-                                        <div className="text-white font-bold font-outfit text-xl">All cards seen!</div>
-                                        <div className="text-[#E8D5B5]/50 text-sm font-outfit text-center px-8">You&apos;ve reviewed all 5 characters.</div>
+                                        <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                                            <RotateCcw className="w-8 h-8" />
+                                        </div>
+                                        <div className="text-white font-bold font-outfit text-xl">All cards reviewed</div>
+                                        <div className="text-[#E8D5B5]/50 text-sm font-outfit text-center px-8">You&apos;ve browsed all available character tiers.</div>
                                         <motion.button onClick={resetDeck} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                                            className="bg-gradient-to-r from-[#D4A017] to-[#A77B06] text-white font-bold py-2.5 px-6 rounded-xl font-outfit text-sm">
-                                            🔄 Browse Again
+                                            className="inline-flex items-center gap-2 bg-gradient-to-r from-[#D4A017] to-[#A77B06] text-white font-bold py-2.5 px-6 rounded-xl font-outfit text-sm">
+                                            <RotateCcw className="w-4 h-4" />
+                                            <span>Browse Again</span>
                                         </motion.button>
                                     </motion.div>
                                 )}
@@ -377,8 +384,8 @@ export default function Characters() {
                             className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
                             <div className={`flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl border font-outfit ${txStatus === 'error' ? 'bg-[#2A1810]/95 border-red-500/40 text-red-300' : txStatus === 'success' ? 'bg-[#2A1810]/95 border-[#D4A017]/40 text-[#D4A017]' : 'bg-[#2A1810]/95 border-[#D4A017]/30 text-[#E8D5B5]'}`}>
                                 {txStatus === 'buying' && <><div className="w-4 h-4 border-2 border-[#D4A017]/40 border-t-[#D4A017] rounded-full animate-spin" /><span>Purchasing on-chain…</span></>}
-                                {txStatus === 'success' && <><span className="text-xl">✅</span><span className="font-bold">Character purchased!</span></>}
-                                {txStatus === 'error' && <><span className="text-xl">❌</span><span>{txError || 'Transaction failed'}</span></>}
+                                {txStatus === 'success' && <><CheckCircle2 className="w-5 h-5 text-green-400" /><span className="font-bold">Character purchased!</span></>}
+                                {txStatus === 'error' && <><AlertCircle className="w-5 h-5 text-red-400" /><span>{txError || 'Transaction failed'}</span></>}
                             </div>
                         </motion.div>
                     )}

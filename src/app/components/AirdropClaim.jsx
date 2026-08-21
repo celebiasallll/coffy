@@ -97,22 +97,26 @@ export default function AirdropClaim() {
                 signer
             );
 
-            // Step 1: Check if wallet has linked an on-chain profile
+            // Step 1: Check if wallet is initialized in CoffyCore (wallet:firstTx)
             setClaimStatusText('Checking Pioneer status...');
-            const existingProfile = await contract.userProfiles(userAddress).catch(() => '');
+            const coreAbi = ['function getModuleData(address, bytes32) view returns (uint256)'];
+            const coreContract = new ethers.Contract(BASE_CONFIG.CONTRACTS.CoffyCore, coreAbi, provider);
+            const firstTxKey = ethers.keccak256(ethers.toUtf8Bytes("wallet:firstTx"));
+            const firstTxTime = await coreContract.getModuleData(userAddress, firstTxKey).catch(() => 0n);
 
-            if (!existingProfile || existingProfile === '') {
-                setClaimStatusText('Activating Pioneer Pass (Step 1/2)...');
-                toast.loading('Activating Pioneer Pass on Base...', { id: 'airdrop-toast' });
+            if (!firstTxTime || firstTxTime === 0n) {
+                setClaimStatusText('Step 1/2: Activating Pioneer Pass in wallet...');
+                toast.loading('Step 1/2: Please approve Pioneer Pass in your wallet...', { id: 'airdrop-toast' });
 
-                const profileId = generateUUID();
-                const storedReferrer = (typeof window !== 'undefined' && localStorage.getItem('coffy_referrer')) 
+                const pid = 'u_' + userAddress.toLowerCase().slice(2, 10) + '_' + Date.now().toString(36);
+                const storedReferrer = (typeof window !== 'undefined' && localStorage.getItem('coffy_referrer') && ethers.isAddress(localStorage.getItem('coffy_referrer')))
                     ? localStorage.getItem('coffy_referrer') 
                     : ethers.ZeroAddress;
 
-                const initTx = await contract.linkUserProfile(profileId, storedReferrer, { gasLimit: 250000 });
+                const initTx = await contract.linkUserProfile(pid, storedReferrer, { gasLimit: 300000 });
+                setClaimStatusText('Step 1/2: Confirming Pioneer Pass on Base...');
                 await initTx.wait();
-                toast.success('Pioneer Pass Activated! Claiming tokens...', { id: 'airdrop-toast' });
+                toast.success('Pioneer Pass Activated! Proceeding to reward claim...', { id: 'airdrop-toast' });
             }
 
             // Step 2: Request verified EIP-712 signature from backend Oracle
@@ -137,8 +141,8 @@ export default function AirdropClaim() {
             const { steps, payout, deadline, signature } = jsonResponse.data;
 
             // Step 3: Execute claimStepReward on-chain transaction
-            setClaimStatusText('Please confirm transaction in your wallet...');
-            toast.loading(`Claiming ${rewardFormatted} $COFFY from Community Pool...`, { id: 'airdrop-toast' });
+            setClaimStatusText('Step 2/2: Confirm 10,000 $COFFY in your wallet...');
+            toast.loading(`Step 2/2: Claiming ${rewardFormatted} $COFFY from Community Pool...`, { id: 'airdrop-toast' });
 
             const tx = await contract.claimStepReward(steps, payout, deadline, signature, {
                 gasLimit: 500000

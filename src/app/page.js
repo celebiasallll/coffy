@@ -13,6 +13,7 @@ const ReferralPanel = dynamic(() => import('./components/ReferralPanel'), { ssr:
 const Tokenomics = dynamic(() => import('./components/Tokenomics'));
 const ContractInfo = dynamic(() => import('./components/ContractInfo'));
 const Roadmap = dynamic(() => import('./components/Roadmap'));
+const Community = dynamic(() => import('./components/Community'), { ssr: false });
 const Footer = dynamic(() => import('./components/Footer'));
 
 export default function Home() {
@@ -59,6 +60,7 @@ export default function Home() {
           <Tokenomics />
           <ContractInfo />
           <Roadmap />
+          <Community />
           <Footer />
         </main>
       </div>

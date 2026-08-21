@@ -134,6 +134,14 @@ export default function Navbar() {
                   <span>{item.label}</span>
                 </button>
               ))}
+              <a
+                href="/whitepaper/coffy-whitepaper.pdf"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold text-[#E8D5B5]/80 hover:text-amber-300 hover:bg-amber-500/10 transition-all duration-200"
+              >
+                <span>Whitepaper</span>
+              </a>
             </div>
           </div>
 
@@ -238,6 +246,31 @@ export default function Navbar() {
                     </div>
                   </button>
                 ))}
+
+                {/* Mobile Whitepaper & Leadership */}
+                <a
+                  href="/whitepaper/coffy-whitepaper.pdf"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full flex items-center gap-3.5 px-4 py-3 text-left text-[#E8D5B5] hover:text-white hover:bg-amber-500/10 rounded-xl transition-colors font-medium text-sm"
+                >
+                  <div className="w-5 h-5 flex items-center justify-center text-amber-400 font-bold">📄</div>
+                  <div className="flex flex-col">
+                    <span>Whitepaper (PDF)</span>
+                    <span className="text-[11px] text-amber-500/70">Technical Architecture</span>
+                  </div>
+                </a>
+
+                <button
+                  onClick={() => handleNavigation('footer')}
+                  className="w-full flex items-center gap-3.5 px-4 py-3 text-left text-[#E8D5B5] hover:text-white hover:bg-amber-500/10 rounded-xl transition-colors font-medium text-sm"
+                >
+                  <div className="w-5 h-5 flex items-center justify-center text-emerald-400 font-bold">🛡️</div>
+                  <div className="flex flex-col">
+                    <span>Verified Leadership</span>
+                    <span className="text-[11px] text-emerald-400">Founder & Core Team</span>
+                  </div>
+                </button>
 
                 {/* Mobile Wallet Button */}
                 <div className="pt-2 border-t border-amber-500/15">

@@ -63,6 +63,33 @@ export default function AirdropClaim() {
         try {
             const { ethers } = await import('ethers');
             const provider = new ethers.BrowserProvider(window.ethereum);
+
+            // Step 0: Ensure User is on Base Mainnet (Chain ID: 8453)
+            const network = await provider.getNetwork();
+            if (network.chainId !== 8453n && Number(network.chainId) !== 8453) {
+                try {
+                    await window.ethereum.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: '0x2105' }],
+                    });
+                } catch (switchError) {
+                    if (switchError.code === 4902) {
+                        await window.ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                chainId: '0x2105',
+                                chainName: 'Base Mainnet',
+                                nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+                                rpcUrls: ['https://mainnet.base.org'],
+                                blockExplorerUrls: ['https://basescan.org']
+                            }],
+                        });
+                    } else {
+                        throw new Error('Please switch your wallet to Base Mainnet to claim your airdrop.');
+                    }
+                }
+            }
+
             const signer = await provider.getSigner();
             const contract = new ethers.Contract(
                 BASE_CONFIG.CONTRACTS.ActivityModule,
@@ -110,15 +137,22 @@ export default function AirdropClaim() {
             const { steps, payout, deadline, signature } = jsonResponse.data;
 
             // Step 3: Execute claimStepReward on-chain transaction
-            setClaimStatusText(`Confirming ${rewardFormatted} $COFFY transfer on Base...`);
+            setClaimStatusText('Please confirm transaction in your wallet...');
             toast.loading(`Claiming ${rewardFormatted} $COFFY from Community Pool...`, { id: 'airdrop-toast' });
 
             const tx = await contract.claimStepReward(steps, payout, deadline, signature, {
                 gasLimit: 500000
             });
-            setTxHash(tx.hash);
 
-            await tx.wait();
+            setClaimStatusText('Waiting for Base block confirmation...');
+            const receipt = await tx.wait();
+
+            if (!receipt || receipt.status !== 1) {
+                throw new Error('Transaction failed or reverted on Base network.');
+            }
+
+            // ONLY show BaseScan link and mark claimed after block confirmation
+            setTxHash(tx.hash);
 
             // Step 4: Confirm transaction receipt to permanently record claim in DB
             try {
@@ -139,6 +173,7 @@ export default function AirdropClaim() {
             setHasClaimed(true);
         } catch (err) {
             console.error('Airdrop Claim Execution Error:', err);
+            setTxHash(''); // Clear any unconfirmed hash
             const raw = err?.reason || err?.message || 'Transaction failed.';
             let friendly = 'An error occurred during airdrop claim. Please try again.';
 

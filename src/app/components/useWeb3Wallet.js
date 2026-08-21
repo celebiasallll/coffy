@@ -277,7 +277,31 @@ export default function useWeb3Wallet() {
     setIsLoading(true);
 
     try {
-      // Request account access
+      // 1. Request wallet to switch to Base Mainnet (0x2105 = 8453)
+      try {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: BASE_CONFIG.CHAIN_ID_HEX }]
+        });
+      } catch (switchError) {
+        // Error code 4902 indicates that Base network has not been added to wallet
+        if (switchError.code === 4902 || switchError?.data?.originalError?.code === 4902) {
+          await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [{
+              chainId: BASE_CONFIG.CHAIN_ID_HEX,
+              chainName: BASE_CONFIG.CHAIN_NAME,
+              rpcUrls: [BASE_CONFIG.RPC_URL],
+              nativeCurrency: BASE_CONFIG.NATIVE_CURRENCY,
+              blockExplorerUrls: [BASE_CONFIG.EXPLORER_URL]
+            }]
+          });
+        } else {
+          throw switchError;
+        }
+      }
+
+      // 2. Request account access
       const accounts = await window.ethereum.request({
         method: 'eth_requestAccounts'
       });
@@ -300,7 +324,6 @@ export default function useWeb3Wallet() {
         const provider = new ethers.BrowserProvider(window.ethereum);
         const signer = await provider.getSigner();
 
-        // Use the full ABI provided by the user for all staking and balance functions
         const contract = new ethers.Contract(TOKEN_CONFIG.address, COFFY_TOKEN_ABI, signer);
         setTokenContract(contract);
 
@@ -318,14 +341,15 @@ export default function useWeb3Wallet() {
         // Success notification
         addNotification({
           type: 'success',
-          title: 'Wallet Connected',
-          message: `Connected to ${address.slice(0, 6)}...${address.slice(-4)}`
+          title: 'Connected to Base',
+          message: `Switched to Base Mainnet: ${address.slice(0, 6)}...${address.slice(-4)}`
         });
 
         return true;
       }
     } catch (error) {
-      console.log('Connection failed:', error);
+      console.error('Switch to Base failed:', error);
+      toast.error('Failed to switch to Base network: ' + (error.message || 'Action cancelled'));
       return false;
     } finally {
       setIsLoading(false);

@@ -3,85 +3,112 @@
 import { motion } from 'framer-motion';
 import { BASE_CONFIG } from '../config/baseConfig';
 import { useState } from 'react';
+import { Copy, Check, ExternalLink, ShieldCheck, PlusCircle } from 'lucide-react';
+import useWeb3Wallet from './useWeb3Wallet';
+import Image from 'next/image';
 
 export default function ContractInfo() {
-  const [copyStatus, setCopyStatus] = useState('');
+  const [copied, setCopied] = useState(false);
   const contractAddress = BASE_CONFIG.CONTRACTS.CoffyCore; // Base Mainnet
+  const { addTokenToMetaMask } = useWeb3Wallet();
 
   const copyToClipboard = async (text) => {
     try {
       await navigator.clipboard.writeText(text);
-      setCopyStatus('Copied!');
-      setTimeout(() => setCopyStatus(''), 2000);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      setCopyStatus('Failed to copy');
+      console.error('Failed to copy', err);
     }
   };
 
   return (
-    <section className="py-16 bg-[#1A0F0A]" id="contract-info">
-      <div className="container mx-auto px-6">
+    <section className="py-14 bg-[#140C08]" id="contract-info">
+      <div className="container mx-auto px-6 max-w-3xl">
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 25 }}
           whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
+          transition={{ duration: 0.6 }}
           viewport={{ once: true }}
-          className="max-w-2xl mx-auto bg-[#3A2A1E] p-6 rounded-xl shadow-lg border border-[#D4A017] hover:shadow-[0_0_20px_#D4A017] transition-all duration-300"
+          className="bg-[#24150D]/80 p-6 md:p-8 rounded-2xl shadow-2xl border border-amber-500/25 backdrop-blur-md relative overflow-hidden"
         >
-          <h2 className="text-2xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-[#D4A017] to-[#A77B06] text-center">
-            Contract Info (Base Mainnet)
-          </h2>
+          {/* Header */}
+          <div className="text-center mb-6">
+            <h2 className="text-2xl md:text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-amber-300 via-amber-400 to-yellow-500 font-outfit tracking-tight">
+              Official Contract Info
+            </h2>
+            <p className="text-[#E8D5B5]/70 text-xs md:text-sm mt-1">
+              Verified ERC-20 Token on Base Mainnet Layer 2
+            </p>
+          </div>
 
-          {/* New Contract */}
-          <div className="mb-4">
-            <h3 className="text-lg font-semibold text-[#D4A017] mb-2">CoffyCore on Base</h3>
-            <div className="flex items-center bg-[#1A0F0A] p-3 rounded-lg border border-[#D4A017]/30">
-              <code className="text-[#E8D5B5] flex-1 font-mono text-sm overflow-x-auto">
+          {/* Contract Address Box */}
+          <div className="mb-5">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">
+                CoffyCore Contract (Base)
+              </span>
+              <span className="text-[11px] text-emerald-400 flex items-center gap-1 font-semibold">
+                <ShieldCheck className="w-3.5 h-3.5" /> 100% Verified
+              </span>
+            </div>
+
+            <div className="flex items-center bg-[#100905] p-3 rounded-xl border border-amber-500/20 shadow-inner">
+              <code className="text-[#E8D5B5] flex-1 font-mono text-xs sm:text-sm overflow-x-auto select-all pr-2">
                 {contractAddress}
               </code>
               <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.92 }}
                 onClick={() => copyToClipboard(contractAddress)}
-                className="ml-2 p-2 rounded-lg bg-[#D4A017]/20 hover:bg-[#D4A017]/30"
+                className="p-2 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 transition-colors"
+                title="Copy Address"
               >
-                <i className="fas fa-copy text-[#D4A017]"></i>
+                {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
               </motion.button>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          {/* Action Buttons Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+            {/* 1-Click Add to MetaMask with Logo */}
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={addTokenToMetaMask}
+              className="flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-black font-bold py-3 px-4 rounded-xl text-xs sm:text-sm shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
+            >
+              <div className="w-4 h-4 rounded-full overflow-hidden flex items-center justify-center bg-amber-950">
+                <Image src="/images/coffy-logo.png" alt="COFFY" width={16} height={16} className="w-full h-full object-cover" />
+              </div>
+              <span>Add to Wallet</span>
+            </motion.button>
+
+            {/* View on BaseScan */}
             <motion.a
               href={`https://basescan.org/address/${contractAddress}`}
               target="_blank"
               rel="noopener noreferrer"
               whileHover={{ scale: 1.02 }}
-              className="bg-gradient-to-r from-[#D4A017] to-[#A77B06] py-2 px-4 rounded-lg text-white text-center text-sm"
+              whileTap={{ scale: 0.98 }}
+              className="flex items-center justify-center gap-2 bg-[#180E09] hover:bg-amber-500/10 border border-amber-500/30 text-amber-300 font-semibold py-3 px-4 rounded-xl text-xs sm:text-sm transition-all"
             >
-              View on BaseScan
+              <span>View on BaseScan</span>
+              <ExternalLink className="w-3.5 h-3.5" />
             </motion.a>
+
+            {/* Trade on Uniswap */}
             <motion.a
               href={`https://app.uniswap.org/swap?inputCurrency=ETH&outputCurrency=${contractAddress}&chain=base`}
               target="_blank"
               rel="noopener noreferrer"
               whileHover={{ scale: 1.02 }}
-              className="border border-[#D4A017] text-[#D4A017] py-2 px-4 rounded-lg text-center text-sm hover:bg-[#D4A017] hover:text-white"
+              whileTap={{ scale: 0.98 }}
+              className="flex items-center justify-center gap-2 bg-[#180E09] hover:bg-amber-500/10 border border-amber-500/30 text-amber-300 font-semibold py-3 px-4 rounded-xl text-xs sm:text-sm transition-all"
             >
-              Trade on Uniswap
+              <span>Trade Uniswap</span>
+              <ExternalLink className="w-3.5 h-3.5" />
             </motion.a>
-          </div>
-
-          {/* Token Security Check */}
-          <div className="mt-6 mb-4 flex items-center gap-3">
-            <span className="inline-block px-3 py-1 rounded-full bg-green-700 text-xs font-semibold text-white">Security: Verified ✓</span>
-            <a
-              href={`https://basescan.org/address/${contractAddress}#code`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[#D4A017] underline text-xs hover:text-[#F4C430]"
-            >
-              View Verified Contract
-            </a>
           </div>
         </motion.div>
       </div>

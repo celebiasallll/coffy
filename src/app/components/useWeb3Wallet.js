@@ -383,6 +383,36 @@ export default function useWeb3Wallet() {
     }
   };
 
+  // Add Token to MetaMask with official logo
+  const addTokenToMetaMask = async () => {
+    if (typeof window === 'undefined' || !window.ethereum) {
+      toast.error('No Web3 wallet detected');
+      return false;
+    }
+    try {
+      const wasAdded = await window.ethereum.request({
+        method: 'wallet_watchAsset',
+        params: {
+          type: 'ERC20',
+          options: {
+            address: TOKEN_CONFIG.address,
+            symbol: TOKEN_CONFIG.symbol,
+            decimals: TOKEN_CONFIG.decimals,
+            image: 'https://coffycoin.xyz/images/coffy-logo.png',
+          },
+        },
+      });
+      if (wasAdded) {
+        toast.success('$COFFY token & logo added to wallet!');
+      }
+      return wasAdded;
+    } catch (error) {
+      console.error('Failed to add token to wallet:', error);
+      toast.error('Failed to add token: ' + (error?.message || 'Rejected'));
+      return false;
+    }
+  };
+
   return {
     userAddress,
     isConnected,
@@ -395,6 +425,7 @@ export default function useWeb3Wallet() {
     disconnectWallet,
     switchToBase,
     refreshBalance,
+    addTokenToMetaMask,
     TOKEN_CONFIG
   };
 }

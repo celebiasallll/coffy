@@ -18,7 +18,6 @@ const About = dynamic(() => import('./components/About'));
 const Characters = dynamic(() => import('./components/Characters'), { ssr: false });
 const Team = dynamic(() => import('./components/Team'));
 const ReferralPanel = dynamic(() => import('./components/ReferralPanel'), { ssr: false });
-const BurnDashboard = dynamic(() => import('./components/BurnDashboard'), { ssr: false });
 const AirdropClaim = dynamic(() => import('./components/AirdropClaim'), { ssr: false });
 
 export default function Home() {
@@ -63,7 +62,6 @@ export default function Home() {
           <GamesSection id="games" />
           <Staking id="staking" />
           <ReferralPanel />
-          <BurnDashboard />
           <Tokenomics />
           <ContractInfo />
           <Roadmap />

@@ -21,7 +21,7 @@ export default function Navbar() {
   const [scrollProgress, setScrollProgress] = useState(0);
 
   // Global Web3 Wallet hook (Real On-Chain Data)
-  const { isConnected, userAddress, balance, connectWallet, refreshBalance } = useWeb3Wallet();
+  const { isConnected, userAddress, balance, rawBalance, connectWallet, refreshBalance } = useWeb3Wallet();
 
   // Capture referral parameter from URL if present
   useEffect(() => {
@@ -145,7 +145,7 @@ export default function Navbar() {
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   onClick={refreshBalance}
-                  title="Click to refresh on-chain balance"
+                  title={rawBalance ? `Exact: ${Number(rawBalance).toLocaleString('en-US', { maximumFractionDigits: 2 })} COFFY (Click to refresh)` : 'Click to refresh on-chain balance'}
                   className="cursor-pointer group flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-[#180E09]/90 border border-amber-500/30 hover:border-amber-400/60 shadow-lg backdrop-blur-md transition-all duration-200"
                 >
                   <div className="w-5 h-5 rounded-full overflow-hidden bg-amber-950 border border-amber-400/60 flex items-center justify-center group-hover:rotate-12 transition-transform">

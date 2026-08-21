@@ -97,26 +97,42 @@ export default function AirdropClaim() {
                 signer
             );
 
-            // Step 1: Check if wallet is initialized in CoffyCore (wallet:firstTx)
+            // Step 1: Check if wallet has an active profile in ActivityModule
             setClaimStatusText('Checking Pioneer status...');
-            const coreAbi = ['function getModuleData(address, bytes32) view returns (uint256)'];
-            const coreContract = new ethers.Contract(BASE_CONFIG.CONTRACTS.CoffyCore, coreAbi, provider);
-            const firstTxKey = ethers.keccak256(ethers.toUtf8Bytes("wallet:firstTx"));
-            const firstTxTime = await coreContract.getModuleData(userAddress, firstTxKey).catch(() => 0n);
+            const existingProfile = await contract.userProfiles(userAddress).catch(() => "");
 
-            if (!firstTxTime || firstTxTime === 0n) {
+            // Get referrer address from URL or localStorage
+            let storedReferrer = ethers.ZeroAddress;
+            if (typeof window !== 'undefined') {
+                const urlParams = new URLSearchParams(window.location.search);
+                const refFromUrl = urlParams.get('ref');
+                const refFromStorage = localStorage.getItem('coffy_referrer');
+                if (refFromUrl && ethers.isAddress(refFromUrl)) {
+                    storedReferrer = refFromUrl;
+                } else if (refFromStorage && ethers.isAddress(refFromStorage)) {
+                    storedReferrer = refFromStorage;
+                }
+            }
+
+            if (!existingProfile || existingProfile === "") {
                 setClaimStatusText('Step 1/2: Activating Pioneer Pass in wallet...');
                 toast.loading('Step 1/2: Please approve Pioneer Pass in your wallet...', { id: 'airdrop-toast' });
 
                 const pid = 'u_' + userAddress.toLowerCase().slice(2, 10) + '_' + Date.now().toString(36);
-                const storedReferrer = (typeof window !== 'undefined' && localStorage.getItem('coffy_referrer') && ethers.isAddress(localStorage.getItem('coffy_referrer')))
-                    ? localStorage.getItem('coffy_referrer') 
-                    : ethers.ZeroAddress;
-
                 const initTx = await contract.linkUserProfile(pid, storedReferrer, { gasLimit: 300000 });
                 setClaimStatusText('Step 1/2: Confirming Pioneer Pass on Base...');
                 await initTx.wait();
                 toast.success('Pioneer Pass Activated! Proceeding to reward claim...', { id: 'airdrop-toast' });
+            } else if (storedReferrer !== ethers.ZeroAddress && storedReferrer.toLowerCase() !== userAddress.toLowerCase()) {
+                const currentRef = await contract.referredBy(userAddress).catch(() => ethers.ZeroAddress);
+                if (currentRef === ethers.ZeroAddress) {
+                    try {
+                        const regTx = await contract.registerReferral(storedReferrer, { gasLimit: 150000 });
+                        await regTx.wait();
+                    } catch (refErr) {
+                        console.warn("Could not register referral:", refErr);
+                    }
+                }
             }
 
             // Step 2: Request verified EIP-712 signature from backend Oracle

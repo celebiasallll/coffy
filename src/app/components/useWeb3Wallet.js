@@ -31,7 +31,9 @@ export default function useWeb3Wallet() {
   const formatBalance = (value) => {
     const num = parseFloat(value);
     if (isNaN(num) || num <= 0) return '0';
-    if (num >= 1000000) {
+    if (num >= 1000000000) {
+      return (num / 1000000000).toLocaleString('en-US', { maximumFractionDigits: 2 }) + 'B';
+    } else if (num >= 1000000) {
       return (num / 1000000).toLocaleString('en-US', { maximumFractionDigits: 2 }) + 'M';
     } else if (num >= 1000) {
       return num.toLocaleString('en-US', { maximumFractionDigits: 0 });

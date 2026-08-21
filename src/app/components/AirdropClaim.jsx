@@ -239,23 +239,23 @@ export default function AirdropClaim() {
                     {/* Left: Headline & Benefits */}
                     <div className="space-y-4 max-w-2xl text-center lg:text-left">
                         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-400 text-xs sm:text-sm font-semibold">
-                            <Sparkles className="w-4 h-4 animate-pulse text-amber-400" />
-                            <span>GENESIS COMMUNITY AIRDROP</span>
+                            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                            <span>PHASE 1: GENESIS PIONEER ALLOCATION</span>
                         </div>
 
                         <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-tight">
-                            Claim Free <span className="bg-gradient-to-r from-amber-400 via-orange-400 to-yellow-300 bg-clip-text text-transparent">{rewardFormatted} $COFFY</span>
+                            Claim Pioneer <span className="bg-gradient-to-r from-amber-400 via-orange-400 to-yellow-300 bg-clip-text text-transparent">{rewardFormatted} $COFFY</span>
                         </h2>
 
-                        <p className="text-[#E8D5B5]/80 text-sm sm:text-base leading-relaxed">
-                            Welcome to the Coffy ecosystem on Base Mainnet! Connect your wallet to instantly receive your Genesis Airdrop directly from the 5.25 Billion Community Pool. No minimum balance required, zero lockups.
+                        <p className="text-[#E8D5B5]/85 text-sm sm:text-base leading-relaxed">
+                            Distributed directly from the verified 5.25 Billion Community Pool on Base Mainnet. Limited to the first <strong className="text-amber-300 font-semibold">10,000 Pioneer Wallets</strong> to establish decentralized governance prior to public DEX liquidity initialization.
                         </p>
 
                         {/* Feature Badges */}
                         <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3 pt-2 text-xs font-medium text-[#E8D5B5]/90">
                             <div className="flex items-center gap-1.5 bg-black/40 px-3 py-1.5 rounded-lg border border-amber-500/20">
                                 <ShieldCheck className="w-4 h-4 text-green-400" />
-                                <span>Zero Min Balance</span>
+                                <span>10,000 Pioneer Cap</span>
                             </div>
                             <div className="flex items-center gap-1.5 bg-black/40 px-3 py-1.5 rounded-lg border border-amber-500/20">
                                 <Flame className="w-4 h-4 text-orange-400" />
@@ -263,7 +263,7 @@ export default function AirdropClaim() {
                             </div>
                             <div className="flex items-center gap-1.5 bg-black/40 px-3 py-1.5 rounded-lg border border-amber-500/20">
                                 <Zap className="w-4 h-4 text-yellow-400" />
-                                <span>Base Mainnet L2</span>
+                                <span>EIP-712 Verified</span>
                             </div>
                         </div>
                     </div>

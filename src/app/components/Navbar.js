@@ -78,9 +78,10 @@ export default function Navbar() {
 
   // Navigation items
   const navItems = [
-    { id: 'games', label: 'Games', icon: Gamepad2, subtitle: 'Earn COFFY' },
-    { id: 'about', label: 'About Coffy', icon: Info, subtitle: 'Learn More' },
+    { id: 'airdrop', label: 'Genesis Airdrop', icon: Sparkles, subtitle: 'Claim 9.9K' },
+    { id: 'games', label: 'Play Games', icon: Gamepad2, subtitle: 'PvP Chess' },
     { id: 'staking', label: 'Staking', icon: Coins, subtitle: '50% APY' },
+    { id: 'tokenomics', label: 'Tokenomics', icon: Info, subtitle: '15B Supply' },
   ];
 
   return (

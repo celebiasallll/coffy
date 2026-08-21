@@ -165,7 +165,7 @@ export default function Hero() {
             </motion.p>
 
             <motion.div
-              className="flex flex-wrap items-center justify-center lg:justify-start gap-4 mb-8"
+              className="flex flex-wrap items-center justify-center lg:justify-start gap-4 mb-6"
               variants={childVariants}
             >
               <motion.a
@@ -175,7 +175,7 @@ export default function Hero() {
                 className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-400 text-black font-bold py-3.5 px-6 rounded-xl text-sm sm:text-base shadow-lg shadow-amber-500/20 transition-all duration-200 flex items-center gap-2.5"
               >
                 <Gift className="w-4 h-4 text-black" />
-                <span>Claim Free $COFFY</span>
+                <span>Claim Pioneer Allocation</span>
               </motion.a>
               <motion.a
                 href="#games"
@@ -184,7 +184,7 @@ export default function Hero() {
                 className="border border-amber-500/40 hover:border-amber-400 text-[#E8D5B5] hover:text-white font-semibold py-3.5 px-6 rounded-xl text-sm sm:text-base transition-all duration-200 flex items-center gap-2.5 bg-black/30 backdrop-blur-sm"
               >
                 <Gamepad2 className="w-4 h-4 text-amber-400" />
-                <span>Play Games</span>
+                <span>Play On-Chain Games</span>
               </motion.a>
               <motion.a
                 href="#staking"
@@ -195,6 +195,29 @@ export default function Hero() {
                 <Zap className="w-4 h-4 text-amber-400" />
                 <span>50% APY Staking</span>
               </motion.a>
+            </motion.div>
+
+            {/* Institutional Fair Launch Milestone */}
+            <motion.div
+              variants={childVariants}
+              className="w-full max-w-xl p-3.5 rounded-xl bg-[#180E09]/90 border border-amber-500/30 backdrop-blur-md shadow-xl flex items-center gap-3.5 mb-6 text-left"
+            >
+              <div className="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/25 flex items-center justify-center flex-shrink-0">
+                <ShieldCheck className="w-5 h-5 text-amber-400" />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between gap-2 mb-0.5">
+                  <span className="text-[11px] font-bold text-amber-300 uppercase tracking-wider">
+                    Protocol Launch Milestone
+                  </span>
+                  <span className="text-[10px] font-semibold text-emerald-400 font-mono">
+                    Phase 1 / 10,000 Holders
+                  </span>
+                </div>
+                <p className="text-xs text-[#E8D5B5]/80 leading-snug">
+                  Public DEX Liquidity & Trading initialize automatically upon reaching <strong className="text-amber-300 font-semibold">10,000 verified on-chain Pioneer holders</strong>.
+                </p>
+              </div>
             </motion.div>
 
             {/* Micro Feature Row */}

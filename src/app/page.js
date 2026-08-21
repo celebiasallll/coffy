@@ -5,20 +5,15 @@ import dynamic from 'next/dynamic';
 
 const Navbar = dynamic(() => import('./components/Navbar'), { ssr: false });
 const Hero = dynamic(() => import('./components/Hero'), { ssr: false });
-const Roadmap = dynamic(() => import('./components/Roadmap'));
-const Staking = dynamic(() => import('./components/Staking'), { ssr: false });
-const Whitepaper = dynamic(() => import('./components/Whitepaper'), { ssr: false });
-const Community = dynamic(() => import('./components/Community'), { ssr: false });
-const Footer = dynamic(() => import('./components/Footer'));
+const AirdropClaim = dynamic(() => import('./components/AirdropClaim'), { ssr: false });
+const Characters = dynamic(() => import('./components/Characters'), { ssr: false });
 const GamesSection = dynamic(() => import('./components/GamesSection'), { ssr: false });
+const Staking = dynamic(() => import('./components/Staking'), { ssr: false });
+const ReferralPanel = dynamic(() => import('./components/ReferralPanel'), { ssr: false });
 const Tokenomics = dynamic(() => import('./components/Tokenomics'));
 const ContractInfo = dynamic(() => import('./components/ContractInfo'));
-const Partners = dynamic(() => import('./components/Partners'));
-const About = dynamic(() => import('./components/About'));
-const Characters = dynamic(() => import('./components/Characters'), { ssr: false });
-const Team = dynamic(() => import('./components/Team'));
-const ReferralPanel = dynamic(() => import('./components/ReferralPanel'), { ssr: false });
-const AirdropClaim = dynamic(() => import('./components/AirdropClaim'), { ssr: false });
+const Roadmap = dynamic(() => import('./components/Roadmap'));
+const Footer = dynamic(() => import('./components/Footer'));
 
 export default function Home() {
   return (
@@ -28,36 +23,35 @@ export default function Home() {
         toastOptions={{
           duration: 4000,
           style: {
-            background: '#2A1810',
+            background: '#24150D',
             color: '#E8D5B5',
-            border: '1px solid #D4A017',
+            border: '1px solid rgba(212, 160, 23, 0.4)',
             borderRadius: '12px',
-            padding: '16px',
-            fontSize: '14px',
-            fontWeight: '500',
-            boxShadow: '0 10px 25px rgba(212, 160, 23, 0.1)',
+            padding: '14px 18px',
+            fontSize: '13px',
+            fontWeight: '600',
+            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)',
           },
           success: {
             iconTheme: {
-              primary: '#D4A017',
-              secondary: '#2A1810',
+              primary: '#10B981',
+              secondary: '#24150D',
             },
           },
           error: {
             iconTheme: {
-              primary: '#DC2626',
-              secondary: '#2A1810',
+              primary: '#EF4444',
+              secondary: '#24150D',
             },
           },
         }}
       />
 
-      <div className="min-h-screen bg-gradient-to-b from-[#1A0F0A] via-[#2A1810] to-[#1A0F0A] text-white">
+      <div className="min-h-screen bg-[#120A06] text-white selection:bg-amber-500 selection:text-black">
         <Navbar />
-        <main>
+        <main className="space-y-4">
           <Hero id="hero" />
           <AirdropClaim />
-          <About id="about" />
           <Characters />
           <GamesSection id="games" />
           <Staking id="staking" />
@@ -65,10 +59,6 @@ export default function Home() {
           <Tokenomics />
           <ContractInfo />
           <Roadmap />
-          <Team />
-          <Partners />
-          <Whitepaper />
-          <Community />
           <Footer />
         </main>
       </div>

@@ -300,10 +300,6 @@ export default function Characters() {
 
                 {/* Header */}
                 <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-6">
-                    <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#D4A017]/10 border border-[#D4A017]/30 text-[#D4A017] text-xs font-bold tracking-widest uppercase mb-4 font-outfit">
-                        <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                        Characters &amp; Multipliers
-                    </span>
                     <h2 className="text-4xl md:text-5xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-[#D4A017] via-[#F4C430] to-[#D4A017] mb-3 font-outfit tracking-tight">Choose Your Character</h2>
 
                     {/* Wallet stats - Compact & Clean */}

@@ -131,19 +131,11 @@ export default function ReferralPanel() {
 
           {/* Heading */}
           <div className="text-center relative z-10 mb-6">
-            <motion.div
-              initial={{ scale: 0.9 }}
-              animate={{ scale: [1, 1.05, 1] }}
-              transition={{ repeat: Infinity, duration: 4 }}
-              className="inline-flex p-2 rounded-full bg-[#D4A017]/10 text-[#D4A017] mb-3 border border-[#D4A017]/20"
-            >
-              <Gift className="w-6 h-6" />
-            </motion.div>
-            <h2 className="text-2xl md:text-3xl font-extrabold bg-gradient-to-r from-[#D4A017] to-[#A77B06] bg-clip-text text-transparent mb-2.5 font-display">
+            <h2 className="text-2xl md:text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-amber-300 via-amber-400 to-yellow-500 font-outfit tracking-tight">
               Referral Program
             </h2>
-            <p className="text-[#E8D5B5]/75 text-xs md:text-sm max-w-md mx-auto">
-              Invite your friends to Coffy Coin and earn <span className="text-[#D4A017] font-semibold">2% lifetime rewards</span> when they staking or interact on-chain.
+            <p className="text-[#E8D5B5]/70 text-xs md:text-sm mt-1">
+              Invite friends to earn lifetime on-chain reward bonuses from Base Mainnet.
             </p>
           </div>
 

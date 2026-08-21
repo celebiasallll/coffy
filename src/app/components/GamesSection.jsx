@@ -166,11 +166,6 @@ export default function GamesSection({ id }) {
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
         >
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold tracking-wide mb-4">
-            <Gamepad2 className="w-4 h-4 text-amber-400" />
-            <span>PLAY TO EARN ECOSYSTEM</span>
-          </div>
-
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight leading-tight mb-4 font-outfit">
             Decentralized <span className="bg-gradient-to-r from-amber-400 via-orange-400 to-yellow-300 bg-clip-text text-transparent">Web3 Gaming</span>
           </h2>

@@ -21,11 +21,6 @@ export default function Community() {
           transition={{ duration: 0.6 }}
           className="text-center mb-12"
         >
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold uppercase tracking-wider mb-4">
-            <Users className="w-3.5 h-3.5 text-amber-400" />
-            <span>GLOBAL PIONEER COMMUNITY</span>
-          </div>
-
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white font-outfit tracking-tight mb-4">
             Join the <span className="bg-clip-text text-transparent bg-gradient-to-r from-amber-300 via-amber-400 to-yellow-500">Coffy Movement</span>
           </h2>

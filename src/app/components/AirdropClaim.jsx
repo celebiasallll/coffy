@@ -238,11 +238,6 @@ export default function AirdropClaim() {
                 <div className="flex flex-col lg:flex-row items-center justify-between gap-8 relative z-10">
                     {/* Left: Headline & Benefits */}
                     <div className="space-y-4 max-w-2xl text-center lg:text-left">
-                        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-400 text-xs sm:text-sm font-semibold">
-                            <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                            <span>PHASE 1: GENESIS PIONEER ALLOCATION</span>
-                        </div>
-
                         <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-tight">
                             Claim Pioneer <span className="bg-gradient-to-r from-amber-400 via-orange-400 to-yellow-300 bg-clip-text text-transparent">{rewardFormatted} $COFFY</span>
                         </h2>

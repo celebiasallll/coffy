@@ -136,17 +136,6 @@ export default function Hero() {
             style={{ y }}
             className="flex flex-col items-center lg:items-start text-center lg:text-left order-2 lg:order-1 lg:col-span-7"
           >
-            {/* Top Micro-Badge */}
-            <motion.div
-              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold tracking-wide mb-6 backdrop-blur-md"
-              variants={childVariants}
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>Base Mainnet L2 Ecosystem</span>
-              <span className="w-1 h-1 rounded-full bg-amber-400" />
-              <span className="text-amber-400/80 font-normal">Next-Gen Web3 Gaming</span>
-            </motion.div>
-
             <motion.h1
               className="text-4xl sm:text-5xl md:text-6xl font-extrabold mb-5 bg-clip-text text-transparent bg-gradient-to-r from-amber-200 via-amber-400 to-yellow-500 leading-[1.1] font-outfit tracking-tight"
               variants={childVariants}
